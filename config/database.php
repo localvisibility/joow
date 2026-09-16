@@ -32,6 +32,19 @@ return [
 
     'connections' => [
 
+        // Connexion source (lecture) pour la migration Supabase -> Postgres.
+        // SUPABASE_DB_URL = chaîne de connexion directe Supabase
+        // (Dashboard Supabase -> Project Settings -> Database -> Connection string / URI).
+        'supabase' => [
+            'driver' => 'pgsql',
+            'url' => env('SUPABASE_DB_URL'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => 'require',
+        ],
+
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
