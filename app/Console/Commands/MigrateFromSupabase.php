@@ -22,6 +22,7 @@ class MigrateFromSupabase extends Command
 {
     protected $signature = 'migrate:from-supabase
         {--only= : users|sites (par défaut : les deux)}
+        {--paid : ne migrer que les sites payés/publiés (exclut les previews de test)}
         {--dry-run : compte sans écrire}';
 
     protected $description = 'Migre les comptes (auth.users) et les sites depuis Supabase vers Postgres';
@@ -61,7 +62,7 @@ class MigrateFromSupabase extends Command
             $this->migrateUsers($dry);
         }
         if ($only === null || $only === 'sites') {
-            $this->migrateSites($dry);
+            $this->migrateSites($dry, (bool) $this->option('paid'));
         }
 
         $this->info($dry ? 'Dry-run terminé (aucune écriture).' : 'Migration terminée.');
@@ -99,10 +100,14 @@ class MigrateFromSupabase extends Command
         $this->info("Comptes migrés : $created".($dry ? ' (simulé)' : ''));
     }
 
-    private function migrateSites(bool $dry): void
+    private function migrateSites(bool $dry, bool $paidOnly = false): void
     {
-        $rows = DB::connection('supabase')->select('select * from public.sites');
-        $this->line("Sites trouvés : ".count($rows));
+        $sql = 'select * from public.sites';
+        if ($paidOnly) {
+            $sql .= " where status in ('paid','published') or stripe_subscription_id is not null or paid_at is not null";
+        }
+        $rows = DB::connection('supabase')->select($sql);
+        $this->line("Sites à migrer : ".count($rows).($paidOnly ? ' (filtre --paid)' : ' (tous)'));
 
         $usersByEmail = $dry ? collect() : User::pluck('id', 'email');
         $count = 0;
