@@ -79,6 +79,16 @@ services:
       - ./:/var/www/html
     command: ["php", "artisan", "schedule:work"]
 
+  # Build des assets front (Inertia/Vue/Tailwind). Ne tourne pas en continu :
+  #   docker compose run --rm node
+  node:
+    image: node:20-alpine
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    profiles: ["build"]
+    command: sh -c "npm ci && npm run build"
+
 volumes:
   pgdata:
   redisdata:
