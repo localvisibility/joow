@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SiteCreationController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -12,6 +13,12 @@ Route::get('/', function () {
 
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified'])->name('dashboard');
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/sites/create', [SiteCreationController::class, 'create'])->name('sites.create');
+    Route::post('/sites/lookup', [SiteCreationController::class, 'lookup'])->name('sites.lookup');
+    Route::post('/sites', [SiteCreationController::class, 'store'])->name('sites.store');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

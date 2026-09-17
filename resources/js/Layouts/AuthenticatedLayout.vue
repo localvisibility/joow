@@ -28,7 +28,13 @@ const nav = [
                     </nav>
                 </div>
 
-                <div class="relative">
+                <div class="flex items-center gap-3">
+                    <Link :href="route('sites.create')"
+                        class="hidden items-center gap-2 rounded-xl bg-brand-gradient px-4 py-2 text-sm font-semibold text-white shadow-glow transition hover:-translate-y-0.5 sm:inline-flex">
+                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/></svg>
+                        Nouveau site
+                    </Link>
+                    <div class="relative">
                     <button @click="menuOpen = !menuOpen"
                         class="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm transition hover:border-white/20">
                         <span class="grid h-7 w-7 place-items-center rounded-lg bg-white/10 text-xs font-bold text-white">
@@ -45,6 +51,7 @@ const nav = [
                                 class="block w-full px-4 py-3 text-left text-sm text-slate-300 transition hover:bg-white/5">Déconnexion</Link>
                         </div>
                     </transition>
+                    </div>
                 </div>
             </div>
         </header>

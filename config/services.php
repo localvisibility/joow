@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    // Génération de sites
+    'google_places' => [
+        'key' => env('GOOGLE_PLACES_API_KEY'),
+    ],
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+    ],
+
 ];
