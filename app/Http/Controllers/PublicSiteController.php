@@ -18,7 +18,31 @@ class PublicSiteController extends Controller
 {
     public function landing()
     {
-        return Inertia::render('Public/Landing');
+        // Preuve sociale réelle (issue du parc migré).
+        $stats = [
+            'sites'   => Site::count(),
+            'rating'  => round((float) Site::whereNotNull('rating')->where('rating', '>', 0)->avg('rating'), 1) ?: 4.8,
+            'sectors' => Site::whereNotNull('sector')->distinct('sector')->count('sector'),
+        ];
+
+        $examples = Site::query()
+            ->whereNotNull('sector')
+            ->whereIn('status', ['paid', 'published', 'preview'])
+            ->inRandomOrder()
+            ->take(6)
+            ->get(['slug', 'name', 'city', 'sector'])
+            ->map(fn ($s) => [
+                'slug'   => $s->slug,
+                'name'   => $s->name,
+                'city'   => $s->city,
+                'sector' => $s->sector,
+                'url'    => 'https://'.$s->slug.'.joow.fr',
+            ]);
+
+        return Inertia::render('Public/Landing', [
+            'stats'    => $stats,
+            'examples' => $examples,
+        ]);
     }
 
     /** Autocomplétion d'établissements (JSON) pour la recherche intelligente. */

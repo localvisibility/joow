@@ -68,24 +68,30 @@ onUnmounted(() => timer && clearInterval(timer));
                 <iframe :src="liveUrl" class="h-[70vh] w-full bg-white" loading="lazy"></iframe>
             </div>
 
-            <div class="glass mx-auto mt-8 max-w-lg rounded-2xl p-6">
-                <div class="flex items-baseline justify-between">
-                    <h3 class="font-display text-lg font-bold text-white">Mettre mon site en ligne</h3>
-                    <p class="font-display text-xl font-bold text-white">9,90€<span class="text-sm font-medium text-slate-400">/mois</span></p>
+            <div class="glass relative mx-auto mt-8 max-w-lg overflow-hidden rounded-2xl p-6">
+                <div class="pointer-events-none absolute -top-10 right-0 h-40 w-40 rounded-full bg-brand-600/15 blur-3xl"></div>
+                <div class="relative">
+                    <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">Aperçu gratuit · vous ne payez qu'ici</p>
+                    <div class="mt-3 flex items-baseline justify-between">
+                        <h3 class="font-display text-lg font-bold text-white">Mettre mon site en ligne</h3>
+                        <p class="font-display text-xl font-bold text-white">9,90€<span class="text-sm font-medium text-slate-400">/mois</span></p>
+                    </div>
+                    <ul class="mt-3 space-y-1.5 text-sm text-slate-400">
+                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Site en ligne immédiatement, hébergement inclus</li>
+                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur pour tout modifier vous-même</li>
+                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Avis Google, photos et référencement local</li>
+                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Sans engagement, résiliable en un clic</li>
+                    </ul>
+                    <form @submit.prevent="buy" class="mt-5 flex flex-col gap-2 sm:flex-row">
+                        <input v-model="checkout.email" type="email" required class="field sm:flex-1" placeholder="Votre email" />
+                        <button type="submit" class="btn-brand shrink-0" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
+                            {{ checkout.processing ? '…' : 'Payer et publier →' }}
+                        </button>
+                    </form>
+                    <p v-if="checkout.errors.email" class="mt-2 text-sm text-rose-400">{{ checkout.errors.email }}</p>
+                    <p class="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-500"><span>🔒</span> Paiement sécurisé Stripe · annulable à tout moment</p>
+                    <a :href="liveUrl" target="_blank" rel="noopener" class="mt-3 block text-center text-sm text-slate-400 hover:text-white">Ouvrir l'aperçu en plein écran ↗</a>
                 </div>
-                <ul class="mt-3 space-y-1.5 text-sm text-slate-400">
-                    <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Site en ligne, hébergement inclus</li>
-                    <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur pour tout modifier</li>
-                    <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Sans engagement, résiliable à tout moment</li>
-                </ul>
-                <form @submit.prevent="buy" class="mt-5 flex flex-col gap-2 sm:flex-row">
-                    <input v-model="checkout.email" type="email" required class="field sm:flex-1" placeholder="Votre email" />
-                    <button type="submit" class="btn-brand shrink-0" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
-                        {{ checkout.processing ? '…' : 'Payer et publier →' }}
-                    </button>
-                </form>
-                <p v-if="checkout.errors.email" class="mt-2 text-sm text-rose-400">{{ checkout.errors.email }}</p>
-                <a :href="liveUrl" target="_blank" rel="noopener" class="mt-4 block text-center text-sm text-slate-400 hover:text-white">Ouvrir l'aperçu en plein écran ↗</a>
             </div>
         </section>
     </div>
