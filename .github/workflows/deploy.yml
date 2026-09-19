@@ -1,0 +1,55 @@
+name: deploy
+
+# Déploiement automatique sur le VPS à chaque push sur main.
+# Exécuté par un runner self-hosted installé sur le VPS (dans /opt/joow).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Deploy to VPS
+        working-directory: /opt/joow
+        run: |
+          set -euo pipefail
+
+          PREV="$(git rev-parse HEAD)"
+          echo "Révision actuelle : $PREV"
+
+          git fetch origin main
+          git reset --hard origin/main
+          echo "Nouvelle révision : $(git rev-parse HEAD)"
+
+          # Dépendances PHP (si le lock a changé) + assets front
+          docker compose run --rm app composer install --no-interaction --prefer-dist
+          docker compose run --rm node
+
+          # Migrations de schéma (additives) + démarrage
+          docker compose run --rm app php artisan migrate --force
+          docker compose up -d
+          docker compose restart app web horizon scheduler
+
+          # Health-check ; rollback automatique si l'app ne répond pas
+          ok=0
+          for i in $(seq 1 10); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8090/login; then ok=1; break; fi
+            sleep 3
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "❌ Health-check KO — rollback vers $PREV"
+            git reset --hard "$PREV"
+            docker compose run --rm node
+            docker compose up -d
+            docker compose restart app web horizon scheduler
+            exit 1
+          fi
+
+          echo "✅ Déployé et sain."
