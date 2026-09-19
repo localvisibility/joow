@@ -40,20 +40,25 @@ Extraits d'avis clients :
 
 Réponds UNIQUEMENT avec un JSON valide de cette forme exacte :
 {
-  "hero_title": "titre d'accroche court (max 8 mots)",
-  "hero_subtitle": "sous-titre percutant (max 15 mots)",
-  "about_p1": "1er paragraphe présentation (2-3 phrases)",
-  "about_p2": "2e paragraphe (2-3 phrases)",
+  "hero_title": "titre d'accroche fort et spécifique au métier (max 8 mots, PAS juste le nom de l'établissement)",
+  "hero_subtitle": "sous-titre percutant qui donne envie (max 18 mots)",
+  "tagline": "slogan court (max 6 mots)",
+  "about_p1": "1er paragraphe présentation, concret et rassurant (2-3 phrases)",
+  "about_p2": "2e paragraphe, sur l'engagement / la méthode (2-3 phrases)",
   "badges": ["4 points forts très courts (2-3 mots)"],
+  "stats": [
+    {"v": "valeur courte et frappante (ex: '+10 ans', '48h', '4.8/5')", "l": "libellé court (2-3 mots)"}
+  ],
   "services": [
-    {"name": "nom du service", "desc": "description courte (1 phrase)", "price": "indication tarifaire ou 'Sur devis'"}
+    {"name": "nom du service", "desc": "description courte orientée bénéfice (1 phrase)", "price": "indication tarifaire réaliste ou 'Sur devis'"}
   ],
   "faq": [
-    {"q": "question fréquente", "a": "réponse (2-3 phrases)"}
+    {"q": "question fréquente réelle du secteur", "a": "réponse claire (2-3 phrases)"}
   ],
-  "cta_text": "phrase d'appel à l'action (1 phrase)"
+  "cta_text": "phrase d'appel à l'action chaleureuse (1 phrase)"
 }
-Donne 6 services et 5 questions FAQ pertinents pour le secteur.
+Donne exactement 3 stats, 6 services et 5 questions FAQ pertinents et crédibles pour ce métier précis.
+Adapte le vocabulaire au secteur (ex: un restaurant parle de carte/réservation, un plombier d'urgence/dépannage).
 TXT;
 
         try {
@@ -80,9 +85,11 @@ TXT;
         return [
             'hero_title'    => $business['name'],
             'hero_subtitle' => "{$sectorLabel} à {$city}",
+            'tagline'       => "{$sectorLabel} · {$city}",
             'about_p1'      => "{$business['name']} vous accompagne à {$city} avec professionnalisme et proximité.",
             'about_p2'      => 'Un interlocuteur unique, des tarifs clairs et un suivi attentif à chaque étape.',
             'badges'        => ['Devis gratuit', 'Réponse rapide', 'Travail soigné', 'Proximité'],
+            'stats'         => [],
             'services'      => [],
             'faq'           => [],
             'cta_text'      => 'Contactez-nous pour un premier échange gratuit.',

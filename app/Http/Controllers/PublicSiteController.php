@@ -25,23 +25,8 @@ class PublicSiteController extends Controller
             'sectors' => Site::whereNotNull('sector')->distinct('sector')->count('sector'),
         ];
 
-        $examples = Site::query()
-            ->whereNotNull('sector')
-            ->whereIn('status', ['paid', 'published', 'preview'])
-            ->inRandomOrder()
-            ->take(6)
-            ->get(['slug', 'name', 'city', 'sector'])
-            ->map(fn ($s) => [
-                'slug'   => $s->slug,
-                'name'   => $s->name,
-                'city'   => $s->city,
-                'sector' => $s->sector,
-                'url'    => 'https://'.$s->slug.'.joow.fr',
-            ]);
-
         return Inertia::render('Public/Landing', [
-            'stats'    => $stats,
-            'examples' => $examples,
+            'stats' => $stats,
         ]);
     }
 
