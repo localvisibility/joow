@@ -13,7 +13,7 @@ services:
     env_file: .env
     volumes:
       - ./:/var/www/html
-      - sites:/var/www/sites          # sites clients publiés (<slug>)
+      - /var/www/sites:/var/www/sites   # bind vers le vrai dossier servi par nginx hôte
       - storage:/var/www/html/storage/app
     deploy:
       resources:
@@ -63,7 +63,7 @@ services:
     env_file: .env
     volumes:
       - ./:/var/www/html
-      - sites:/var/www/sites
+      - /var/www/sites:/var/www/sites
       - storage:/var/www/html/storage/app
     command: ["php", "artisan", "horizon"]
     deploy:

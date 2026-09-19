@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\GenerateSiteJob;
+use App\Models\GenerationJob;
 use App\Models\Site;
 use App\Services\GooglePlaces;
 use App\Services\SectorDetector;
@@ -57,15 +59,22 @@ class SiteCreationController extends Controller
         $site = Site::create([
             ...$data,
             'slug'        => $slug,
-            'status'      => 'preview',
+            'status'      => 'generating',
             'source'      => 'joow',
             'owner_email' => $request->user()->email,
             'user_id'     => $request->user()->id,
             'preview_url' => 'https://'.$slug.'.joow.fr',
         ]);
 
-        // TODO incrément suivant : dispatch GenerateSiteJob($site) -> contenu IA + template + déploiement.
+        $job = GenerationJob::create([
+            'status'    => 'pending',
+            'sector'    => $site->sector,
+            'site_slug' => $site->slug,
+            'input'     => ['place_id' => $site->place_id, 'name' => $site->name],
+        ]);
 
-        return redirect()->route('dashboard')->with('flash', "Site « {$site->name} » créé. Génération à venir.");
+        GenerateSiteJob::dispatch($site, $job->id);
+
+        return redirect()->route('dashboard')->with('flash', "Génération de « {$site->name} » lancée — le site sera en ligne dans un instant.");
     }
 }

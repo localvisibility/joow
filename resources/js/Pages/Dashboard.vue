@@ -20,10 +20,11 @@ const filtered = computed(() => {
 const statusStyle = (s) => ({
     paid: 'bg-emerald-500/15 text-emerald-300',
     published: 'bg-brand-500/15 text-brand-400',
+    generating: 'bg-amber-500/15 text-amber-300 animate-pulse',
     preview: 'bg-white/10 text-slate-400',
 }[s] || 'bg-white/10 text-slate-400');
 
-const statusLabel = (s) => ({ paid: 'Payé', published: 'En ligne', preview: 'Aperçu' }[s] || s);
+const statusLabel = (s) => ({ paid: 'Payé', published: 'En ligne', generating: 'Génération…', preview: 'Aperçu' }[s] || s);
 
 const cards = computed(() => [
     { label: 'Sites', value: props.stats.sites, accent: 'text-white' },

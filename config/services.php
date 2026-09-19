@@ -42,5 +42,6 @@ return [
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
     ],
+    'sites_path' => env('SITES_PATH', '/var/www/sites'),
 
 ];
