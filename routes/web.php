@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 // ─── Tunnel public : générer un site depuis sa fiche Google, sans compte ───
 Route::get('/', [PublicSiteController::class, 'landing'])->name('home');
+Route::get('/recherche', [PublicSiteController::class, 'search'])->middleware('throttle:60,1')->name('public.search');
 Route::post('/generer', [PublicSiteController::class, 'generate'])->middleware('throttle:8,1')->name('public.generate');
 Route::get('/site/{slug}', [PublicSiteController::class, 'show'])->name('public.site');
 Route::get('/site/{slug}/status', [PublicSiteController::class, 'status'])->name('public.site.status');

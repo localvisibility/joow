@@ -25,6 +25,28 @@ class GooglePlaces
         return $placeId ? $this->details($placeId) : null;
     }
 
+    /** Autocomplétion : liste d'établissements candidats pour une saisie. */
+    public function autocomplete(string $input): array
+    {
+        if (mb_strlen(trim($input)) < 3 || ! $this->key) {
+            return [];
+        }
+
+        $res = Http::timeout(10)->get('https://maps.googleapis.com/maps/api/place/autocomplete/json', [
+            'input' => $input,
+            'language' => 'fr',
+            'components' => 'country:fr',
+            'types' => 'establishment',
+            'key' => $this->key,
+        ])->json();
+
+        return collect($res['predictions'] ?? [])->take(6)->map(fn ($p) => [
+            'place_id'  => $p['place_id'],
+            'main'      => $p['structured_formatting']['main_text'] ?? $p['description'],
+            'secondary' => $p['structured_formatting']['secondary_text'] ?? '',
+        ])->values()->all();
+    }
+
     private function resolvePlaceId(string $input): ?string
     {
         if (Str::startsWith($input, 'ChIJ') && ! Str::contains($input, ' ')) {

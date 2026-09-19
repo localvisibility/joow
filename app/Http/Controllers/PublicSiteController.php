@@ -21,6 +21,14 @@ class PublicSiteController extends Controller
         return Inertia::render('Public/Landing');
     }
 
+    /** Autocomplétion d'établissements (JSON) pour la recherche intelligente. */
+    public function search(Request $request, GooglePlaces $places)
+    {
+        return response()->json([
+            'results' => $places->autocomplete((string) $request->query('q', '')),
+        ]);
+    }
+
     public function generate(Request $request, GooglePlaces $places, SectorDetector $detector)
     {
         $data = $request->validate([
