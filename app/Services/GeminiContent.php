@@ -58,7 +58,7 @@ TXT;
 
         try {
             $res = Http::timeout(45)->post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='.$this->key,
+                'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$this->key,
                 [
                     'contents' => [['parts' => [['text' => $prompt]]]],
                     'generationConfig' => ['temperature' => 0.7, 'responseMimeType' => 'application/json'],
