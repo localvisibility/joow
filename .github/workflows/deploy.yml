@@ -17,6 +17,9 @@ jobs:
     steps:
       - name: Deploy to VPS
         working-directory: /opt/joow
+        env:
+          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -26,6 +29,19 @@ jobs:
           git fetch origin main
           git reset --hard origin/main
           echo "Nouvelle révision : $(git rev-parse HEAD)"
+
+          # Injecter les clés depuis les secrets GitHub (si définis)
+          set_env() {
+            local k="$1" v="$2"
+            [ -z "$v" ] && return 0
+            if grep -q "^${k}=" .env; then
+              sed -i "s|^${k}=.*|${k}=${v}|" .env
+            else
+              echo "${k}=${v}" >> .env
+            fi
+          }
+          set_env GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
+          set_env GEMINI_API_KEY "${GEMINI_API_KEY:-}"
 
           # Dépendances PHP (si le lock a changé) + assets front
           docker compose run --rm app composer install --no-interaction --prefer-dist
