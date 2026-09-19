@@ -2,14 +2,15 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\SiteCreationController;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-// Accueil : pas de vitrine ici — on envoie vers l'app.
-Route::get('/', function () {
-    return redirect(Auth::check() ? route('dashboard') : route('login'));
-});
+// ─── Tunnel public : générer un site depuis sa fiche Google, sans compte ───
+Route::get('/', [PublicSiteController::class, 'landing'])->name('home');
+Route::post('/generer', [PublicSiteController::class, 'generate'])->middleware('throttle:8,1')->name('public.generate');
+Route::get('/site/{slug}', [PublicSiteController::class, 'show'])->name('public.site');
+Route::get('/site/{slug}/status', [PublicSiteController::class, 'status'])->name('public.site.status');
 
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified'])->name('dashboard');

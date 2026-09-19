@@ -54,13 +54,13 @@ class GenerateSiteJob implements ShouldQueue
             File::ensureDirectoryExists($dir, 0755);
             File::put($dir.'/index.html', $html);
 
+            // Généré et visible comme aperçu (statut 'preview') ; devient 'paid' après achat.
             $this->site->update([
-                'status'        => 'published',
+                'status'        => 'preview',
                 'html_content'  => $html,
                 'rating'        => $b['rating'] ?? $this->site->rating,
                 'reviews_count' => $b['reviews_count'] ?? $this->site->reviews_count,
-                'published_at'  => now(),
-                'live_url'      => 'https://'.$this->site->slug.'.joow.fr',
+                'preview_url'   => 'https://'.$this->site->slug.'.joow.fr',
             ]);
 
             $job?->update([
