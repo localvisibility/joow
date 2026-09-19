@@ -19,6 +19,8 @@ import { Link } from '@inertiajs/vue3';
             <div class="glass rounded-3xl p-8 shadow-2xl">
                 <slot />
             </div>
+
+            <p class="mt-8 text-center text-xs text-slate-600">© 2026 Joow — Vos sites, en mieux.</p>
         </div>
     </div>
 </template>
