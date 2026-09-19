@@ -1,8 +1,11 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
 
 const props = defineProps({ site: Object });
+
+const checkout = useForm({ email: '' });
+const buy = () => checkout.post(route('public.checkout', props.site.slug));
 
 const ready = ref(['preview', 'paid', 'published'].includes(props.site.status));
 const liveUrl = props.site.preview_url || `https://${props.site.slug}.joow.fr`;
@@ -65,11 +68,25 @@ onUnmounted(() => timer && clearInterval(timer));
                 <iframe :src="liveUrl" class="h-[70vh] w-full bg-white" loading="lazy"></iframe>
             </div>
 
-            <div class="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                <a :href="liveUrl" target="_blank" rel="noopener" class="rounded-xl border border-white/10 px-6 py-3 font-semibold text-slate-200 transition hover:border-white/25">Ouvrir en plein écran ↗</a>
-                <button class="btn-brand" title="Bientôt disponible">Mettre en ligne mon site →</button>
+            <div class="glass mx-auto mt-8 max-w-lg rounded-2xl p-6">
+                <div class="flex items-baseline justify-between">
+                    <h3 class="font-display text-lg font-bold text-white">Mettre mon site en ligne</h3>
+                    <p class="font-display text-xl font-bold text-white">9,90€<span class="text-sm font-medium text-slate-400">/mois</span></p>
+                </div>
+                <ul class="mt-3 space-y-1.5 text-sm text-slate-400">
+                    <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Site en ligne, hébergement inclus</li>
+                    <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur pour tout modifier</li>
+                    <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Sans engagement, résiliable à tout moment</li>
+                </ul>
+                <form @submit.prevent="buy" class="mt-5 flex flex-col gap-2 sm:flex-row">
+                    <input v-model="checkout.email" type="email" required class="field sm:flex-1" placeholder="Votre email" />
+                    <button type="submit" class="btn-brand shrink-0" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
+                        {{ checkout.processing ? '…' : 'Payer et publier →' }}
+                    </button>
+                </form>
+                <p v-if="checkout.errors.email" class="mt-2 text-sm text-rose-400">{{ checkout.errors.email }}</p>
+                <a :href="liveUrl" target="_blank" rel="noopener" class="mt-4 block text-center text-sm text-slate-400 hover:text-white">Ouvrir l'aperçu en plein écran ↗</a>
             </div>
-            <p class="mt-3 text-center text-xs text-slate-500">Le paiement/mise en ligne arrive très vite.</p>
         </section>
     </div>
 </template>

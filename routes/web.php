@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicSiteController;
@@ -12,6 +13,8 @@ Route::get('/recherche', [PublicSiteController::class, 'search'])->middleware('t
 Route::post('/generer', [PublicSiteController::class, 'generate'])->middleware('throttle:8,1')->name('public.generate');
 Route::get('/site/{slug}', [PublicSiteController::class, 'show'])->name('public.site');
 Route::get('/site/{slug}/status', [PublicSiteController::class, 'status'])->name('public.site.status');
+Route::post('/site/{slug}/checkout', [CheckoutController::class, 'start'])->middleware('throttle:10,1')->name('public.checkout');
+Route::get('/site/{slug}/merci', [CheckoutController::class, 'paid'])->name('public.paid');
 
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified'])->name('dashboard');

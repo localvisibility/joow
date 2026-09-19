@@ -44,4 +44,8 @@ return [
     ],
     'sites_path' => env('SITES_PATH', '/var/www/sites'),
 
+    'stripe' => [
+        'price_hosting' => env('STRIPE_PRICE_HOSTING'), // Price ID récurrent (abonnement hébergement)
+    ],
+
 ];
