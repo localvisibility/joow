@@ -45,7 +45,13 @@ return [
     'sites_path' => env('SITES_PATH', '/var/www/sites'),
 
     'stripe' => [
-        'price_hosting' => env('STRIPE_PRICE_HOSTING'), // Price ID récurrent (abonnement hébergement)
+        // Formule Pro : abonnement mensuel (39€ HT/mois) avec essai gratuit.
+        'price_pro'     => env('STRIPE_PRICE_PRO', env('STRIPE_PRICE_HOSTING')),
+        'trial_days'    => (int) env('STRIPE_TRIAL_DAYS', 7),
+        // Formule Liberté : paiement unique (349€ HT, site à vie).
+        'price_liberte' => env('STRIPE_PRICE_LIBERTE'),
+        // Ancien price récurrent (compatibilité).
+        'price_hosting' => env('STRIPE_PRICE_HOSTING'),
     ],
 
 ];

@@ -109,7 +109,7 @@ const testimonials = [
     { q: 'Les avis Google intégrés directement, le design, tout y était. J\'ai publié le soir même.', a: 'Laurent D.', r: 'Garage automobile, Toulouse' },
 ];
 const faqs = [
-    { q: 'Combien ça coûte ?', a: 'La création et l\'aperçu sont 100 % gratuits. Vous ne payez que si vous décidez de mettre votre site en ligne : 9,90 €/mois, hébergement inclus, sans engagement.' },
+    { q: 'Combien ça coûte ?', a: 'La création et l\'aperçu sont 100 % gratuits. Vous ne payez que si vous publiez : formule Pro à 39€ HT/mois (7 jours d\'essai gratuit, sans engagement) ou formule Liberté à 349€ HT en paiement unique, site à vie.' },
     { q: 'Ai-je besoin de compétences techniques ?', a: 'Aucune. Vous cherchez votre établissement, l\'IA fait le reste. Vous pouvez ensuite tout modifier depuis un éditeur simple.' },
     { q: 'D\'où viennent les textes et les photos ?', a: 'De votre fiche Google (avis, photos, horaires) enrichis par notre IA qui rédige des contenus adaptés à votre métier.' },
     { q: 'Puis-je utiliser mon propre nom de domaine ?', a: 'Oui. Votre site est livré sur une adresse joow.fr, et vous pouvez y brancher votre propre domaine à tout moment.' },
@@ -305,14 +305,29 @@ const openFaq = ref(null);
                     <div class="pointer-events-none absolute -top-12 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-brand-600/20 blur-3xl"></div>
                     <div class="relative">
                         <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">Aperçu 100 % gratuit</p>
-                        <h2 class="mt-4 font-display text-3xl font-bold text-white">Un seul tarif, tout compris</h2>
-                        <p class="mt-6 font-display text-5xl font-bold text-white">9,90€<span class="text-lg font-medium text-slate-400">/mois</span></p>
-                        <ul class="mx-auto mt-6 max-w-sm space-y-2 text-left text-sm text-slate-300">
-                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Site en ligne, hébergement inclus</li>
-                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur pour tout modifier vous-même</li>
-                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Avis Google, photos et référencement local</li>
-                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Sans engagement, résiliable en un clic</li>
-                        </ul>
+                        <h2 class="mt-4 font-display text-3xl font-bold text-white">Deux formules, tout compris</h2>
+                        <div class="mt-6 grid gap-4 sm:grid-cols-2">
+                            <div class="rounded-2xl border border-brand-500/40 bg-white/[0.03] p-5 text-left">
+                                <p class="text-xs font-bold uppercase tracking-wide text-brand-400">Pro · recommandé</p>
+                                <p class="mt-2 font-display text-3xl font-bold text-white">39€<span class="text-sm font-medium text-slate-400"> HT/mois</span></p>
+                                <p class="mt-1 text-xs font-semibold text-emerald-300">🎉 7 jours d'essai gratuit</p>
+                                <ul class="mt-3 space-y-1 text-xs text-slate-300">
+                                    <li>✓ Domaine .com/.fr + hébergement</li>
+                                    <li>✓ Éditeur IA illimité · SSL · SEO</li>
+                                    <li>✓ Sans engagement</li>
+                                </ul>
+                            </div>
+                            <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left">
+                                <p class="text-xs font-bold uppercase tracking-wide text-slate-300">Liberté · à vie</p>
+                                <p class="mt-2 font-display text-3xl font-bold text-white">349€<span class="text-sm font-medium text-slate-400"> HT</span></p>
+                                <p class="mt-1 text-xs font-semibold text-brand-400">Paiement unique</p>
+                                <ul class="mt-3 space-y-1 text-xs text-slate-300">
+                                    <li>✓ Domaine + hébergement 1 an</li>
+                                    <li>✓ Éditeur illimité</li>
+                                    <li>✓ Téléchargement du site</li>
+                                </ul>
+                            </div>
+                        </div>
                         <button @click="scrollToSearch" class="btn-brand mt-8">Créer mon site gratuitement →</button>
                         <p class="mt-3 text-xs text-slate-500">Vous ne payez qu'au moment de publier. Rien avant.</p>
                     </div>

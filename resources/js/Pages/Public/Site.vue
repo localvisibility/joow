@@ -4,8 +4,8 @@ import { onMounted, onUnmounted, ref } from 'vue';
 
 const props = defineProps({ site: Object });
 
-const checkout = useForm({ email: '' });
-const buy = () => checkout.post(route('public.checkout', props.site.slug));
+const checkout = useForm({ email: '', plan: 'pro' });
+const buy = (plan) => { checkout.plan = plan; checkout.post(route('public.checkout', props.site.slug)); };
 
 const retryForm = useForm({});
 const retry = () => retryForm.post(route('public.site.retry', props.site.slug));
@@ -84,30 +84,59 @@ onUnmounted(() => timer && clearInterval(timer));
                 <iframe :src="liveUrl" class="h-[70vh] w-full bg-white" loading="lazy"></iframe>
             </div>
 
-            <div class="glass relative mx-auto mt-8 max-w-lg overflow-hidden rounded-2xl p-6">
-                <div class="pointer-events-none absolute -top-10 right-0 h-40 w-40 rounded-full bg-brand-600/15 blur-3xl"></div>
-                <div class="relative">
-                    <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">Aperçu gratuit · vous ne payez qu'ici</p>
-                    <div class="mt-3 flex items-baseline justify-between">
-                        <h3 class="font-display text-lg font-bold text-white">Mettre mon site en ligne</h3>
-                        <p class="font-display text-xl font-bold text-white">9,90€<span class="text-sm font-medium text-slate-400">/mois</span></p>
-                    </div>
-                    <ul class="mt-3 space-y-1.5 text-sm text-slate-400">
-                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Site en ligne immédiatement, hébergement inclus</li>
-                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur pour tout modifier vous-même</li>
-                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Avis Google, photos et référencement local</li>
-                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Sans engagement, résiliable en un clic</li>
-                    </ul>
-                    <form @submit.prevent="buy" class="mt-5 flex flex-col gap-2 sm:flex-row">
-                        <input v-model="checkout.email" type="email" required class="field sm:flex-1" placeholder="Votre email" />
-                        <button type="submit" class="btn-brand shrink-0" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
-                            {{ checkout.processing ? '…' : 'Payer et publier →' }}
-                        </button>
-                    </form>
-                    <p v-if="checkout.errors.email" class="mt-2 text-sm text-rose-400">{{ checkout.errors.email }}</p>
-                    <p class="mt-3 flex items-center justify-center gap-1.5 text-xs text-slate-500"><span>🔒</span> Paiement sécurisé Stripe · annulable à tout moment</p>
-                    <a :href="liveUrl" target="_blank" rel="noopener" class="mt-3 block text-center text-sm text-slate-400 hover:text-white">Ouvrir l'aperçu en plein écran ↗</a>
+            <!-- Choix de la formule -->
+            <div class="mx-auto mt-10 max-w-3xl">
+                <div class="mb-5 text-center">
+                    <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">Aperçu gratuit · vous ne payez qu'en publiant</p>
+                    <h3 class="mt-3 font-display text-2xl font-bold text-white">Choisissez votre formule</h3>
                 </div>
+
+                <div class="mb-4">
+                    <input v-model="checkout.email" type="email" required class="field text-center" placeholder="Votre email pour recevoir vos accès" />
+                    <p v-if="checkout.errors.email" class="mt-2 text-center text-sm text-rose-400">{{ checkout.errors.email }}</p>
+                </div>
+
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <!-- Pro -->
+                    <div class="glass relative overflow-hidden rounded-2xl border-brand-500/40 p-6">
+                        <span class="absolute right-4 top-4 rounded-full bg-brand-gradient px-3 py-1 text-xs font-bold text-white shadow-glow">Recommandé</span>
+                        <h4 class="font-display text-lg font-bold text-white">Pro</h4>
+                        <p class="mt-1 text-xs text-slate-400">Sans engagement · .joow.fr + domaine .com/.fr</p>
+                        <p class="mt-4 font-display text-4xl font-bold text-white">39€<span class="text-base font-medium text-slate-400"> HT/mois</span></p>
+                        <p class="mt-1 text-xs font-semibold text-emerald-300">🎉 7 jours d'essai gratuit</p>
+                        <ul class="mt-4 space-y-1.5 text-sm text-slate-300">
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .com / .fr inclus</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur IA & modifications illimitées</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Certificat SSL + SEO avancé</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Support prioritaire 7j/7</li>
+                        </ul>
+                        <button @click="buy('pro')" class="btn-brand mt-6 w-full" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
+                            {{ checkout.processing && checkout.plan==='pro' ? '…' : 'Essai gratuit 7 jours' }}
+                        </button>
+                        <p class="mt-2 text-center text-xs text-slate-500">0€ aujourd'hui · résiliez quand vous voulez</p>
+                    </div>
+
+                    <!-- Liberté -->
+                    <div class="glass relative overflow-hidden rounded-2xl p-6">
+                        <h4 class="font-display text-lg font-bold text-white">Liberté</h4>
+                        <p class="mt-1 text-xs text-slate-400">Paiement unique · autonomie totale</p>
+                        <p class="mt-4 font-display text-4xl font-bold text-white">349€<span class="text-base font-medium text-slate-400"> HT</span></p>
+                        <p class="mt-1 text-xs font-semibold text-brand-400">≈ 9 mois d'abo · économies garanties</p>
+                        <ul class="mt-4 space-y-1.5 text-sm text-slate-300">
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Domaine .com / .fr inclus</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Hébergement 1 an inclus</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur + modifications illimitées</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Téléchargement de votre site</li>
+                        </ul>
+                        <button @click="buy('liberte')" class="mt-6 w-full rounded-xl border border-emerald-400/40 px-6 py-3 font-semibold text-emerald-300 transition hover:bg-emerald-500/10" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
+                            {{ checkout.processing && checkout.plan==='liberte' ? '…' : 'Paiement unique 349€' }}
+                        </button>
+                        <p class="mt-2 text-center text-xs text-slate-500">Sans abonnement · site à vie</p>
+                    </div>
+                </div>
+
+                <p class="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500"><span>🔒</span> Paiement sécurisé Stripe</p>
+                <a :href="liveUrl" target="_blank" rel="noopener" class="mt-2 block text-center text-sm text-slate-400 hover:text-white">Ouvrir l'aperçu en plein écran ↗</a>
             </div>
         </section>
     </div>

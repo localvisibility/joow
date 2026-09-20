@@ -23,11 +23,16 @@ class CheckoutController extends Controller
 
         $data = $request->validate([
             'email' => ['required', 'email'],
+            'plan'  => ['nullable', 'in:pro,liberte'],
         ]);
+        $plan = $data['plan'] ?? 'pro';
 
-        $price = config('services.stripe.price_hosting');
+        $price = $plan === 'liberte'
+            ? config('services.stripe.price_liberte')
+            : config('services.stripe.price_pro');
+
         if (! $price) {
-            return back()->withErrors(['email' => 'Paiement pas encore configuré. Réessayez bientôt.']);
+            return back()->withErrors(['email' => "Cette formule n'est pas encore configurée. Réessayez bientôt."]);
         }
 
         // Compte : réutilise l'existant ou en crée un (mot de passe défini plus tard via reset)
@@ -42,14 +47,23 @@ class CheckoutController extends Controller
 
         $site->forceFill(['owner_email' => $user->email, 'user_id' => $user->id])->save();
 
-        return $user
-            ->newSubscription('hosting', $price)
-            ->checkout([
-                'success_url' => route('public.paid', $slug).'?session_id={CHECKOUT_SESSION_ID}',
-                'cancel_url'  => route('public.site', $slug),
-                'metadata'    => ['site_slug' => $slug, 'user_id' => $user->id],
-            ])
-            ->redirect();
+        $urls = [
+            'success_url' => route('public.paid', $slug).'?plan='.$plan.'&session_id={CHECKOUT_SESSION_ID}',
+            'cancel_url'  => route('public.site', $slug),
+            'metadata'    => ['site_slug' => $slug, 'user_id' => $user->id, 'plan' => $plan],
+        ];
+
+        // Liberté : paiement unique. Pro : abonnement mensuel avec essai gratuit.
+        if ($plan === 'liberte') {
+            return $user->checkout([$price => 1], $urls)->redirect();
+        }
+
+        $sub = $user->newSubscription('hosting', $price);
+        if (($days = (int) config('services.stripe.trial_days')) > 0) {
+            $sub->trialDays($days);
+        }
+
+        return $sub->checkout($urls)->redirect();
     }
 
     /** Retour après paiement réussi : active le site et connecte le client. */
@@ -68,14 +82,16 @@ class CheckoutController extends Controller
             }
         }
 
+        $plan = $request->query('plan') === 'liberte' ? 'liberte' : 'pro';
+
         if ($paid && $site->status !== 'paid') {
             $site->update([
                 'status'              => 'paid',
                 'paid_at'             => now(),
                 'published_at'        => now(),
-                'hosting_plan'        => 'starter',
-                'subscription_status' => 'active',
-                'purchase_type'       => 'subscription',
+                'hosting_plan'        => $plan,
+                'subscription_status' => $plan === 'liberte' ? 'lifetime' : 'active',
+                'purchase_type'       => $plan === 'liberte' ? 'one_time' : 'subscription',
             ]);
             if ($site->user) {
                 Auth::login($site->user);
