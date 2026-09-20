@@ -6,50 +6,31 @@ import UpdateProfileInformationForm from './Partials/UpdateProfileInformationFor
 import { Head } from '@inertiajs/vue3';
 
 defineProps({
-    mustVerifyEmail: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
+    mustVerifyEmail: { type: Boolean },
+    status: { type: String },
 });
 </script>
 
 <template>
-    <Head title="Profile" />
+    <Head title="Paramètres" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2
-                class="text-xl font-semibold leading-tight text-gray-800"
-            >
-                Profile
-            </h2>
+            <div>
+                <h1 class="font-display text-3xl font-bold tracking-tight text-white">Paramètres</h1>
+                <p class="mt-1 text-sm text-slate-400">Gérez votre compte, votre mot de passe et vos préférences.</p>
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
-                >
-                    <UpdateProfileInformationForm
-                        :must-verify-email="mustVerifyEmail"
-                        :status="status"
-                        class="max-w-xl"
-                    />
-                </div>
-
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
-                >
-                    <UpdatePasswordForm class="max-w-xl" />
-                </div>
-
-                <div
-                    class="bg-white p-4 shadow sm:rounded-lg sm:p-8"
-                >
-                    <DeleteUserForm class="max-w-xl" />
-                </div>
+        <div class="mx-auto max-w-3xl space-y-6">
+            <div class="glass rounded-2xl p-6 sm:p-8">
+                <UpdateProfileInformationForm :must-verify-email="mustVerifyEmail" :status="status" />
+            </div>
+            <div class="glass rounded-2xl p-6 sm:p-8">
+                <UpdatePasswordForm />
+            </div>
+            <div class="glass rounded-2xl border-rose-500/15 p-6 sm:p-8">
+                <DeleteUserForm />
             </div>
         </div>
     </AuthenticatedLayout>
