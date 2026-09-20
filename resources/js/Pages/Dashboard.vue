@@ -85,10 +85,10 @@ const liveUrl = (s) => s.custom_domain
                     <span v-if="s.reviews_count" class="chip bg-amber-500/10 text-amber-300">★ {{ s.rating }} · {{ s.reviews_count }}</span>
                 </div>
 
-                <div class="mt-5 flex items-center justify-between border-t border-white/[0.06] pt-4">
-                    <span class="truncate text-xs text-slate-500">{{ isAdmin ? (s.owner_email || 'sans propriétaire') : liveUrl(s).replace('https://', '') }}</span>
+                <div class="mt-5 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-4">
+                    <Link :href="route('sites.editor', s.slug)" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-white/10">✨ Éditer</Link>
                     <a :href="liveUrl(s)" target="_blank" rel="noopener"
-                        class="text-sm font-semibold text-brand-400 transition sm:opacity-0 sm:group-hover:opacity-100">
+                        class="text-sm font-semibold text-brand-400 transition hover:text-brand-300">
                         Voir →
                     </a>
                 </div>

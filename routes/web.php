@@ -7,6 +7,7 @@ use App\Http\Controllers\LeadsInboxController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\SiteCreationController;
+use App\Http\Controllers\SiteEditorController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Demandes entrantes des sites générés (CORS, public) ───
@@ -33,6 +34,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Boîte de réception des demandes
     Route::get('/demandes', [LeadsInboxController::class, 'index'])->name('leads.index');
     Route::patch('/demandes/{lead}', [LeadsInboxController::class, 'update'])->name('leads.update');
+
+    // Éditeur de site (IA)
+    Route::get('/sites/{slug}/editeur', [SiteEditorController::class, 'show'])->name('sites.editor');
+    Route::post('/sites/{slug}/editeur/chat', [SiteEditorController::class, 'chat'])->middleware('throttle:20,1')->name('sites.editor.chat');
+    Route::post('/sites/{slug}/editeur/module', [SiteEditorController::class, 'module'])->name('sites.editor.module');
+    Route::post('/sites/{slug}/editeur/accent', [SiteEditorController::class, 'accent'])->name('sites.editor.accent');
+    Route::post('/sites/{slug}/editeur/regenerer', [SiteEditorController::class, 'regenerate'])->middleware('throttle:5,1')->name('sites.editor.regenerate');
 });
 
 Route::middleware('auth')->group(function () {
