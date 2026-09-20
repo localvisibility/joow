@@ -100,7 +100,31 @@ class PublicSiteController extends Controller
         return response()->json([
             'status'   => $site->status,
             'ready'    => in_array($site->status, ['preview', 'paid', 'published'], true),
+            'failed'   => $site->status === 'failed',
             'live_url' => 'https://'.$site->slug.'.joow.fr',
         ]);
+    }
+
+    /** Relance la génération d'un site en échec. */
+    public function retry(string $slug)
+    {
+        $site = Site::where('slug', $slug)->firstOrFail();
+
+        if (! in_array($site->status, ['failed', 'preview'], true)) {
+            return redirect()->route('public.site', $slug);
+        }
+
+        $site->update(['status' => 'generating']);
+
+        $job = GenerationJob::create([
+            'status'    => 'pending',
+            'sector'    => $site->sector,
+            'site_slug' => $site->slug,
+            'input'     => ['place_id' => $site->place_id, 'retry' => true],
+        ]);
+
+        GenerateSiteJob::dispatch($site, $job->id);
+
+        return redirect()->route('public.site', $slug);
     }
 }

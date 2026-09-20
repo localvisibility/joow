@@ -274,7 +274,10 @@ html{scroll-padding-top:80px}
         <p class="mt-4 text-lg text-slate-600">{{ $c['cta_text'] ?? '' }}</p>
         <div class="mt-9 space-y-4">
           @if($b['phone'])<a href="{{ $phoneHref }}" class="group flex items-center gap-4"><span class="grid h-12 w-12 place-items-center rounded-xl bg-grad text-white shadow-c"><i class="fa-solid fa-phone"></i></span><span><span class="block text-xs text-slate-400">Téléphone</span><span class="font-bold text-slate-800">{{ $b['phone'] }}</span></span></a>@endif
-          @if($b['address'])<div class="flex items-center gap-4"><span class="grid h-12 w-12 place-items-center rounded-xl bg-grad text-white shadow-c"><i class="fa-solid fa-location-dot"></i></span><span><span class="block text-xs text-slate-400">Adresse</span><span class="font-bold text-slate-800">{{ $b['address'] }}</span></span></div>@endif
+          @if($b['address'])
+          @php $itin = $b['maps_url'] ?? ('https://www.google.com/maps/search/?api=1&query='.urlencode(($b['address'] ?? '').' '.($b['city'] ?? ''))); @endphp
+          <a href="{{ $itin }}" target="_blank" rel="noopener" class="group flex items-center gap-4"><span class="grid h-12 w-12 place-items-center rounded-xl bg-grad text-white shadow-c"><i class="fa-solid fa-location-dot"></i></span><span><span class="block text-xs text-slate-400">Adresse</span><span class="font-bold text-slate-800 group-hover:accent">{{ $b['address'] }}</span><span class="block text-xs font-semibold accent">Voir l'itinéraire →</span></span></a>
+          @endif
         </div>
         @if(count($hours))
         <div class="mt-8 rounded-2xl border border-slate-100 bg-slate-50 p-5">

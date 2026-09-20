@@ -1,11 +1,12 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
     stats: Object,
     sites: Array,
+    isAdmin: { type: Boolean, default: false },
 });
 
 const q = ref('');
@@ -28,7 +29,7 @@ const statusLabel = (s) => ({ paid: 'Payé', published: 'En ligne', generating: 
 
 const cards = computed(() => [
     { label: 'Sites', value: props.stats.sites, accent: 'text-white' },
-    { label: 'Clients', value: props.stats.clients, accent: 'text-brand-400' },
+    ...(props.isAdmin ? [{ label: 'Clients', value: props.stats.clients, accent: 'text-brand-400' }] : []),
     { label: 'Payés', value: props.stats.paid, accent: 'text-emerald-300' },
     { label: 'En ligne', value: props.stats.published, accent: 'text-violet-300' },
 ]);
@@ -45,12 +46,15 @@ const liveUrl = (s) => s.custom_domain
         <template #header>
             <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                    <h1 class="font-display text-3xl font-bold tracking-tight text-white">Vos sites</h1>
-                    <p class="mt-1 text-sm text-slate-400">Le parc géré sur Joow, en direct.</p>
+                    <h1 class="font-display text-3xl font-bold tracking-tight text-white">{{ isAdmin ? 'Parc de sites' : 'Vos sites' }}</h1>
+                    <p class="mt-1 text-sm text-slate-400">{{ isAdmin ? "L'ensemble des sites gérés sur Joow, en direct." : 'Vos sites créés sur Joow.' }}</p>
                 </div>
-                <div class="relative">
-                    <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l3.08 3.08a1 1 0 01-1.42 1.42l-3.08-3.08A7 7 0 012 9z" clip-rule="evenodd"/></svg>
-                    <input v-model="q" type="search" placeholder="Rechercher un site, une ville…" class="field w-full pl-10 sm:w-80" />
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l3.08 3.08a1 1 0 01-1.42 1.42l-3.08-3.08A7 7 0 012 9z" clip-rule="evenodd"/></svg>
+                        <input v-model="q" type="search" placeholder="Rechercher un site, une ville…" class="field w-full pl-10 sm:w-72" />
+                    </div>
+                    <Link :href="route('sites.create')" class="btn-brand hidden shrink-0 text-sm sm:inline-flex">+ Nouveau site</Link>
                 </div>
             </div>
         </template>
@@ -82,15 +86,21 @@ const liveUrl = (s) => s.custom_domain
                 </div>
 
                 <div class="mt-5 flex items-center justify-between border-t border-white/[0.06] pt-4">
-                    <span class="truncate text-xs text-slate-500">{{ s.owner_email || 'sans propriétaire' }}</span>
+                    <span class="truncate text-xs text-slate-500">{{ isAdmin ? (s.owner_email || 'sans propriétaire') : liveUrl(s).replace('https://', '') }}</span>
                     <a :href="liveUrl(s)" target="_blank" rel="noopener"
-                        class="text-sm font-semibold text-brand-400 opacity-0 transition group-hover:opacity-100">
+                        class="text-sm font-semibold text-brand-400 transition sm:opacity-0 sm:group-hover:opacity-100">
                         Voir →
                     </a>
                 </div>
             </div>
         </div>
 
-        <p v-if="filtered.length === 0" class="mt-10 text-center text-slate-500">Aucun site ne correspond.</p>
+        <!-- Vide -->
+        <div v-if="filtered.length === 0 && q" class="mt-10 text-center text-slate-500">Aucun site ne correspond.</div>
+        <div v-else-if="sites.length === 0" class="glass mt-8 rounded-2xl p-10 text-center">
+            <p class="font-display text-lg font-bold text-white">Aucun site pour l'instant</p>
+            <p class="mx-auto mt-2 max-w-sm text-sm text-slate-400">Créez votre premier site en quelques secondes à partir de votre fiche Google.</p>
+            <Link :href="route('sites.create')" class="btn-brand mt-6 inline-flex">Créer mon site →</Link>
+        </div>
     </AuthenticatedLayout>
 </template>

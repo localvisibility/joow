@@ -17,6 +17,14 @@ class GenerateSiteJob implements ShouldQueue
 
     public int $timeout = 180;
 
+    public int $tries = 2;
+
+    /** Backoff entre les tentatives (secondes). */
+    public function backoff(): array
+    {
+        return [10, 30];
+    }
+
     public function __construct(
         public Site $site,
         public ?string $jobId = null,
@@ -69,9 +77,23 @@ class GenerateSiteJob implements ShouldQueue
                 'result' => ['bytes' => strlen($html), 'url' => 'https://'.$this->site->slug.'.joow.fr'],
             ]);
         } catch (\Throwable $e) {
-            $this->site->update(['status' => 'preview']);
+            // Dernière tentative épuisée => statut 'failed' (évite un site 'preview' cassé).
+            if ($this->attempts() >= $this->tries) {
+                $this->site->update(['status' => 'failed']);
+            }
             $job?->update(['status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now()]);
             throw $e;
+        }
+    }
+
+    /** Appelé quand toutes les tentatives ont échoué. */
+    public function failed(\Throwable $e): void
+    {
+        $this->site->update(['status' => 'failed']);
+        if ($this->jobId) {
+            GenerationJob::where('id', $this->jobId)->update([
+                'status' => 'failed', 'error' => $e->getMessage(), 'completed_at' => now(),
+            ]);
         }
     }
 }

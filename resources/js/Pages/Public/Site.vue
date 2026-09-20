@@ -7,7 +7,11 @@ const props = defineProps({ site: Object });
 const checkout = useForm({ email: '' });
 const buy = () => checkout.post(route('public.checkout', props.site.slug));
 
+const retryForm = useForm({});
+const retry = () => retryForm.post(route('public.site.retry', props.site.slug));
+
 const ready = ref(['preview', 'paid', 'published'].includes(props.site.status));
+const failed = ref(props.site.status === 'failed');
 const liveUrl = props.site.preview_url || `https://${props.site.slug}.joow.fr`;
 let timer = null;
 
@@ -15,12 +19,13 @@ const poll = async () => {
     try {
         const r = await fetch(route('public.site.status', props.site.slug), { headers: { Accept: 'application/json' } });
         const d = await r.json();
-        if (d.ready) { ready.value = true; if (timer) clearInterval(timer); }
+        if (d.ready) { ready.value = true; failed.value = false; if (timer) clearInterval(timer); }
+        else if (d.failed) { failed.value = true; if (timer) clearInterval(timer); }
     } catch (e) { /* retry au prochain tick */ }
 };
 
 onMounted(() => {
-    if (!ready.value) { poll(); timer = setInterval(poll, 2500); }
+    if (!ready.value && !failed.value) { poll(); timer = setInterval(poll, 2500); }
 });
 onUnmounted(() => timer && clearInterval(timer));
 </script>
@@ -37,8 +42,19 @@ onUnmounted(() => timer && clearInterval(timer));
             <Link :href="route('login')" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25">Se connecter</Link>
         </header>
 
+        <!-- Échec -->
+        <section v-if="failed" class="mx-auto max-w-xl px-5 py-24 text-center">
+            <div class="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-full bg-rose-500/15 text-3xl">⚠️</div>
+            <h1 class="font-display text-3xl font-bold text-white">La génération a échoué</h1>
+            <p class="mt-3 text-slate-400">Un souci temporaire est survenu pendant la création de <span class="font-semibold text-white">{{ site.name }}</span>. Vous pouvez relancer la génération.</p>
+            <button @click="retry" class="btn-brand mt-8" :class="{ 'opacity-60': retryForm.processing }" :disabled="retryForm.processing">
+                {{ retryForm.processing ? 'Relance…' : 'Relancer la génération →' }}
+            </button>
+            <Link :href="route('home')" class="mt-4 block text-sm text-slate-400 hover:text-white">Repartir de zéro</Link>
+        </section>
+
         <!-- En cours -->
-        <section v-if="!ready" class="mx-auto max-w-xl px-5 py-24 text-center">
+        <section v-else-if="!ready" class="mx-auto max-w-xl px-5 py-24 text-center">
             <div class="mx-auto mb-8 h-16 w-16 animate-spin rounded-full border-4 border-white/10 border-t-brand-500"></div>
             <h1 class="font-display text-3xl font-bold text-white">Génération de votre site…</h1>
             <p class="mt-3 text-slate-400">On assemble les textes, les photos et vos avis pour <span class="font-semibold text-white">{{ site.name }}</span>. Quelques secondes.</p>

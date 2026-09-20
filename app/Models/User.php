@@ -23,6 +23,12 @@ class User extends Authenticatable
         return $this->hasMany(Site::class);
     }
 
+    /** Opérateur : voit l'ensemble du parc (emails listés dans config joow.admins). */
+    public function isAdmin(): bool
+    {
+        return in_array(strtolower($this->email), config('joow.admins', []), true);
+    }
+
     /**
      * Get the attributes that should be cast.
      *
