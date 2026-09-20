@@ -20,8 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        // Endpoints publics (sites générés) : dispensés de CSRF, protégés par throttle + honeypot.
-        $middleware->validateCsrfTokens(except: ['api/*']);
+        // Endpoints publics dispensés de CSRF :
+        // - api/*    : demandes des sites générés (throttle + honeypot)
+        // - stripe/* : webhooks Stripe (Cashier), signés côté Stripe
+        $middleware->validateCsrfTokens(except: ['api/*', 'stripe/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
