@@ -27,7 +27,7 @@
         'devis'       => ['title' => 'Demander un devis', 'sub' => 'Décrivez votre besoin, réponse sous 48h.', 'submit' => $cta],
     ][$bt];
     $ctaHref = $bookingOn ? '#reserver' : '#contact';
-    $apiBase = rtrim(config('app.url', 'https://app.joow.fr'), '/');
+    $apiBase = 'https://app.joow.fr'; // domaine fixe de l'app (réception des demandes)
 
     // Stats par défaut si l'IA n'en fournit pas
     if (!count($stats)) {
