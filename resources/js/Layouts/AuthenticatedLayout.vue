@@ -7,6 +7,7 @@ const menuOpen = ref(false);
 
 const nav = [
     { label: 'Sites', route: 'dashboard' },
+    { label: 'Demandes', route: 'leads.index' },
 ];
 </script>
 

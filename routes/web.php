@@ -2,10 +2,15 @@
 
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LeadController;
+use App\Http\Controllers\LeadsInboxController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\SiteCreationController;
 use Illuminate\Support\Facades\Route;
+
+// ─── Demandes entrantes des sites générés (CORS, public) ───
+Route::post('/api/lead/{slug}', [LeadController::class, 'store'])->middleware('throttle:20,1')->name('api.lead');
 
 // ─── Tunnel public : générer un site depuis sa fiche Google, sans compte ───
 Route::get('/', [PublicSiteController::class, 'landing'])->name('home');
@@ -24,6 +29,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/sites/create', [SiteCreationController::class, 'create'])->name('sites.create');
     Route::post('/sites/lookup', [SiteCreationController::class, 'lookup'])->name('sites.lookup');
     Route::post('/sites', [SiteCreationController::class, 'store'])->name('sites.store');
+
+    // Boîte de réception des demandes
+    Route::get('/demandes', [LeadsInboxController::class, 'index'])->name('leads.index');
+    Route::patch('/demandes/{lead}', [LeadsInboxController::class, 'update'])->name('leads.update');
 });
 
 Route::middleware('auth')->group(function () {

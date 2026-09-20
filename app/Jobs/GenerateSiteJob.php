@@ -45,15 +45,18 @@ class GenerateSiteJob implements ShouldQueue
             $cfg = config("sectors.$sector") ?? config('sectors.service');
 
             $content = $gemini->generate($b, $sector, $cfg['label']);
+            $modules = $this->site->modules ?: ['booking' => true];
+            $accent = $this->site->site_data['accent'] ?? $cfg['color'];
 
             $html = View::make('generated.site', [
                 'b' => $b,
                 'c' => $content,
                 'sector' => $sector,
                 'label' => $cfg['label'],
-                'color' => $cfg['color'],
+                'color' => $accent,
                 'icon' => $cfg['icon'],
                 'cta' => $cfg['cta'],
+                'modules' => $modules,
                 'mapsKey' => (string) config('services.google_places.key'),
                 'slug' => $this->site->slug,
             ])->render();
@@ -69,6 +72,9 @@ class GenerateSiteJob implements ShouldQueue
                 'rating'        => $b['rating'] ?? $this->site->rating,
                 'reviews_count' => $b['reviews_count'] ?? $this->site->reviews_count,
                 'preview_url'   => 'https://'.$this->site->slug.'.joow.fr',
+                'modules'       => $modules,
+                // Snapshot pour ré-édition (éditeur IA) sans re-solliciter Google.
+                'site_data'     => ['content' => $content, 'business' => $b, 'accent' => $accent],
             ]);
 
             $job?->update([

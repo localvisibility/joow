@@ -14,6 +14,21 @@
     $tagline  = $c['tagline'] ?? $label.' · '.($b['city'] ?? 'France');
     $stars = fn($n) => str_repeat('★', max(0, (int) round($n)));
     $initial = fn($name) => Str::upper(Str::substr(trim($name) ?: 'C', 0, 1));
+    // Module réservation / RDV / devis (activable)
+    $modules = $modules ?? ['booking' => true];
+    $bookingOn = $modules['booking'] ?? true;
+    $bt = in_array($sector, ['restaurant', 'hebergement'], true) ? 'reservation'
+        : (in_array($sector, ['sante', 'beaute', 'bienetre'], true) ? 'rdv' : 'devis');
+    $resaTitle = $sector === 'restaurant' ? 'Réserver votre table' : 'Réserver votre séjour';
+    $partyLabel = $sector === 'restaurant' ? 'Couverts' : 'Personnes';
+    $bookLabels = [
+        'reservation' => ['title' => $resaTitle, 'sub' => 'Une demande, une réponse rapide.', 'submit' => $cta],
+        'rdv'         => ['title' => 'Prendre rendez-vous', 'sub' => 'Indiquez vos disponibilités, on vous recontacte.', 'submit' => $cta],
+        'devis'       => ['title' => 'Demander un devis', 'sub' => 'Décrivez votre besoin, réponse sous 48h.', 'submit' => $cta],
+    ][$bt];
+    $ctaHref = $bookingOn ? '#reserver' : '#contact';
+    $apiBase = rtrim(config('app.url', 'https://app.joow.fr'), '/');
+
     // Stats par défaut si l'IA n'en fournit pas
     if (!count($stats)) {
         $stats = array_values(array_filter([
@@ -76,7 +91,7 @@ html{scroll-padding-top:80px}
       <a href="#services" class="text-sm font-semibold text-white/90 transition hover:text-white">Services</a>
       <a href="#apropos" class="text-sm font-semibold text-white/90 transition hover:text-white">À propos</a>
       @if($reviews->count())<a href="#avis" class="text-sm font-semibold text-white/90 transition hover:text-white">Avis</a>@endif
-      <a href="#contact" class="rounded-xl bg-grad px-5 py-2.5 text-sm font-bold text-white shadow-c transition hover:-translate-y-0.5">{{ $cta }}</a>
+      <a href="{{ $ctaHref }}" class="rounded-xl bg-grad px-5 py-2.5 text-sm font-bold text-white shadow-c transition hover:-translate-y-0.5">{{ $cta }}</a>
     </div>
     @if($phoneHref)<a href="{{ $phoneHref }}" class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white backdrop-blur md:hidden"><i class="fa-solid fa-phone"></i></a>@endif
   </div>
@@ -102,7 +117,7 @@ html{scroll-padding-top:80px}
       <h1 class="reveal on font-display text-[2.6rem] font-bold leading-[1.03] sm:text-6xl">{{ $c['hero_title'] ?? $b['name'] }}</h1>
       <p class="reveal on mt-5 max-w-xl text-lg text-white/80">{{ $c['hero_subtitle'] ?? $tagline }}</p>
       <div class="reveal on mt-9 flex flex-wrap gap-4">
-        <a href="#contact" class="group rounded-xl bg-grad px-7 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5">{{ $cta }} <i class="fa-solid fa-arrow-right ml-1 transition group-hover:translate-x-1"></i></a>
+        <a href="{{ $ctaHref }}" class="group rounded-xl bg-grad px-7 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5">{{ $cta }} <i class="fa-solid fa-arrow-right ml-1 transition group-hover:translate-x-1"></i></a>
         @if($phoneHref)<a href="{{ $phoneHref }}" class="rounded-xl border-2 border-white/25 px-7 py-4 font-bold text-white backdrop-blur transition hover:bg-white/10"><i class="fa-solid fa-phone mr-2"></i>{{ $b['phone'] }}</a>@endif
       </div>
       @if($badges)
@@ -264,6 +279,56 @@ html{scroll-padding-top:80px}
 </section>
 @endif
 
+@if($bookingOn)
+<!-- RÉSERVATION / RDV / DEVIS -->
+<section id="reserver" class="relative overflow-hidden py-24">
+  <div class="pointer-events-none absolute -top-20 right-0 h-80 w-80 rounded-full blur-3xl" style="background:var(--grad);opacity:.14"></div>
+  <div class="mx-auto grid max-w-6xl items-center gap-14 px-5 lg:grid-cols-[.9fr,1.1fr]">
+    <div class="reveal">
+      <p class="text-sm font-bold uppercase tracking-[0.3em] accent">{{ $bt === 'reservation' ? 'Réservation' : ($bt === 'rdv' ? 'Rendez-vous' : 'Devis') }}</p>
+      <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl">{{ $bookLabels['title'] }}</h2>
+      <p class="mt-4 text-lg text-slate-600">{{ $bookLabels['sub'] }}</p>
+      <ul class="mt-8 space-y-3 text-slate-600">
+        <li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-bolt text-xs"></i></span>Réponse rapide, sans engagement</li>
+        <li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-shield-halved text-xs"></i></span>Vos informations restent confidentielles</li>
+        @if($b['phone'])<li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-phone text-xs"></i></span>Ou appelez directement le {{ $b['phone'] }}</li>@endif
+      </ul>
+    </div>
+
+    <div class="reveal rounded-[2rem] border border-slate-100 bg-white p-7 shadow-xl sm:p-9">
+      <form id="joow-book" class="space-y-4">
+        <input type="hidden" name="type" value="{{ $bt }}">
+        <input type="text" name="hp" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+        @if($bt === 'reservation')
+        <div class="grid gap-4 sm:grid-cols-3">
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Date</span><input name="date" type="date" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Heure</span><input name="heure" type="time" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">{{ $partyLabel }}</span><input name="{{ strtolower($partyLabel) }}" type="number" min="1" value="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+        </div>
+        @elseif($bt === 'rdv')
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Date souhaitée</span><input name="date" type="date" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Moment</span><select name="moment" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"><option>Matin</option><option>Après-midi</option><option>Soir</option><option>Peu importe</option></select></label>
+        </div>
+        @endif
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Nom</span><input name="name" type="text" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Téléphone</span><input name="phone" type="tel" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+        </div>
+        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Email</span><input name="email" type="email" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">{{ $bt === 'devis' ? 'Votre projet' : 'Message (optionnel)' }}</span><textarea name="message" rows="3" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent" {{ $bt === 'devis' ? 'required' : '' }}></textarea></label>
+
+        <button type="submit" id="joow-book-btn" class="w-full rounded-xl bg-grad px-6 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5">{{ $bookLabels['submit'] }}</button>
+        <p id="joow-book-ok" class="hidden rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700">✓ Demande envoyée ! Nous revenons vers vous très vite.</p>
+        <p id="joow-book-err" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-center text-sm font-semibold text-rose-700">Une erreur est survenue. Réessayez ou appelez-nous.</p>
+      </form>
+    </div>
+  </div>
+</section>
+@endif
+
 <!-- CONTACT -->
 <section id="contact" class="relative py-24">
   <div class="mx-auto max-w-6xl px-5">
@@ -333,6 +398,20 @@ const onScroll=()=>{const s=scrollY>40;
 onScroll();addEventListener('scroll',onScroll,{passive:true});
 const io=new IntersectionObserver(e=>e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('on');io.unobserve(x.target)}}),{threshold:.12});
 document.querySelectorAll('.reveal:not(.on)').forEach(el=>io.observe(el));
+
+// Réservation / RDV / devis -> API Joow
+const bf=document.getElementById('joow-book');
+if(bf){bf.addEventListener('submit',async ev=>{ev.preventDefault();
+  const btn=document.getElementById('joow-book-btn'),ok=document.getElementById('joow-book-ok'),er=document.getElementById('joow-book-err');
+  ok.classList.add('hidden');er.classList.add('hidden');btn.disabled=true;const old=btn.textContent;btn.textContent='Envoi…';
+  const fd=new FormData(bf),payload={};const base={};
+  fd.forEach((v,k)=>{if(['type','name','email','phone','message','hp'].includes(k))base[k]=v;else payload[k]=v;});
+  base.payload=payload;
+  try{const r=await fetch('{{ $apiBase }}/api/lead/{{ $slug }}',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(base)});
+    if(!r.ok)throw 0;bf.reset();ok.classList.remove('hidden');
+  }catch(e){er.classList.remove('hidden');}
+  finally{btn.disabled=false;btn.textContent=old;}
+});}
 </script>
 </body>
 </html>
