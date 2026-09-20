@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HostingController;
+use App\Http\Controllers\InvoicesController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\LeadsInboxController;
 use App\Http\Controllers\ProfileController;
@@ -34,6 +36,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Boîte de réception des demandes
     Route::get('/demandes', [LeadsInboxController::class, 'index'])->name('leads.index');
     Route::patch('/demandes/{lead}', [LeadsInboxController::class, 'update'])->name('leads.update');
+
+    // Hébergement & formules
+    Route::get('/hebergement', [HostingController::class, 'index'])->name('hosting.index');
+
+    // Factures
+    Route::get('/factures', [InvoicesController::class, 'index'])->name('invoices.index');
+    Route::get('/factures/{invoice}', [InvoicesController::class, 'show'])->name('invoices.show');
 
     // Éditeur de site (IA)
     Route::get('/sites/{slug}/editeur', [SiteEditorController::class, 'show'])->name('sites.editor');
