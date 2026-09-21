@@ -4,10 +4,23 @@
     $booking  = $booking ?? [];
     $editMode = $editMode ?? false;
     $font     = $font ?? null;
+    // ── Système de design sectoriel ──
+    $design    = $design ?? [];
+    $theme     = ($design['theme'] ?? 'light') === 'dark' ? 'dark' : 'light';
+    $heroStyle = in_array($design['hero'] ?? '', ['editorial', 'split', 'center'], true) ? $design['hero'] : 'editorial';
+    $stock     = array_values(array_filter($design['stock'] ?? []));
+    // ── Photos : celles de la fiche Google (déjà triées paysage/HD), complétées par la banque sectorielle ──
     $photos   = array_values(array_filter($b['photos'] ?? []));
-    $hero     = $images['hero'] ?? ($photos[0] ?? 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80');
-    $second   = $images['about'] ?? ($photos[1] ?? $hero);
-    $gallery  = array_values(array_filter($images['gallery'] ?? array_slice($photos, 2, 6)));
+    $pool     = array_values(array_unique(array_merge($photos, $stock)));
+    $hero     = $images['hero'] ?? ($pool[0] ?? 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80');
+    $second   = $images['about'] ?? ($pool[1] ?? $hero);
+    $gallery  = array_values(array_filter($images['gallery'] ?? array_slice($pool, 2, 6)));
+    // Miniature floutée (LQIP) dérivée de l'URL pour un chargement flou → net
+    $lqip = function (string $u): ?string {
+        if (str_contains($u, 'maxwidth=1600')) return str_replace('maxwidth=1600', 'maxwidth=48', $u);
+        if (str_contains($u, 'unsplash.com') && preg_match('/[?&]w=\d+/', $u)) return preg_replace('/([?&])w=\d+/', '$1w=40', $u);
+        return null;
+    };
     $phoneHref = !empty($b['phone']) ? 'tel:'.preg_replace('/\s/', '', $b['phone']) : '';
     $services = $c['services'] ?? [];
     $faq      = $c['faq'] ?? [];
@@ -69,8 +82,10 @@
 
     // Police d'affichage (Google Fonts)
     $fontsAllowed = ['Space Grotesk', 'Playfair Display', 'DM Serif Display', 'Sora', 'Poppins', 'Montserrat', 'Cormorant Garamond'];
-    $displayFont = in_array($font, $fontsAllowed, true) ? $font : 'Space Grotesk';
-    $fontParam = str_replace(' ', '+', $displayFont).':wght@500;600;700';
+    $sectorFont  = in_array($design['font'] ?? '', $fontsAllowed, true) ? $design['font'] : 'Space Grotesk';
+    $displayFont = in_array($font, $fontsAllowed, true) ? $font : $sectorFont;
+    $serif = in_array($displayFont, ['Playfair Display', 'DM Serif Display', 'Cormorant Garamond'], true);
+    $fontParam = str_replace(' ', '+', $displayFont).':wght@'.($serif ? '400;500;600;700' : '500;600;700');
 
     // Stats par défaut si l'IA n'en fournit pas
     if (!count($stats)) {
@@ -84,7 +99,7 @@
     }
 @endphp
 <!DOCTYPE html>
-<html lang="fr" class="scroll-smooth{{ $editMode ? ' joow-edit' : '' }}">
+<html lang="fr" class="scroll-smooth theme-{{ $theme }}{{ $editMode ? ' joow-edit' : '' }}">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{ $t('hero_title', $b['name'] ?? '') }} — {{ $b['name'] ?? '' }}{{ !empty($b['city']) ? ', '.$b['city'] : '' }}</title>
@@ -120,6 +135,41 @@
 ::selection{background:var(--c);color:#fff}
 html{scroll-padding-top:80px}
 main{display:flex;flex-direction:column}
+/* ── Première impression ── */
+@keyframes kb{from{transform:scale(1.12)}to{transform:scale(1)}}
+.kb{animation:kb 9s cubic-bezier(.22,1,.36,1) both}
+.lqip{background-size:cover;background-position:center;filter:blur(18px);transform:scale(1.1)}
+.hero-img{opacity:0;transition:opacity .9s ease}.hero-img.ready{opacity:1}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+.stagger>*{animation:rise .85s cubic-bezier(.22,1,.36,1) both}
+.stagger>*:nth-child(1){animation-delay:.15s}.stagger>*:nth-child(2){animation-delay:.3s}.stagger>*:nth-child(3){animation-delay:.45s}.stagger>*:nth-child(4){animation-delay:.6s}.stagger>*:nth-child(5){animation-delay:.75s}.stagger>*:nth-child(6){animation-delay:.9s}.stagger>*:nth-child(7){animation-delay:1.05s}
+.shine{position:relative;overflow:hidden}.shine::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s}.shine:hover::after{transform:translateX(120%)}
+.open-pill{display:inline-flex;align-items:center;gap:.5rem;border-radius:9999px;padding:.35rem .8rem;font-size:.8rem;font-weight:600;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px)}
+.open-dot{width:.5rem;height:.5rem;border-radius:9999px;background:#34d399;box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:pulse 2s infinite}
+.open-dot.off{background:#f87171;animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}70%{box-shadow:0 0 0 9px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+#joow-curtain{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:#07080e;transition:opacity .6s ease,visibility .6s}
+#joow-curtain.gone{opacity:0;visibility:hidden}
+#joow-curtain span{display:grid;place-items:center;width:64px;height:64px;border-radius:18px;color:#fff;font-size:1.6rem;background:var(--grad);animation:rise .6s both}
+.glow{pointer-events:none;position:absolute;inset:0;background:radial-gradient(520px circle at var(--mx,50%) var(--my,40%),color-mix(in srgb,var(--c) 28%,transparent),transparent 60%);opacity:.9}
+.hero-photo{border-radius:2rem;box-shadow:0 40px 80px -30px rgba(0,0,0,.7)}
+@media (prefers-reduced-motion:reduce){.kb,.stagger>*,#joow-curtain span{animation:none}.hero-img{opacity:1}}
+@if($theme === 'dark')
+/* ── Thème sombre sectoriel ── */
+body{background:#0b0b10;color:#e2e8f0}
+.bg-white{background:#12121a!important}.bg-slate-50{background:#0e0e15!important}.bg-slate-100{background:rgba(255,255,255,.08)!important}
+.bg-white\/95{background:rgba(11,11,16,.92)!important}
+.border-slate-100,.border-slate-200{border-color:rgba(255,255,255,.09)!important}
+.text-slate-800,.text-slate-900,.text-slate-700{color:#f1f5f9!important}
+.text-slate-600,.text-slate-500{color:#a1a1aa!important}.text-slate-400{color:#8b8b98!important}
+.text-slate-100{color:#f8fafc!important}
+.divide-slate-100>*+*{border-color:rgba(255,255,255,.08)!important}
+input,select,textarea{background:rgba(255,255,255,.04)!important;color:#f1f5f9!important;border-color:rgba(255,255,255,.12)!important;color-scheme:dark}
+.card-hover:hover{box-shadow:0 30px 60px -25px rgba(0,0,0,.8)!important}
+.hover\:shadow-2xl:hover,.shadow-xl,.shadow-2xl,.shadow-sm{--tw-shadow-color:rgba(0,0,0,.6)}
+#nav.bg-white\/95 #brand{color:#f8fafc!important}
+footer.bg-slate-900{background:#07070b!important}
+@endif
 @if($editMode)
 /* ── Mode édition (Studio Joow) ── */
 .joow-edit [data-edit]{cursor:text;border-radius:4px;outline:2px dashed transparent;outline-offset:3px;transition:outline-color .15s,background .15s}
@@ -138,6 +188,7 @@ main{display:flex;flex-direction:column}
 </style>
 </head>
 <body class="bg-white text-slate-800 antialiased">
+@if(!$editMode)<div id="joow-curtain" aria-hidden="true"><span><i class="fa-solid {{ $icon }}"></i></span></div>@endif
 
 <!-- NAV -->
 <nav id="nav" class="fixed inset-x-0 top-0 z-50 transition-all duration-300">
@@ -158,37 +209,75 @@ main{display:flex;flex-direction:column}
   </div>
 </nav>
 
-<!-- HERO -->
+<!-- HERO ({{ $heroStyle }}) -->
+@php $heroLq = $lqip($hero); $hoursJson = json_encode(array_values($hours), JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT); @endphp
 <header id="top" class="relative flex min-h-[100svh] items-center overflow-hidden" data-section="hero" data-label="Accueil">
-  <img src="{{ $hero }}" id="heroimg" class="absolute inset-0 h-[115%] w-full object-cover" alt="{{ $b['name'] ?? '' }}" fetchpriority="high">
+  <div class="absolute inset-0 overflow-hidden">
+    @if($heroLq)<div class="lqip absolute inset-0" style="background-image:url('{{ $heroLq }}')"></div>@endif
+    <div class="kb absolute inset-0"><img src="{{ $hero }}" id="heroimg" class="hero-img absolute inset-0 h-[115%] w-full object-cover" alt="{{ $b['name'] ?? '' }}" fetchpriority="high" decoding="async" onload="this.classList.add('ready')"></div>
+  </div>
   <div class="hero-ov absolute inset-0"></div>
   <div class="grain absolute inset-0"></div>
+  <div class="glow" id="heroglow"></div>
   <div class="pointer-events-none absolute -bottom-24 right-0 h-96 w-96 rounded-full blur-3xl" style="background:var(--grad);opacity:.28"></div>
   @if($editMode)<button type="button" class="joow-img-btn" style="right:1.25rem;bottom:1.25rem" data-edit-img="images.hero"><i class="fa-solid fa-image"></i> Changer la photo de fond</button>@endif
 
-  <div class="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 py-28 text-white lg:grid-cols-[1.15fr,.85fr]">
-    <div>
-      @if(!empty($b['rating']))
-      <div class="reveal on mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm backdrop-blur">
-        <span class="text-amber-400">{{ $stars($b['rating']) }}</span>
-        <span class="font-semibold">{{ $b['rating'] }}/5</span>
-        <span class="text-white/70">· {{ $b['reviews_count'] ?? 0 }} avis Google</span>
+  @php
+    $pills = '';
+  @endphp
+  <div class="relative mx-auto w-full max-w-6xl px-5 py-28 text-white {{ $heroStyle === 'center' ? 'max-w-4xl text-center' : 'grid items-center gap-10 lg:grid-cols-[1.15fr,.85fr]' }}">
+    <div class="stagger {{ $heroStyle === 'center' ? 'flex flex-col items-center' : '' }}">
+      <div class="mb-6 flex flex-wrap items-center gap-2 {{ $heroStyle === 'center' ? 'justify-center' : '' }}">
+        @if(!empty($b['rating']))
+        <div class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm backdrop-blur">
+          <span class="text-amber-400">{{ $stars($b['rating']) }}</span>
+          <span class="font-semibold">{{ $b['rating'] }}/5</span>
+          <span class="text-white/70">· {{ $b['reviews_count'] ?? 0 }} avis Google</span>
+        </div>
+        @endif
+        @if(count($hours))<span class="open-pill" id="open-pill" data-hours="{{ $hoursJson }}" style="display:none"><span class="open-dot"></span><span></span></span>@endif
       </div>
-      @endif
-      <p class="reveal on mb-3 text-sm font-bold uppercase tracking-[0.3em] accent" data-edit="content.tagline">{{ $t('tagline', $label) }}</p>
-      <h1 class="reveal on font-display text-[2.6rem] font-bold leading-[1.03] sm:text-6xl" data-edit="content.hero_title">{{ $t('hero_title', $b['name'] ?? '') }}</h1>
-      <p class="reveal on mt-5 max-w-xl text-lg text-white/80" data-edit="content.hero_subtitle">{{ $t('hero_subtitle', $tagline) }}</p>
-      <div class="reveal on mt-9 flex flex-wrap gap-4">
-        <a href="{{ $ctaHref }}" class="group rounded-xl bg-grad px-7 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="content.cta_label">{{ $ctaLabel }}</span> <i class="fa-solid fa-arrow-right ml-1 transition group-hover:translate-x-1"></i></a>
+      <p class="mb-3 text-sm font-bold uppercase tracking-[0.3em] accent" data-edit="content.tagline">{{ $t('tagline', $label) }}</p>
+      <h1 class="font-display font-bold {{ $serif ? 'text-[2.9rem] leading-[1.0] sm:text-7xl' : 'text-[2.6rem] leading-[1.03] sm:text-6xl' }} {{ $heroStyle === 'center' ? 'max-w-4xl' : '' }}" data-edit="content.hero_title">{{ $t('hero_title', $b['name'] ?? '') }}</h1>
+      <p class="mt-5 max-w-xl text-lg text-white/80 {{ $heroStyle === 'center' ? 'sm:text-xl' : '' }}" data-edit="content.hero_subtitle">{{ $t('hero_subtitle', $tagline) }}</p>
+      <div class="mt-9 flex flex-wrap gap-4 {{ $heroStyle === 'center' ? 'justify-center' : '' }}">
+        <a href="{{ $ctaHref }}" class="group shine rounded-xl bg-grad px-7 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="content.cta_label">{{ $ctaLabel }}</span> <i class="fa-solid fa-arrow-right ml-1 transition group-hover:translate-x-1"></i></a>
         @if($phoneHref)<a href="{{ $phoneHref }}" class="rounded-xl border-2 border-white/25 px-7 py-4 font-bold text-white backdrop-blur transition hover:bg-white/10"><i class="fa-solid fa-phone mr-2"></i><span data-edit="business.phone">{{ $b['phone'] }}</span></a>@endif
       </div>
       @if($badges)
-      <div class="reveal on mt-10 flex flex-wrap gap-x-7 gap-y-3">
+      <div class="mt-10 flex flex-wrap gap-x-7 gap-y-3 {{ $heroStyle === 'center' ? 'justify-center' : '' }}">
         @foreach(array_slice($badges,0,4) as $bi => $bd)<span class="flex items-center gap-2 text-sm text-white/85"><i class="fa-solid fa-circle-check accent"></i><span data-edit="content.badges.{{ $bi }}">{{ $bd }}</span></span>@endforeach
+      </div>
+      @endif
+      @if($heroStyle === 'center' && count($stats))
+      <div class="mt-12 grid w-full max-w-2xl grid-cols-3 gap-4 border-t border-white/15 pt-8">
+        @foreach($stats as $si => $st)
+        <div><p class="font-display text-2xl font-bold text-white sm:text-3xl" data-count data-edit="content.stats.{{ $si }}.v">{{ $st['v'] }}</p><p class="mt-1 text-xs text-white/65" data-edit="content.stats.{{ $si }}.l">{{ $st['l'] }}</p></div>
+        @endforeach
       </div>
       @endif
     </div>
 
+    @if($heroStyle === 'split')
+    <!-- Photo éditoriale -->
+    <div class="reveal on hidden lg:block">
+      <div class="floaty relative">
+        <img src="{{ $second }}" class="hero-photo aspect-[4/5] w-full object-cover" alt="{{ $b['name'] ?? '' }}" loading="eager" decoding="async" @if($editMode) data-edit-img="images.about" @endif>
+        @if(!empty($b['rating']))
+        <div class="absolute -bottom-5 -left-6 rounded-2xl bg-white p-4 text-slate-900 shadow-2xl">
+          <div class="text-amber-500">{{ $stars($b['rating']) }}</div>
+          <p class="mt-0.5 font-display text-2xl font-bold" data-count>{{ $b['rating'] }}<span class="text-sm font-medium text-slate-400">/5</span></p>
+          <p class="text-xs text-slate-500">{{ $b['reviews_count'] ?? 0 }} avis Google</p>
+        </div>
+        @endif
+        @if(count($stats))
+        <div class="absolute -right-4 top-6 rounded-2xl bg-white/10 px-4 py-3 text-white backdrop-blur-xl border border-white/15 shadow-xl">
+          <p class="font-display text-xl font-bold" data-count data-edit="content.stats.0.v">{{ $stats[0]['v'] }}</p><p class="text-[11px] text-white/70" data-edit="content.stats.0.l">{{ $stats[0]['l'] }}</p>
+        </div>
+        @endif
+      </div>
+    </div>
+    @elseif($heroStyle === 'editorial')
     <!-- Carte flottante -->
     <div class="reveal on hidden lg:block">
       <div class="floaty rounded-3xl border border-white/15 bg-white/10 p-6 backdrop-blur-xl shadow-2xl">
@@ -201,12 +290,13 @@ main{display:flex;flex-direction:column}
         </div>
         <div class="grid grid-cols-3 gap-3 py-5 text-center">
           @foreach($stats as $si => $st)
-          <div><p class="font-display text-xl font-bold text-white" data-edit="content.stats.{{ $si }}.v">{{ $st['v'] }}</p><p class="mt-0.5 text-[11px] leading-tight text-white/65" data-edit="content.stats.{{ $si }}.l">{{ $st['l'] }}</p></div>
+          <div><p class="font-display text-xl font-bold text-white" data-count data-edit="content.stats.{{ $si }}.v">{{ $st['v'] }}</p><p class="mt-0.5 text-[11px] leading-tight text-white/65" data-edit="content.stats.{{ $si }}.l">{{ $st['l'] }}</p></div>
           @endforeach
         </div>
         @if($phoneHref)<a href="{{ $phoneHref }}" class="flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-white/90"><i class="fa-solid fa-phone accent"></i>Appeler maintenant</a>@endif
       </div>
     </div>
+    @endif
   </div>
 
   <a href="#services" class="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 transition hover:text-white"><i class="fa-solid fa-chevron-down animate-bounce"></i></a>
@@ -607,6 +697,33 @@ const onScroll=()=>{const s=scrollY>40;
 onScroll();addEventListener('scroll',onScroll,{passive:true});
 const io=new IntersectionObserver(e=>e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('on');io.unobserve(x.target)}}),{threshold:.12});
 document.querySelectorAll('.reveal:not(.on)').forEach(el=>io.observe(el));
+
+// ── Première impression : rideau, halo curseur, compteurs, "Ouvert maintenant"
+const cur=document.getElementById('joow-curtain');
+if(cur){const hide=()=>cur.classList.add('gone');(document.readyState==='complete')?setTimeout(hide,200):addEventListener('load',()=>setTimeout(hide,200));setTimeout(hide,2200);}
+const hg=document.getElementById('heroglow'),hd=document.getElementById('top');
+if(hg&&hd&&matchMedia('(pointer:fine)').matches){hd.addEventListener('pointermove',e=>{const r=hd.getBoundingClientRect();hg.style.setProperty('--mx',((e.clientX-r.left)/r.width*100)+'%');hg.style.setProperty('--my',((e.clientY-r.top)/r.height*100)+'%');},{passive:true});}
+document.querySelectorAll('[data-count]').forEach(el=>{
+  const node=[...el.childNodes].find(n=>n.nodeType===3&&n.textContent.trim())||el.firstChild;if(!node)return;
+  const t=node.textContent.trim(),m=t.match(/^([^\d]*)(\d+(?:[.,]\d+)?)(.*)$/);if(!m)return;
+  const end=parseFloat(m[2].replace(',','.')),dec=(m[2].split(/[.,]/)[1]||'').length,sep=m[2].includes(',')?',':'.',st=performance.now(),dur=1500;
+  const tick=n=>{const p=Math.min((n-st)/dur,1),v=end*(1-Math.pow(1-p,3));node.textContent=m[1]+(dec?v.toFixed(dec).replace('.',sep):Math.round(v))+m[3];if(p<1)requestAnimationFrame(tick);};
+  setTimeout(()=>requestAnimationFrame(tick),500);
+});
+const op=document.getElementById('open-pill');
+if(op){try{
+  const hours=JSON.parse(op.dataset.hours||'[]'),days=['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'],now=new Date();
+  const line=hours.find(h=>h.toLowerCase().startsWith(days[now.getDay()]));
+  if(line){const txt=line.split(':').slice(1).join(':');
+    const ranges=[...txt.matchAll(/(\d{1,2})[:h](\d{2})\s*[–—-]\s*(\d{1,2})[:h](\d{2})/g)].map(m=>[+m[1]*60+ +m[2],+m[3]*60+ +m[4]]);
+    const c=now.getHours()*60+now.getMinutes(),fmt=v=>String(Math.floor((v%1440)/60)).padStart(2,'0')+'h'+String(v%60).padStart(2,'0');
+    let open=false,label='';
+    if(/24\s*h/i.test(txt)){open=true;label='Ouvert 24h/24';}
+    else{for(const [a,b] of ranges){const bb=b<=a?b+1440:b;if(c>=a&&c<bb){open=true;label='Ouvert · ferme à '+fmt(b);break;}}
+      if(!open){const next=ranges.find(([a])=>a>c);label=ranges.length?(next?'Fermé · ouvre à '+fmt(next[0]):'Fermé · à demain'):'Fermé aujourd\'hui';}}
+    op.querySelector('.open-dot').classList.toggle('off',!open);op.lastElementChild.textContent=label;op.style.display='inline-flex';
+  }
+}catch(e){}}
 
 // Réservation / RDV / devis -> API Joow
 const bf=document.getElementById('joow-book');

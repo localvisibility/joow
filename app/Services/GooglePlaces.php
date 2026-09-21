@@ -132,10 +132,15 @@ class GooglePlaces
                 'rating' => $rv['rating'] ?? 5,
                 'text'   => $rv['text'] ?? '',
             ])->take(6)->values()->all(),
-            'photos'        => collect($r['photos'] ?? [])->take(10)->map(
-                fn ($p) => 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=1600&photo_reference='
-                    .$p['photo_reference'].'&key='.$this->key
-            )->all(),
+            // Photos triées pour la première impression : paysage et haute résolution d'abord,
+            // les visuels trop petits (< 800 px) sont écartés.
+            'photos'        => collect($r['photos'] ?? [])
+                ->filter(fn ($p) => (int) ($p['width'] ?? 0) >= 800)
+                ->sortByDesc(fn ($p) => (($p['width'] ?? 0) >= ($p['height'] ?? 1) ? 1_000_000_000 : 0) + (int) ($p['width'] ?? 0) * (int) ($p['height'] ?? 0))
+                ->take(10)->values()->map(
+                    fn ($p) => 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=1600&photo_reference='
+                        .$p['photo_reference'].'&key='.$this->key
+                )->all(),
         ];
     }
 }

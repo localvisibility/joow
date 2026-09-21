@@ -375,7 +375,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     <div>
                         <p class="font-display font-bold text-white">Police des titres</p>
                         <div class="mt-3 grid grid-cols-2 gap-2">
-                            <button v-for="f in fonts" :key="f" @click="setFont(f)" class="rounded-xl border px-3 py-2.5 text-left text-sm transition" :class="(st.font||'Space Grotesk')===f ? 'border-brand-400 bg-brand-500/10 text-white' : 'border-white/10 text-slate-300 hover:border-white/25'" :style="{ fontFamily: `'${f}', sans-serif` }">{{ f }}</button>
+                            <button v-for="f in fonts" :key="f" @click="setFont(f)" class="rounded-xl border px-3 py-2.5 text-left text-sm transition" :class="(st.font||st.defaults?.font||'Space Grotesk')===f ? 'border-brand-400 bg-brand-500/10 text-white' : 'border-white/10 text-slate-300 hover:border-white/25'" :style="{ fontFamily: `'${f}', sans-serif` }">{{ f }}</button>
                         </div>
                     </div>
                     <p class="text-xs text-slate-500">Les changements de style s'appliquent à tout le site instantanément.</p>

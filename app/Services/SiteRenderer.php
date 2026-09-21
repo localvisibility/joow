@@ -52,6 +52,13 @@ class SiteRenderer
             'mapsKey'  => (string) config('services.google_places.key'),
             'slug'     => $site->slug,
             'editMode' => $editMode,
+            // Système de design sectoriel (police, thème, mise en page du hero, photos de secours)
+            'design'   => [
+                'font'  => $cfg['font'] ?? 'Space Grotesk',
+                'theme' => $data['theme'] ?? ($cfg['theme'] ?? 'light'),
+                'hero'  => $data['hero_style'] ?? ($cfg['hero'] ?? 'editorial'),
+                'stock' => $cfg['stock'] ?? [],
+            ],
         ])->render();
     }
 

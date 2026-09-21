@@ -40,8 +40,8 @@ Extraits d'avis clients :
 
 Réponds UNIQUEMENT avec un JSON valide de cette forme exacte :
 {
-  "hero_title": "titre d'accroche fort et spécifique au métier (max 8 mots, PAS juste le nom de l'établissement)",
-  "hero_subtitle": "sous-titre percutant qui donne envie (max 18 mots)",
+  "hero_title": "accroche émotionnelle et spécifique (max 7 mots) : évoque une sensation, la spécialité ou le lieu. INTERDIT : 'Bienvenue', 'qualité', 'professionnel', 'votre partenaire', le nom de l'établissement seul",
+  "hero_subtitle": "sous-titre concret qui donne envie d'agir : ce qu'on y trouve, pour qui, où (max 18 mots)",
   "tagline": "slogan court (max 6 mots)",
   "about_p1": "1er paragraphe présentation, concret et rassurant (2-3 phrases)",
   "about_p2": "2e paragraphe, sur l'engagement / la méthode (2-3 phrases)",

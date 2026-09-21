@@ -29,7 +29,8 @@ for (const f of files) {
     const el = document.querySelector('.bg-grad'); if (!el) return false;
     return getComputedStyle(el).backgroundImage.includes('gradient');
   }, { timeout: 15000 }); } catch {}
-  await page.waitForTimeout(1500);
+  try { await page.waitForSelector('.hero-img.ready', { timeout: 20000 }); } catch {}
+  await page.waitForTimeout(9500);
   // capture hero (haut de page)
   await page.screenshot({ path: path.join(OUT, `${name}.webp`), type: 'webp', quality: 82, clip: { x: 0, y: 0, width: 1440, height: 900 } });
   console.log('shot', name);

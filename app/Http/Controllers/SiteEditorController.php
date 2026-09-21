@@ -238,7 +238,7 @@ class SiteEditorController extends Controller
             'accent'   => $d['accent'] ?? $cfg['color'],
             'font'     => $d['font'] ?? null,
             'modules'  => $site->modules ?: ['booking' => true],
-            'defaults' => ['cta' => $cfg['cta'], 'label' => $cfg['label'], 'color' => $cfg['color']],
+            'defaults' => ['cta' => $cfg['cta'], 'label' => $cfg['label'], 'color' => $cfg['color'], 'font' => $cfg['font'] ?? 'Space Grotesk', 'theme' => $cfg['theme'] ?? 'light'],
             'live_url' => 'https://'.$site->slug.'.joow.fr',
             'version'  => optional($site->updated_at)->timestamp ?? now()->timestamp,
         ];
