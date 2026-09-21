@@ -20,7 +20,7 @@ use Inertia\Inertia;
 class SiteEditorController extends Controller
 {
     /** Chemins modifiables (préfixes) dans site_data. */
-    private const EDITABLE_PREFIXES = ['content.', 'images.', 'booking.', 'business.name', 'business.phone', 'business.address', 'business.email', 'business.opening_hours'];
+    private const EDITABLE_PREFIXES = ['content.', 'images.', 'booking.', 'form.', 'business.name', 'business.phone', 'business.address', 'business.email', 'business.opening_hours'];
 
     public function show(Request $request, string $slug)
     {
@@ -235,6 +235,8 @@ class SiteEditorController extends Controller
             'photos'   => array_values(array_filter($b['photos'] ?? [])),
             'images'   => $d['images'] ?? [],
             'booking'  => $d['booking'] ?? [],
+            'form'         => $d['form'] ?? (config("forms.$sector") ?? config('forms.default')),
+            'form_default' => config("forms.$sector") ?? config('forms.default'),
             'accent'   => $d['accent'] ?? $cfg['color'],
             'font'     => $d['font'] ?? null,
             'modules'  => $site->modules ?: ['booking' => true],

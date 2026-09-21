@@ -173,6 +173,25 @@ const toggleModule = async () => {
 const setBookingType = (t) => edit('booking.type', t || null, { reload: true });
 const setHours = (txt) => edit('business.opening_hours', txt.split('\n').map((l) => l.trim()).filter(Boolean), { reload: true });
 
+/* ───────────── constructeur de formulaire ───────────── */
+const FIELD_TYPES = [['cards', 'Choix illustré (cartes)'], ['chips', 'Multi-choix (pastilles)'], ['toggle', 'Bascule (un seul choix)'], ['select', 'Liste déroulante'], ['text', 'Texte court'], ['textarea', 'Texte long'], ['date', 'Date'], ['time', 'Heure'], ['number', 'Nombre'], ['phone', 'Téléphone'], ['email', 'Email']];
+const slugify = (s) => (s || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'champ';
+const openStep = ref(0);
+let formTimer = null;
+const commitForm = () => { clearTimeout(formTimer); formTimer = setTimeout(() => edit('form', JSON.parse(JSON.stringify(st.value.form)), { reload: true }), 700); };
+const fSteps = computed(() => st.value?.form?.steps || []);
+const addStep = () => { st.value.form.steps.splice(Math.max(0, fSteps.value.length - 1), 0, { title: 'Nouvelle étape', icon: 'fa-list-check', fields: [] }); openStep.value = Math.max(0, fSteps.value.length - 2); commitForm(); };
+const removeStep = (i) => { if (fSteps.value[i]?.contact) return; st.value.form.steps.splice(i, 1); commitForm(); };
+const moveStep = (i, d) => { const s = st.value.form.steps; const j = i + d; if (j < 0 || j >= s.length || s[i].contact || s[j].contact) return; [s[i], s[j]] = [s[j], s[i]]; openStep.value = j; commitForm(); };
+const addField = (i, type = 'text') => { const f = { type, key: 'champ_' + Date.now().toString(36), label: 'Nouveau champ', required: false }; if (type === 'cards') f.options = [{ label: 'Option 1', desc: '', icon: 'fa-circle-check' }, { label: 'Option 2', desc: '', icon: 'fa-circle-check' }]; else if (['chips', 'toggle', 'select'].includes(type)) f.options = ['Option 1', 'Option 2']; st.value.form.steps[i].fields.push(f); commitForm(); };
+const removeField = (i, j) => { st.value.form.steps[i].fields.splice(j, 1); commitForm(); };
+const moveField = (i, j, d) => { const a = st.value.form.steps[i].fields; const k = j + d; if (k < 0 || k >= a.length) return; [a[j], a[k]] = [a[k], a[j]]; commitForm(); };
+const setFieldLabel = (f, v) => { f.label = v; if (!['name', 'phone', 'email', 'message'].includes(f.key)) f.key = slugify(v); commitForm(); };
+const setFieldType = (f, t) => { f.type = t; if (t === 'cards') f.options = (f.options || []).map((o) => typeof o === 'string' ? { label: o, desc: '', icon: 'fa-circle-check' } : o); else if (['chips', 'toggle', 'select'].includes(t)) f.options = (f.options || []).map((o) => typeof o === 'string' ? o : o.label); else delete f.options; if (!f.options?.length && ['cards', 'chips', 'toggle', 'select'].includes(t)) f.options = t === 'cards' ? [{ label: 'Option 1', desc: '', icon: 'fa-circle-check' }] : ['Option 1']; commitForm(); };
+const optionsText = (f) => (f.options || []).map((o) => typeof o === 'string' ? o : [o.label, o.desc || '', o.icon || ''].join(' | ')).join('\n');
+const setOptions = (f, txt) => { const lines = txt.split('\n').map((l) => l.trim()).filter(Boolean); f.options = f.type === 'cards' ? lines.map((l) => { const [label, desc, icon] = l.split('|').map((x) => x.trim()); return { label, desc: desc || '', icon: icon || 'fa-circle-check' }; }) : lines; commitForm(); };
+const restoreForm = () => { if (!confirm('Restaurer le modèle du métier ? Vos modifications du formulaire seront perdues.')) return; st.value.form = JSON.parse(JSON.stringify(st.value.form_default)); openStep.value = 0; commitForm(); };
+
 /* ───────────── publication ───────────── */
 const publishing = ref(false);
 const publish = async () => {
@@ -330,20 +349,69 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                 <label class="flex items-center justify-between text-sm text-slate-300">Module activé
                                     <button type="button" @click="toggleModule" :class="st.modules.booking ? 'bg-brand-500' : 'bg-white/10'" class="relative h-6 w-11 rounded-full transition"><span :class="st.modules.booking ? 'translate-x-5' : 'translate-x-0.5'" class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition"></span></button>
                                 </label>
-                                <label class="lbl">Type de formulaire
-                                    <select class="fld" :value="st.booking?.type || ''" @change="setBookingType($event.target.value)">
-                                        <option value="">Automatique (selon le métier)</option>
-                                        <option value="reservation">Réservation (date, heure, couverts)</option>
-                                        <option value="rdv">Rendez-vous (date, moment)</option>
-                                        <option value="devis">Devis (description du projet)</option>
-                                    </select>
-                                </label>
                                 <label class="lbl">Titre<input class="fld" :value="st.booking?.title || ''" placeholder="Automatique" @change="edit('booking.title',$event.target.value)" /></label>
                                 <label class="lbl">Sous-titre<input class="fld" :value="st.booking?.sub || ''" placeholder="Automatique" @change="edit('booking.sub',$event.target.value)" /></label>
-                                <label class="lbl">Texte du bouton<input class="fld" :value="st.booking?.cta || ''" placeholder="Automatique" @change="edit('booking.cta',$event.target.value)" /></label>
-                                <label class="lbl">Argument 1<input class="fld" :value="st.booking?.point1 || ''" placeholder="Réponse rapide, sans engagement" @change="edit('booking.point1',$event.target.value)" /></label>
-                                <label class="lbl">Argument 2<input class="fld" :value="st.booking?.point2 || ''" placeholder="Vos informations restent confidentielles" @change="edit('booking.point2',$event.target.value)" /></label>
-                                <p class="text-xs text-slate-500">Les demandes arrivent dans <Link :href="route('leads.index')" class="text-brand-400">Demandes</Link> et par email.</p>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label class="lbl">Argument 1<input class="fld" :value="st.booking?.point1 || ''" placeholder="Réponse rapide" @change="edit('booking.point1',$event.target.value)" /></label>
+                                    <label class="lbl">Argument 2<input class="fld" :value="st.booking?.point2 || ''" placeholder="Confidentiel" @change="edit('booking.point2',$event.target.value)" /></label>
+                                </div>
+
+                                <!-- ── Constructeur de formulaire ── -->
+                                <div v-if="st.form" class="mt-2 rounded-xl border border-brand-500/30 bg-brand-500/[0.05] p-3">
+                                    <div class="mb-2 flex items-center justify-between">
+                                        <p class="text-sm font-bold text-white">🧩 Formulaire multi-étapes</p>
+                                        <button @click="restoreForm" class="text-[11px] text-slate-400 hover:text-white">Restaurer le modèle du métier</button>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="lbl">Type de demande
+                                            <select class="fld" :value="st.form.type" @change="st.form.type=$event.target.value; edit('booking.type',$event.target.value); commitForm()">
+                                                <option value="reservation">Réservation</option><option value="rdv">Rendez-vous</option><option value="devis">Devis</option><option value="contact">Contact</option>
+                                            </select>
+                                        </label>
+                                        <label class="lbl">Bouton d'envoi<input class="fld" :value="st.form.cta" @change="st.form.cta=$event.target.value; commitForm()" /></label>
+                                        <label class="lbl">Délai annoncé<input class="fld" :value="st.form.delay" placeholder="Réponse sous 24h" @change="st.form.delay=$event.target.value; commitForm()" /></label>
+                                        <label class="lbl col-span-2">Message de succès<input class="fld" :value="st.form.success" @change="st.form.success=$event.target.value; commitForm()" /></label>
+                                    </div>
+
+                                    <div v-for="(stp,i) in fSteps" :key="i" class="mt-3 rounded-lg border border-white/[0.08] bg-ink-900/60">
+                                        <div class="flex items-center gap-2 px-3 py-2">
+                                            <button @click="openStep = openStep===i ? -1 : i" class="flex-1 text-left text-sm font-semibold text-white"><span class="mr-1.5 rounded bg-white/10 px-1.5 text-[11px]">{{ i+1 }}</span>{{ stp.title }}<span v-if="stp.contact" class="ml-2 text-[10px] font-normal text-slate-500">(coordonnées · fixe)</span></button>
+                                            <template v-if="!stp.contact">
+                                                <button @click="moveStep(i,-1)" class="text-xs text-slate-500 hover:text-white">▲</button>
+                                                <button @click="moveStep(i,1)" class="text-xs text-slate-500 hover:text-white">▼</button>
+                                                <button @click="removeStep(i)" class="text-xs text-slate-500 hover:text-rose-300">✕</button>
+                                            </template>
+                                        </div>
+                                        <div v-if="openStep===i" class="space-y-2 border-t border-white/[0.06] p-3">
+                                            <div class="grid grid-cols-[1fr,110px] gap-2">
+                                                <input class="fld" :value="stp.title" placeholder="Titre de l'étape" @change="stp.title=$event.target.value; commitForm()" />
+                                                <input class="fld font-mono text-xs" :value="stp.icon" placeholder="fa-icon" @change="stp.icon=$event.target.value; commitForm()" />
+                                            </div>
+                                            <div v-for="(f,j) in stp.fields" :key="j" class="rounded-lg border border-white/[0.06] bg-white/[0.02] p-2.5">
+                                                <div class="flex items-center gap-1.5">
+                                                    <input class="fld flex-1" :value="f.label" placeholder="Intitulé du champ" @change="setFieldLabel(f,$event.target.value)" />
+                                                    <button @click="moveField(i,j,-1)" class="text-xs text-slate-500 hover:text-white">▲</button>
+                                                    <button @click="moveField(i,j,1)" class="text-xs text-slate-500 hover:text-white">▼</button>
+                                                    <button v-if="!['name','phone'].includes(f.key)" @click="removeField(i,j)" class="text-xs text-slate-500 hover:text-rose-300">✕</button>
+                                                </div>
+                                                <div class="mt-1.5 grid grid-cols-[1fr,auto] items-center gap-2">
+                                                    <select class="fld" :value="f.type" @change="setFieldType(f,$event.target.value)"><option v-for="t in FIELD_TYPES" :key="t[0]" :value="t[0]">{{ t[1] }}</option></select>
+                                                    <label class="flex items-center gap-1.5 text-xs text-slate-300"><input type="checkbox" :checked="!!f.required" @change="f.required=$event.target.checked; commitForm()" class="h-3.5 w-3.5 rounded border-white/20 bg-white/5" /> Obligatoire</label>
+                                                </div>
+                                                <input v-if="['text','textarea','number','phone','email'].includes(f.type)" class="fld mt-1.5" :value="f.placeholder || ''" placeholder="Texte d'aide (placeholder)" @change="f.placeholder=$event.target.value; commitForm()" />
+                                                <div v-if="['cards','chips','toggle','select'].includes(f.type)" class="mt-1.5">
+                                                    <textarea class="fld" rows="3" :value="optionsText(f)" @change="setOptions(f,$event.target.value)" :placeholder="f.type==='cards' ? 'Une option par ligne : Libellé | description | fa-icone' : 'Une option par ligne'"></textarea>
+                                                    <p class="mt-1 text-[10px] text-slate-500">{{ f.type==='cards' ? 'Format : Libellé | description courte | icône Font Awesome (ex. fa-utensils)' : 'Une option par ligne' }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="flex flex-wrap gap-1.5 pt-1">
+                                                <button v-for="t in [['cards','+ Cartes'],['chips','+ Pastilles'],['toggle','+ Bascule'],['text','+ Texte'],['date','+ Date'],['number','+ Nombre']]" :key="t[0]" @click="addField(i,t[0])" class="rounded-md border border-white/10 px-2 py-1 text-[11px] text-slate-300 hover:border-brand-400 hover:text-white">{{ t[1] }}</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button @click="addStep" class="mt-2 w-full rounded-lg border border-dashed border-white/15 py-2 text-xs font-semibold text-slate-300 hover:border-brand-400 hover:text-white">+ Ajouter une étape</button>
+                                </div>
+                                <p class="text-xs text-slate-500">Les demandes arrivent dans <Link :href="route('leads.index')" class="text-brand-400">Demandes</Link> et par email, avec toutes les réponses.</p>
                             </template>
 
                             <!-- CONTACT -->

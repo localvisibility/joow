@@ -154,6 +154,60 @@ main{display:flex;flex-direction:column}
 .glow{pointer-events:none;position:absolute;inset:0;background:radial-gradient(520px circle at var(--mx,50%) var(--my,40%),color-mix(in srgb,var(--c) 28%,transparent),transparent 60%);opacity:.9}
 .hero-photo{border-radius:2rem;box-shadow:0 40px 80px -30px rgba(0,0,0,.7)}
 @media (prefers-reduced-motion:reduce){.kb,.stagger>*,#joow-curtain span{animation:none}.hero-img{opacity:1}}
+/* ── Formulaire multi-étapes ── */
+.jw-progress{display:flex;gap:.5rem}
+.jw-pstep{flex:1;display:flex;align-items:center;gap:.5rem;min-width:0;opacity:.45;transition:opacity .3s}
+.jw-pstep.active{opacity:1}
+.jw-pnum{display:grid;place-items:center;width:1.6rem;height:1.6rem;border-radius:9999px;font-size:.75rem;font-weight:800;background:#e2e8f0;color:#334155;flex-shrink:0;transition:.3s}
+.jw-pstep.active .jw-pnum{background:var(--grad);color:#fff;box-shadow:0 8px 20px -8px color-mix(in srgb,var(--c) 70%,transparent)}
+.jw-pstep.done .jw-pnum{background:var(--c);color:#fff}
+.jw-ptitle{font-size:.78rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jw-bar{height:4px;border-radius:9999px;background:#e2e8f0;margin-top:.9rem;overflow:hidden}
+.jw-bar-fill{height:100%;background:var(--grad);border-radius:9999px;transition:width .5s cubic-bezier(.22,1,.36,1)}
+.jw-step{display:none}.jw-step.active{display:block;animation:rise .5s cubic-bezier(.22,1,.36,1) both}
+.jw-h{font-family:'{{ $displayFont }}',sans-serif;font-size:1.35rem;font-weight:700;margin-bottom:1.1rem;display:flex;align-items:center;gap:.6rem}
+.jw-label{display:block;font-size:.85rem;font-weight:700;color:#334155;margin-bottom:.55rem}
+.jw-input{width:100%;border-radius:.85rem;border:1.5px solid #e2e8f0;padding:.8rem 1rem;font-size:.95rem;outline:none;background:#fff;transition:border-color .2s,box-shadow .2s}
+.jw-input:focus{border-color:var(--c);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 18%,transparent)}
+.jw-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+@media(min-width:640px){.jw-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.jw-card{display:flex;flex-direction:column;align-items:flex-start;gap:.25rem;text-align:left;padding:.9rem;border-radius:1rem;border:1.5px solid #e2e8f0;background:#fff;cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s,background .2s}
+.jw-card i{display:grid;place-items:center;width:2.2rem;height:2.2rem;border-radius:.7rem;background:color-mix(in srgb,var(--c) 12%,#fff);color:var(--c);margin-bottom:.35rem;transition:.2s}
+.jw-card:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--c) 45%,#e2e8f0);box-shadow:0 14px 30px -18px rgba(15,23,42,.35)}
+.jw-card.sel{border-color:var(--c);background:color-mix(in srgb,var(--c) 7%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 18%,transparent)}
+.jw-card.sel i{background:var(--grad);color:#fff}
+.jw-card-l{font-weight:700;font-size:.92rem;line-height:1.2}.jw-card-d{font-size:.75rem;color:#64748b;line-height:1.3}
+.jw-chips,.jw-toggle{display:flex;flex-wrap:wrap;gap:.5rem}
+.jw-chip,.jw-tg{padding:.55rem .95rem;border-radius:9999px;border:1.5px solid #e2e8f0;background:#fff;font-size:.88rem;font-weight:600;color:#334155;cursor:pointer;transition:.2s}
+.jw-chip:hover,.jw-tg:hover{border-color:color-mix(in srgb,var(--c) 45%,#e2e8f0)}
+.jw-chip.sel,.jw-tg.sel{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 10px 24px -12px color-mix(in srgb,var(--c) 70%,transparent)}
+.jw-tg{border-radius:.8rem}
+.jw-err{display:none;margin-top:.4rem;font-size:.78rem;color:#e11d48;font-weight:600}
+.jw-invalid .jw-err{display:block}.jw-invalid .jw-input,.jw-invalid .jw-card,.jw-invalid .jw-chip,.jw-invalid .jw-tg{border-color:#fda4af}
+.jw-recap{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1.1rem}
+.jw-recap span{font-size:.78rem;background:color-mix(in srgb,var(--c) 9%,#fff);color:#334155;border-radius:9999px;padding:.35rem .7rem}
+.jw-recap b{color:var(--c);margin-right:.25rem}
+.jw-nav{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-top:1.5rem}
+.jw-back{background:none;border:0;color:#64748b;font-weight:600;cursor:pointer;padding:.7rem .4rem}
+.jw-back:hover{color:#0f172a}
+.jw-next{margin-left:auto;display:inline-flex;align-items:center;gap:.5rem;padding:.95rem 1.6rem;border-radius:.9rem;border:0;color:#fff;font-weight:800;cursor:pointer;box-shadow:0 20px 45px -20px color-mix(in srgb,var(--c) 70%,transparent);transition:transform .2s}
+.jw-next:hover{transform:translateY(-2px)}.jw-next:disabled{opacity:.6;transform:none}
+.jw-foot{margin-top:1rem;text-align:center;font-size:.75rem;color:#64748b}
+.jw-success{text-align:center;padding:1.5rem .5rem;animation:rise .6s both}
+.jw-success h3{font-size:1.6rem;font-weight:700;margin:1rem 0 .4rem}.jw-success p{color:#64748b;max-width:26rem;margin:0 auto}
+.jw-call{display:inline-flex;align-items:center;gap:.5rem;margin-top:1.2rem;font-weight:700;color:var(--c)}
+.jw-check{width:86px;height:86px;margin:0 auto}
+.jw-check svg{width:100%;height:100%;stroke:var(--c);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.jw-check circle{stroke-dasharray:160;stroke-dashoffset:160;animation:draw .8s ease forwards}
+.jw-check path{stroke-dasharray:40;stroke-dashoffset:40;animation:draw .5s ease .6s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.theme-dark .jw-card,.theme-dark .jw-chip,.theme-dark .jw-tg,.theme-dark .jw-input{background:#181822;border-color:rgba(255,255,255,.1);color:#f1f5f9}
+.theme-dark .jw-card i{background:color-mix(in srgb,var(--c) 22%,#181822)}
+.theme-dark .jw-card.sel{background:color-mix(in srgb,var(--c) 16%,#181822)}
+.theme-dark .jw-card-d,.theme-dark .jw-foot,.theme-dark .jw-back,.theme-dark .jw-success p{color:#a1a1aa}
+.theme-dark .jw-label,.theme-dark .jw-chip,.theme-dark .jw-tg{color:#e2e8f0}
+.theme-dark .jw-pnum{background:rgba(255,255,255,.1);color:#e2e8f0}.theme-dark .jw-bar{background:rgba(255,255,255,.1)}
+.theme-dark .jw-recap span{background:rgba(255,255,255,.07);color:#e2e8f0}
 @if($theme === 'dark')
 /* ── Thème sombre sectoriel ── */
 body{background:#0b0b10;color:#e2e8f0}
@@ -590,35 +644,75 @@ footer.bg-slate-900{background:#07070b!important}
       </ul>
     </div>
 
-    <div class="reveal rounded-[2rem] border border-slate-100 bg-white p-7 shadow-xl sm:p-9">
-      <form id="joow-book" class="space-y-4">
-        <input type="hidden" name="type" value="{{ $bt }}">
+    @php
+      $form   = $form ?? (config('forms.'.$sector) ?? config('forms.default'));
+      $fSteps = array_values(array_filter($form['steps'] ?? [], fn($s) => is_array($s)));
+      $fType  = in_array($form['type'] ?? '', ['reservation', 'rdv', 'devis', 'contact'], true) ? $form['type'] : $bt;
+      $wide   = ['cards', 'chips', 'toggle', 'textarea'];
+    @endphp
+    <!-- Formulaire multi-étapes (modèle métier, personnalisable dans le Studio) -->
+    <div class="reveal jw rounded-[2rem] border border-slate-100 bg-white p-6 shadow-xl sm:p-8" id="joow-wizard" data-type="{{ $fType }}" data-success="{{ $form['success'] ?? 'Merci ! Votre demande est bien envoyée.' }}">
+      <div class="jw-progress">
+        @foreach($fSteps as $i => $stp)
+        <div class="jw-pstep{{ $i === 0 ? ' active' : '' }}"><span class="jw-pnum">{{ $i + 1 }}</span><span class="jw-ptitle">{{ $stp['title'] ?? 'Étape '.($i+1) }}</span></div>
+        @endforeach
+      </div>
+      <div class="jw-bar"><div class="jw-bar-fill" style="width:{{ count($fSteps) ? round(100 / count($fSteps)) : 100 }}%"></div></div>
+
+      <form id="joow-form" class="mt-6" novalidate>
         <input type="text" name="hp" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
-
-        @if($bt === 'reservation')
-        <div class="grid gap-4 sm:grid-cols-3">
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Date</span><input name="date" type="date" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Heure</span><input name="heure" type="time" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">{{ $partyLabel }}</span><input name="{{ strtolower($partyLabel) }}" type="number" min="1" value="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+        @foreach($fSteps as $i => $stp)
+        <div class="jw-step{{ $i === 0 ? ' active' : '' }}" data-step="{{ $i }}">
+          <h3 class="jw-h">@if(!empty($stp['icon']))<i class="fa-solid {{ $stp['icon'] }} accent"></i>@endif{{ $stp['title'] ?? '' }}</h3>
+          @if(!empty($stp['contact']))<div class="jw-recap" id="jw-recap" style="display:none"></div>@endif
+          <div class="grid gap-5 sm:grid-cols-2">
+            @foreach(($stp['fields'] ?? []) as $f)
+              @php $key = $f['key'] ?? Str::slug($f['label'] ?? 'champ'); $req = !empty($f['required']); $ft = $f['type'] ?? 'text'; $opts = $f['options'] ?? []; @endphp
+              <div class="jw-field {{ in_array($ft, $wide, true) ? 'sm:col-span-2' : '' }}" data-key="{{ $key }}" data-label="{{ $f['label'] ?? $key }}" data-required="{{ $req ? 1 : 0 }}" data-type="{{ $ft }}">
+                <label class="jw-label">{{ $f['label'] ?? $key }}@if($req)<span class="accent"> *</span>@endif</label>
+                @if($ft === 'cards')
+                  <div class="jw-cards">@foreach($opts as $o)@php $o = is_array($o) ? $o : ['label' => $o]; @endphp<button type="button" class="jw-card" data-value="{{ $o['label'] ?? '' }}"><i class="fa-solid {{ $o['icon'] ?? 'fa-circle-check' }}"></i><span class="jw-card-l">{{ $o['label'] ?? '' }}</span>@if(!empty($o['desc']))<span class="jw-card-d">{{ $o['desc'] }}</span>@endif</button>@endforeach</div>
+                @elseif($ft === 'chips')
+                  <div class="jw-chips">@foreach($opts as $o)<button type="button" class="jw-chip" data-value="{{ is_array($o) ? ($o['label'] ?? '') : $o }}">{{ is_array($o) ? ($o['label'] ?? '') : $o }}</button>@endforeach</div>
+                @elseif($ft === 'toggle')
+                  <div class="jw-toggle">@foreach($opts as $o)<button type="button" class="jw-tg" data-value="{{ is_array($o) ? ($o['label'] ?? '') : $o }}">{{ is_array($o) ? ($o['label'] ?? '') : $o }}</button>@endforeach</div>
+                @elseif($ft === 'select')
+                  <select class="jw-input" name="{{ $key }}"><option value="">Choisir…</option>@foreach($opts as $o)<option>{{ is_array($o) ? ($o['label'] ?? '') : $o }}</option>@endforeach</select>
+                @elseif($ft === 'textarea')
+                  <textarea class="jw-input" name="{{ $key }}" rows="3" placeholder="{{ $f['placeholder'] ?? '' }}"></textarea>
+                @elseif($ft === 'date')
+                  <input class="jw-input" type="date" name="{{ $key }}" min="{{ now()->toDateString() }}">
+                @elseif($ft === 'time')
+                  <input class="jw-input" type="time" name="{{ $key }}">
+                @elseif($ft === 'number')
+                  <input class="jw-input" type="number" name="{{ $key }}" min="{{ $f['min'] ?? 0 }}" placeholder="{{ $f['placeholder'] ?? '' }}">
+                @elseif($ft === 'phone')
+                  <input class="jw-input" type="tel" name="{{ $key }}" placeholder="{{ $f['placeholder'] ?? '' }}" autocomplete="tel">
+                @elseif($ft === 'email')
+                  <input class="jw-input" type="email" name="{{ $key }}" placeholder="{{ $f['placeholder'] ?? '' }}" autocomplete="email">
+                @else
+                  <input class="jw-input" type="text" name="{{ $key }}" placeholder="{{ $f['placeholder'] ?? '' }}" @if($key === 'name') autocomplete="name" @endif>
+                @endif
+                <p class="jw-err">Merci de renseigner ce champ.</p>
+              </div>
+            @endforeach
+          </div>
         </div>
-        @elseif($bt === 'rdv')
-        <div class="grid gap-4 sm:grid-cols-2">
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Date souhaitée</span><input name="date" type="date" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Moment</span><select name="moment" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"><option>Matin</option><option>Après-midi</option><option>Soir</option><option>Peu importe</option></select></label>
+        @endforeach
+        <div class="jw-nav">
+          <button type="button" class="jw-back" id="jw-back">← Retour</button>
+          <button type="button" class="jw-next bg-grad shine" id="jw-next">Continuer <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="jw-next bg-grad shine" id="jw-submit" style="display:none">{{ $form['cta'] ?? $bookCta }}</button>
         </div>
-        @endif
-
-        <div class="grid gap-4 sm:grid-cols-2">
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Nom</span><input name="name" type="text" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Téléphone</span><input name="phone" type="tel" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-        </div>
-        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Email</span><input name="email" type="email" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">{{ $bt === 'devis' ? 'Votre projet' : 'Message (optionnel)' }}</span><textarea name="message" rows="3" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent" {{ $bt === 'devis' ? 'required' : '' }}></textarea></label>
-
-        <button type="submit" id="joow-book-btn" class="w-full rounded-xl bg-grad px-6 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="booking.cta">{{ $bookCta }}</span></button>
-        <p id="joow-book-ok" class="hidden rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700">✓ Demande envoyée ! Nous revenons vers vous très vite.</p>
-        <p id="joow-book-err" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-center text-sm font-semibold text-rose-700">Une erreur est survenue. Réessayez ou appelez-nous.</p>
+        <p class="jw-foot"><i class="fa-solid fa-lock accent"></i> {{ $form['delay'] ?? 'Réponse rapide' }} · vos informations restent confidentielles</p>
       </form>
+
+      <div class="jw-success" id="jw-success" style="display:none">
+        <div class="jw-check"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l8 8 15-16"/></svg></div>
+        <h3 class="font-display">Demande envoyée !</h3>
+        <p></p>
+        @if(!empty($b['phone']))<a href="{{ $phoneHref }}" class="jw-call"><i class="fa-solid fa-phone"></i> Une urgence ? {{ $b['phone'] }}</a>@endif
+      </div>
     </div>
   </div>
 </section>
@@ -725,19 +819,37 @@ if(op){try{
   }
 }catch(e){}}
 
-// Réservation / RDV / devis -> API Joow
-const bf=document.getElementById('joow-book');
-if(bf){bf.addEventListener('submit',async ev=>{ev.preventDefault();
-  const btn=document.getElementById('joow-book-btn'),ok=document.getElementById('joow-book-ok'),er=document.getElementById('joow-book-err');
-  ok.classList.add('hidden');er.classList.add('hidden');btn.disabled=true;const old=btn.textContent;btn.textContent='Envoi…';
-  const fd=new FormData(bf),payload={};const base={};
-  fd.forEach((v,k)=>{if(['type','name','email','phone','message','hp'].includes(k))base[k]=v;else payload[k]=v;});
-  base.payload=payload;
-  try{const r=await fetch('{{ $apiBase }}/api/lead/{{ $slug }}',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(base)});
-    if(!r.ok)throw 0;bf.reset();ok.classList.remove('hidden');
-  }catch(e){er.classList.remove('hidden');}
-  finally{btn.disabled=false;btn.textContent=old;}
-});}
+// ── Formulaire multi-étapes -> API Joow (demandes)
+const W=document.getElementById('joow-wizard');
+if(W){
+  const form=document.getElementById('joow-form'),steps=[...form.querySelectorAll('.jw-step')],pst=[...W.querySelectorAll('.jw-pstep')],bar=W.querySelector('.jw-bar-fill');
+  const back=document.getElementById('jw-back'),next=document.getElementById('jw-next'),sub=document.getElementById('jw-submit');
+  const CONTACT=['name','phone','email','message'];let i=0;const vals={};
+  const setVal=(f,v)=>{vals[f.dataset.key]={label:f.dataset.label,value:v};if(v)f.classList.remove('jw-invalid');};
+  W.querySelectorAll('.jw-card').forEach(b=>b.addEventListener('click',()=>{const f=b.closest('.jw-field');f.querySelectorAll('.jw-card').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');setVal(f,b.dataset.value);}));
+  W.querySelectorAll('.jw-tg').forEach(b=>b.addEventListener('click',()=>{const f=b.closest('.jw-field');f.querySelectorAll('.jw-tg').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');setVal(f,b.dataset.value);}));
+  W.querySelectorAll('.jw-chip').forEach(b=>b.addEventListener('click',()=>{b.classList.toggle('sel');const f=b.closest('.jw-field');setVal(f,[...f.querySelectorAll('.jw-chip.sel')].map(x=>x.dataset.value).join(', '));}));
+  W.querySelectorAll('.jw-input').forEach(el=>{const h=()=>setVal(el.closest('.jw-field'),el.value.trim());el.addEventListener('input',h);el.addEventListener('change',h);});
+  const validate=()=>{let ok=true;steps[i].querySelectorAll('.jw-field[data-required="1"]').forEach(f=>{const v=vals[f.dataset.key]&&vals[f.dataset.key].value;if(!v){ok=false;f.classList.add('jw-invalid');}});
+    const em=steps[i].querySelector('input[type=email]');if(em&&em.value&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em.value)){ok=false;em.closest('.jw-field').classList.add('jw-invalid');}
+    return ok;};
+  const show=n=>{steps[i].classList.remove('active');i=n;steps[i].classList.add('active');
+    pst.forEach((p,k)=>{p.classList.toggle('active',k<=i);p.classList.toggle('done',k<i);});bar.style.width=Math.round((i+1)/steps.length*100)+'%';
+    back.style.visibility=i?'visible':'hidden';const last=i===steps.length-1;next.style.display=last?'none':'';sub.style.display=last?'':'none';
+    const r=document.getElementById('jw-recap');
+    if(r){const items=Object.entries(vals).filter(([k,v])=>v.value&&!CONTACT.includes(k));r.innerHTML=items.map(([k,v])=>'<span><b>'+v.label+'</b>'+v.value+'</span>').join('');r.style.display=items.length?'flex':'none';}
+    if(n>0)W.scrollIntoView({behavior:'smooth',block:'start'});};
+  next.addEventListener('click',()=>{if(validate())show(i+1);});back.addEventListener('click',()=>show(i-1));
+  form.addEventListener('submit',async ev=>{ev.preventDefault();if(!validate())return;sub.disabled=true;const old=sub.innerHTML;sub.textContent='Envoi…';
+    const base={type:W.dataset.type,hp:form.hp.value,payload:{}};CONTACT.forEach(k=>base[k]=(vals[k]&&vals[k].value)||'');
+    Object.entries(vals).forEach(([k,v])=>{if(!CONTACT.includes(k)&&v.value)base.payload[v.label]=v.value;});
+    try{const r=await fetch('{{ $apiBase }}/api/lead/{{ $slug }}',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(base)});
+      if(!r.ok)throw 0;form.style.display='none';W.querySelector('.jw-progress').style.display='none';W.querySelector('.jw-bar').style.display='none';
+      const s=document.getElementById('jw-success');s.querySelector('p').textContent=W.dataset.success;s.style.display='block';W.scrollIntoView({behavior:'smooth',block:'center'});
+    }catch(e){sub.disabled=false;sub.innerHTML=old;alert('Une erreur est survenue. Réessayez ou appelez-nous.');}
+  });
+  show(0);
+}
 </script>
 
 {{-- ═══════════ MODULES : widgets flottants, mentions légales, mesure d'audience ═══════════ --}}

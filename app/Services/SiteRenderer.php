@@ -46,6 +46,8 @@ class SiteRenderer
             'modules'  => $mods,
             'images'   => $data['images'] ?? [],
             'booking'  => $data['booking'] ?? [],
+            // Formulaire multi-étapes : personnalisé par le client, sinon modèle du métier
+            'form'     => $data['form'] ?? (config("forms.$sector") ?? config('forms.default')),
             'menuItems' => $site->moduleEnabled('menu') ? $site->menuItems()->where('available', true)->get() : collect(),
             'rooms'    => $site->moduleEnabled('rooms') ? $site->rooms()->where('active', true)->get() : collect(),
             'legalHtml' => $site->moduleEnabled('legal') ? app(\App\Services\Modules\LegalGenerator::class)->html($site) : null,
