@@ -21,4 +21,11 @@ while [ ! -f vendor/autoload.php ] && [ $i -lt 60 ]; do sleep 2; i=$((i+1)); don
 mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
 
+# Sites générés : le serveur web (www-data) doit pouvoir réécrire les fichiers
+# créés par le worker (root) — éditeur / republication.
+if [ -d /var/www/sites ]; then
+  chown -R www-data:www-data /var/www/sites 2>/dev/null || true
+  chmod -R ug+rwX /var/www/sites 2>/dev/null || true
+fi
+
 exec "$@"

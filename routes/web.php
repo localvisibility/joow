@@ -44,13 +44,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/factures', [InvoicesController::class, 'index'])->name('invoices.index');
     Route::get('/factures/{invoice}', [InvoicesController::class, 'show'])->name('invoices.show');
 
-    // Éditeur de site (IA)
+    // Éditeur de site "Studio" (édition en place + IA)
     Route::get('/sites/{slug}/editeur', [SiteEditorController::class, 'show'])->name('sites.editor');
+    Route::get('/sites/{slug}/editeur/preview', [SiteEditorController::class, 'preview'])->name('sites.editor.preview');
+    Route::get('/sites/{slug}/editeur/state', [SiteEditorController::class, 'state'])->name('sites.editor.state');
+    Route::post('/sites/{slug}/editeur/content', [SiteEditorController::class, 'content'])->middleware('throttle:120,1')->name('sites.editor.content');
+    Route::post('/sites/{slug}/editeur/bulk', [SiteEditorController::class, 'bulk'])->middleware('throttle:120,1')->name('sites.editor.bulk');
+    Route::post('/sites/{slug}/editeur/image', [SiteEditorController::class, 'image'])->middleware('throttle:30,1')->name('sites.editor.image');
+    Route::post('/sites/{slug}/editeur/sections', [SiteEditorController::class, 'sections'])->name('sites.editor.sections');
+    Route::post('/sites/{slug}/editeur/style', [SiteEditorController::class, 'style'])->name('sites.editor.style');
+    Route::post('/sites/{slug}/editeur/publish', [SiteEditorController::class, 'publish'])->middleware('throttle:20,1')->name('sites.editor.publish');
     Route::post('/sites/{slug}/editeur/chat', [SiteEditorController::class, 'chat'])->middleware('throttle:20,1')->name('sites.editor.chat');
     Route::post('/sites/{slug}/editeur/module', [SiteEditorController::class, 'module'])->name('sites.editor.module');
     Route::post('/sites/{slug}/editeur/accent', [SiteEditorController::class, 'accent'])->name('sites.editor.accent');
     Route::post('/sites/{slug}/editeur/regenerer', [SiteEditorController::class, 'regenerate'])->middleware('throttle:5,1')->name('sites.editor.regenerate');
 });
+
+// Images uploadées depuis l'éditeur (servies aux sites générés, public)
+Route::get('/media/{slug}/{file}', [\App\Http\Controllers\MediaController::class, 'show'])
+    ->where(['slug' => '[a-z0-9-]+', 'file' => '[A-Za-z0-9._-]+'])->name('media.show');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

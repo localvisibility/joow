@@ -6,10 +6,10 @@ use App\Models\GenerationJob;
 use App\Models\Site;
 use App\Services\GeminiContent;
 use App\Services\GooglePlaces;
+use App\Services\SiteRenderer;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\View;
+use Illuminate\Support\Arr;
 
 class GenerateSiteJob implements ShouldQueue
 {
@@ -46,24 +46,20 @@ class GenerateSiteJob implements ShouldQueue
 
             $content = $gemini->generate($b, $sector, $cfg['label']);
             $modules = $this->site->modules ?: ['booking' => true];
-            $accent = $this->site->site_data['accent'] ?? $cfg['color'];
+            $prev = $this->site->site_data ?? [];
 
-            $html = View::make('generated.site', [
-                'b' => $b,
-                'c' => $content,
-                'sector' => $sector,
-                'label' => $cfg['label'],
-                'color' => $accent,
-                'icon' => $cfg['icon'],
-                'cta' => $cfg['cta'],
-                'modules' => $modules,
-                'mapsKey' => (string) config('services.google_places.key'),
-                'slug' => $this->site->slug,
-            ])->render();
+            // Snapshot structuré (source de vérité pour l'éditeur) — on préserve
+            // les réglages existants (couleur, images, sections) lors d'une régénération.
+            $siteData = array_merge($prev, [
+                'content'  => array_merge($content, Arr::only($prev['content'] ?? [], ['sections'])),
+                'business' => $b,
+                'accent'   => $prev['accent'] ?? $cfg['color'],
+            ]);
+            $this->site->update(['site_data' => $siteData, 'modules' => $modules]);
 
-            $dir = rtrim(config('services.sites_path', '/var/www/sites'), '/').'/'.$this->site->slug;
-            File::ensureDirectoryExists($dir, 0755);
-            File::put($dir.'/index.html', $html);
+            $renderer = app(SiteRenderer::class);
+            $html = $renderer->html($this->site->fresh());
+            $renderer->write($this->site->slug, $html);
 
             // Généré et visible comme aperçu (statut 'preview') ; devient 'paid' après achat.
             $this->site->update([
@@ -72,9 +68,6 @@ class GenerateSiteJob implements ShouldQueue
                 'rating'        => $b['rating'] ?? $this->site->rating,
                 'reviews_count' => $b['reviews_count'] ?? $this->site->reviews_count,
                 'preview_url'   => 'https://'.$this->site->slug.'.joow.fr',
-                'modules'       => $modules,
-                // Snapshot pour ré-édition (éditeur IA) sans re-solliciter Google.
-                'site_data'     => ['content' => $content, 'business' => $b, 'accent' => $accent],
             ]);
 
             $job?->update([
