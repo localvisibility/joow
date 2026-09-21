@@ -23,15 +23,33 @@
 
     // Sections : visibilité + ordre (flex order)
     $secCfg = $c['sections'] ?? [];
-    $defaultOrder = ['services', 'gallery', 'about', 'reviews', 'faq', 'booking', 'contact'];
+    $defaultOrder = ['services', 'menu', 'rooms', 'gallery', 'about', 'reviews', 'faq', 'booking', 'contact'];
     $order = array_values(array_unique(array_merge(array_values($secCfg['order'] ?? []), $defaultOrder)));
     $hidden = $secCfg['hidden'] ?? [];
     $show = fn($k) => empty($hidden[$k]);
     $ord  = fn($k) => (($i = array_search($k, $order, true)) === false ? 99 : $i + 1);
 
-    // Module réservation / RDV / devis (activable, type & libellés personnalisables)
-    $modules = $modules ?? ['booking' => true];
-    $bookingOn = ($modules['booking'] ?? true) && $show('booking');
+    // ── Modules (catalogue Joow) : état résolu {enabled, ...config} ──
+    $modules   = $modules ?? [];
+    $menuItems = $menuItems ?? collect();
+    $rooms     = $rooms ?? collect();
+    $legalHtml = $legalHtml ?? null;
+    $mod = fn($k) => is_array($modules[$k] ?? null) ? $modules[$k] : ['enabled' => (bool) ($modules[$k] ?? false)];
+    $on  = fn($k) => (bool) ($mod($k)['enabled'] ?? false);
+    $restaurantOn = $on('restaurant');
+    $zcCfg = $mod('zenchef');   $zcOn   = $on('zenchef') && !empty($zcCfg['restaurant_id']);
+    $roomsOn = $on('rooms') && $rooms->count() > 0;
+    $menuCfg = $mod('menu');    $menuOn = $on('menu') && $menuItems->count() > 0;
+    $waCfg = $mod('whatsapp');  $waOn   = $on('whatsapp') && !empty($waCfg['number']);
+    $botCfg = $mod('bot');      $botOn  = $on('bot');
+    $legalOn = $on('legal') && $legalHtml;
+    $rvCfg = $mod('reviews');   $reviewsOn = array_key_exists('reviews', $modules) ? $on('reviews') : true;
+    $reviews = $reviewsOn
+        ? $reviews->filter(fn($r) => (int) ($r['rating'] ?? 5) >= (int) ($rvCfg['min_rating'] ?? 4))->take(max(1, (int) ($rvCfg['count'] ?? 6)))->values()
+        : collect();
+    $rsCfg = $mod('restaurant');
+    // Formulaire générique (réservation/RDV/devis) : remplacé par le module restaurant ou ZenChef s'ils sont actifs
+    $bookingOn = (array_key_exists('booking', $modules) ? $on('booking') : true) && $show('booking') && !$restaurantOn && !$zcOn;
     $autoType = in_array($sector, ['restaurant', 'hebergement'], true) ? 'reservation'
         : (in_array($sector, ['sante', 'beaute', 'bienetre'], true) ? 'rdv' : 'devis');
     $bt = in_array($booking['type'] ?? '', ['reservation', 'rdv', 'devis'], true) ? $booking['type'] : $autoType;
@@ -46,7 +64,7 @@
     $bookTitle = $bk('title', $bookDefaults['title']);
     $bookSub   = $bk('sub', $bookDefaults['sub']);
     $bookCta   = $bk('cta', $ctaLabel);
-    $ctaHref = $bookingOn ? '#reserver' : '#contact';
+    $ctaHref = ($bookingOn || $restaurantOn || $zcOn) ? '#reserver' : ($roomsOn ? '#sejour' : '#contact');
     $apiBase = 'https://app.joow.fr'; // domaine fixe de l'app (réception des demandes)
 
     // Police d'affichage (Google Fonts)
@@ -130,6 +148,8 @@ main{display:flex;flex-direction:column}
     </a>
     <div class="hidden items-center gap-7 md:flex" id="links">
       @if($show('services') && count($services))<a href="#services" class="text-sm font-semibold text-white/90 transition hover:text-white">Services</a>@endif
+      @if($menuOn)<a href="#carte" class="text-sm font-semibold text-white/90 transition hover:text-white">Carte</a>@endif
+      @if($roomsOn)<a href="#sejour" class="text-sm font-semibold text-white/90 transition hover:text-white">Chambres</a>@endif
       @if($show('about'))<a href="#apropos" class="text-sm font-semibold text-white/90 transition hover:text-white">À propos</a>@endif
       @if($show('reviews') && $reviews->count())<a href="#avis" class="text-sm font-semibold text-white/90 transition hover:text-white">Avis</a>@endif
       <a href="{{ $ctaHref }}" class="rounded-xl bg-grad px-5 py-2.5 text-sm font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="content.cta_label">{{ $ctaLabel }}</span></a>
@@ -222,6 +242,38 @@ main{display:flex;flex-direction:column}
           <span class="text-sm font-bold accent" data-edit="content.services.{{ $i }}.price">{{ $s['price'] ?? 'Sur devis' }}</span>
           <a href="{{ $ctaHref }}" class="text-sm font-semibold text-slate-400 transition group-hover:accent">En savoir plus →</a>
         </div>
+      </div>
+      @endforeach
+    </div>
+  </div>
+</section>
+@endif
+
+<!-- CARTE / MENU (module) -->
+@if($show('menu') && $menuOn)
+<section id="carte" class="bg-slate-50 py-24" style="order:{{ $ord('menu') }}" data-section="menu" data-label="Carte">
+  <div class="mx-auto max-w-5xl px-5">
+    <div class="reveal mb-12 flex flex-wrap items-end justify-between gap-6">
+      <div>
+        <p class="text-sm font-bold uppercase tracking-[0.3em] accent">Menu</p>
+        <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl">{{ $menuCfg['title'] ?? 'Notre carte' }}</h2>
+      </div>
+      @if(!empty($menuCfg['qr']) && !$editMode)
+      <div class="text-center"><img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data={{ urlencode('https://'.$slug.'.joow.fr/#carte') }}" class="mx-auto h-24 w-24 rounded-xl border border-slate-200 bg-white p-1" alt="QR code de la carte" loading="lazy"><p class="mt-1 text-[11px] text-slate-500">Carte sur mobile</p></div>
+      @endif
+    </div>
+    <div class="grid gap-8 md:grid-cols-2">
+      @foreach($menuItems->groupBy('category') as $cat => $items)
+      <div class="reveal rounded-3xl border border-slate-100 bg-white p-7 shadow-sm">
+        <h3 class="font-display text-2xl font-bold accent">{{ $cat }}</h3>
+        <ul class="mt-5 divide-y divide-slate-100">
+          @foreach($items as $it)
+          <li class="flex items-start justify-between gap-4 py-3">
+            <div><p class="font-semibold text-slate-800">{{ $it->name }}</p>@if($it->description)<p class="text-sm text-slate-500">{{ $it->description }}</p>@endif</div>
+            @if($it->price !== null)<span class="shrink-0 font-display font-bold">{{ number_format((float) $it->price, 2, ',', ' ') }} €</span>@endif
+          </li>
+          @endforeach
+        </ul>
       </div>
       @endforeach
     </div>
@@ -325,6 +377,108 @@ main{display:flex;flex-direction:column}
 </section>
 @endif
 
+<!-- CHAMBRES & SÉJOUR (module) -->
+@if($show('rooms') && $roomsOn)
+@php $rmCfg = $mod('rooms'); @endphp
+<section id="sejour" class="py-24" style="order:{{ $ord('rooms') }}" data-section="rooms" data-label="Chambres">
+  <div class="mx-auto max-w-6xl px-5">
+    <div class="reveal mb-12 max-w-2xl">
+      <p class="text-sm font-bold uppercase tracking-[0.3em] accent">Hébergement</p>
+      <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl">{{ $rmCfg['title'] ?? 'Nos chambres' }}</h2>
+      @if(!empty($rmCfg['intro']))<p class="mt-4 text-lg text-slate-500">{{ $rmCfg['intro'] }}</p>@endif
+    </div>
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      @foreach($rooms as $rm)
+      @php $ph = $rm->photos[0] ?? ($photos[($loop->index + 1) % max(1, count($photos))] ?? $hero); @endphp
+      <div class="reveal card-hover overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm hover:shadow-2xl">
+        <img src="{{ $ph }}" class="h-52 w-full object-cover" alt="{{ $rm->name }}" loading="lazy">
+        <div class="p-6">
+          <div class="flex items-start justify-between gap-3">
+            <h3 class="font-display text-xl font-bold">{{ $rm->name }}</h3>
+            @if($rm->price_night)<span class="shrink-0 rounded-full bg-grad px-3 py-1 text-sm font-bold text-white">{{ number_format((float) $rm->price_night, 0, ',', ' ') }} €<span class="font-normal opacity-80">/nuit</span></span>@endif
+          </div>
+          <p class="mt-1 text-sm text-slate-500"><i class="fa-solid fa-user-group accent mr-1"></i>{{ $rm->capacity }} personne{{ $rm->capacity > 1 ? 's' : '' }}</p>
+          @if($rm->description)<p class="mt-3 text-sm text-slate-600">{{ $rm->description }}</p>@endif
+          @if($rm->amenities)<div class="mt-4 flex flex-wrap gap-1.5">@foreach(array_slice($rm->amenities, 0, 6) as $am)<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{{ $am }}</span>@endforeach</div>@endif
+          <button type="button" class="mt-5 w-full rounded-xl border-2 border-accent px-4 py-2.5 text-sm font-bold accent transition hover:bg-accent hover:text-white" onclick="joowPickRoom('{{ $rm->id }}')">Réserver cette chambre</button>
+        </div>
+      </div>
+      @endforeach
+    </div>
+
+    <div class="reveal mt-14 rounded-[2rem] border border-slate-100 bg-white p-7 shadow-xl sm:p-9" id="stay-box">
+      <h3 class="font-display text-2xl font-bold">Demande de séjour</h3>
+      <p class="mt-1 text-slate-500">Disponibilités vérifiées en direct · réponse rapide</p>
+      <form id="joow-stay" class="mt-6 space-y-4">
+        <input type="text" name="hp" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="grid gap-4 sm:grid-cols-4">
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Arrivée</span><input name="check_in" type="date" required min="{{ now()->toDateString() }}" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Départ</span><input name="check_out" type="date" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Personnes</span><input name="guests" type="number" min="1" value="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Chambre</span><select name="room_id" id="stay-room" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"><option value="">Au choix</option>@foreach($rooms as $rm)<option value="{{ $rm->id }}" data-price="{{ $rm->price_night }}">{{ $rm->name }}</option>@endforeach</select></label>
+        </div>
+        <p id="stay-avail" class="text-sm font-medium text-slate-500"></p>
+        <div class="grid gap-4 sm:grid-cols-3">
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Nom</span><input name="name" type="text" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Téléphone</span><input name="phone" type="tel" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Email</span><input name="email" type="email" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+        </div>
+        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Message (optionnel)</span><textarea name="notes" rows="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></textarea></label>
+        <button type="submit" id="joow-stay-btn" class="w-full rounded-xl bg-grad px-6 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5">Envoyer ma demande de séjour</button>
+        <p id="joow-stay-ok" class="hidden rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700"></p>
+        <p id="joow-stay-err" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-center text-sm font-semibold text-rose-700"></p>
+      </form>
+    </div>
+  </div>
+</section>
+@endif
+
+@if($show('booking') && ($restaurantOn || $zcOn))
+<!-- RÉSERVATION RESTAURANT (module natif ou ZenChef) -->
+<section id="reserver" class="relative overflow-hidden py-24" style="order:{{ $ord('booking') }}" data-section="booking" data-label="Réservation">
+  <div class="pointer-events-none absolute -top-20 right-0 h-80 w-80 rounded-full blur-3xl" style="background:var(--grad);opacity:.14"></div>
+  <div class="mx-auto grid max-w-6xl items-start gap-14 px-5 lg:grid-cols-[.9fr,1.1fr]">
+    <div class="reveal">
+      <p class="text-sm font-bold uppercase tracking-[0.3em] accent">Réservation</p>
+      <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl" data-edit="booking.title">{{ $bk('title', 'Réserver votre table') }}</h2>
+      <p class="mt-4 text-lg text-slate-600" data-edit="booking.sub">{{ $bk('sub', 'Choisissez votre créneau, confirmation immédiate.') }}</p>
+      <ul class="mt-8 space-y-3 text-slate-600">
+        <li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-bolt text-xs"></i></span><span data-edit="booking.point1">{{ $bk('point1', 'Disponibilités en temps réel') }}</span></li>
+        <li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-envelope-circle-check text-xs"></i></span><span data-edit="booking.point2">{{ $bk('point2', 'Confirmation par email') }}</span></li>
+        @if(!empty($b['phone']))<li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-phone text-xs"></i></span>Ou appelez le {{ $b['phone'] }}</li>@endif
+      </ul>
+    </div>
+    <div class="reveal rounded-[2rem] border border-slate-100 bg-white p-7 shadow-xl sm:p-9">
+      @if($zcOn)
+      <iframe src="https://bookings.zenchef.com/results?rid={{ e($zcCfg['restaurant_id']) }}" class="h-[640px] w-full rounded-2xl" style="border:0" loading="lazy" title="Réservation ZenChef"></iframe>
+      @else
+      <form id="joow-resa" class="space-y-4">
+        <input type="text" name="hp" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Date</span><input name="date" type="date" required min="{{ now()->toDateString() }}" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">{{ $partyLabel }}</span><input name="covers" type="number" min="1" max="{{ (int) ($rsCfg['max_party'] ?? 10) }}" value="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+        </div>
+        <div>
+          <span class="mb-2 block text-sm font-semibold text-slate-700">Créneau</span>
+          <div id="resa-slots" class="flex flex-wrap gap-2 text-sm text-slate-500">Choisissez une date pour voir les créneaux disponibles.</div>
+          <input type="hidden" name="time" id="resa-time">
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Nom</span><input name="name" type="text" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Téléphone</span><input name="phone" type="tel" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+        </div>
+        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Email{{ !empty($rsCfg['require_email']) ? '' : ' (optionnel, pour la confirmation)' }}</span><input name="email" type="email" {{ !empty($rsCfg['require_email']) ? 'required' : '' }} class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
+        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Demande particulière (optionnel)</span><textarea name="notes" rows="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></textarea></label>
+        <button type="submit" id="joow-resa-btn" class="w-full rounded-xl bg-grad px-6 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="booking.cta">{{ $bk('cta', 'Réserver ma table') }}</span></button>
+        <p id="joow-resa-ok" class="hidden rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700"></p>
+        <p id="joow-resa-err" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-center text-sm font-semibold text-rose-700"></p>
+      </form>
+      @endif
+    </div>
+  </div>
+</section>
+@endif
+
 @if($bookingOn)
 <!-- RÉSERVATION / RDV / DEVIS -->
 <section id="reserver" class="relative overflow-hidden py-24" style="order:{{ $ord('booking') }}" data-section="booking" data-label="Réservation">
@@ -422,6 +576,7 @@ main{display:flex;flex-direction:column}
         @if($show('services') && count($services))<a href="#services" class="transition hover:text-white">Services</a>@endif
         @if($show('about'))<a href="#apropos" class="transition hover:text-white">À propos</a>@endif
         @if($show('contact'))<a href="#contact" class="transition hover:text-white">Contact</a>@endif
+        @if($legalOn)<a href="#" onclick="document.getElementById('joow-legal').showModal();return false;" class="transition hover:text-white">Mentions légales</a>@endif
       </div>
     </div>
     <div class="mt-8 flex flex-col items-center justify-between gap-3 text-sm sm:flex-row">
@@ -461,6 +616,143 @@ if(bf){bf.addEventListener('submit',async ev=>{ev.preventDefault();
   }catch(e){er.classList.remove('hidden');}
   finally{btn.disabled=false;btn.textContent=old;}
 });}
+</script>
+
+{{-- ═══════════ MODULES : widgets flottants, mentions légales, mesure d'audience ═══════════ --}}
+@if($waOn || $botOn || $legalOn)
+<style>
+.joow-fab{position:fixed;bottom:1.5rem;z-index:60;display:grid;place-items:center;height:3.5rem;width:3.5rem;border-radius:9999px;color:#fff;box-shadow:0 18px 40px -12px rgba(0,0,0,.45);transition:transform .2s;cursor:pointer;border:0}
+.joow-fab:hover{transform:translateY(-2px) scale(1.04)}
+@media (max-width:767px){.joow-fab{bottom:5.5rem}}
+.joow-wa{background:#25D366;font-size:1.6rem}
+.joow-bot{background:var(--grad);font-size:1.35rem}
+.joow-panel{position:fixed;bottom:5.5rem;z-index:61;width:min(92vw,360px);max-height:70vh;display:none;flex-direction:column;overflow:hidden;border-radius:1.25rem;background:#fff;box-shadow:0 30px 60px -20px rgba(0,0,0,.45);border:1px solid #e2e8f0}
+@media (max-width:767px){.joow-panel{bottom:9.5rem}}
+.joow-panel.open{display:flex}
+.joow-msgs{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.5rem;font-size:.9rem}
+.joow-msg{max-width:85%;padding:.55rem .8rem;border-radius:1rem;line-height:1.35}
+.joow-msg.ai{align-self:flex-start;background:#f1f5f9;color:#0f172a;border-bottom-left-radius:.25rem}
+.joow-msg.user{align-self:flex-end;background:var(--grad);color:#fff;border-bottom-right-radius:.25rem}
+dialog#joow-legal{max-width:760px;width:92vw;border:0;border-radius:1.5rem;padding:0}
+dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)}
+#joow-legal .legal{padding:2rem;max-height:80vh;overflow-y:auto;color:#334155;font-size:.95rem;line-height:1.6}
+#joow-legal .legal h2{font-family:'{{ $displayFont }}',sans-serif;font-weight:700;font-size:1.5rem;color:#0f172a;margin:1.25rem 0 .5rem}
+#joow-legal .legal h3{font-weight:700;color:#0f172a;margin:1rem 0 .35rem}
+#joow-legal .legal p{margin:.35rem 0}
+</style>
+@endif
+
+@if($waOn)
+<a href="https://wa.me/{{ preg_replace('/\D/', '', $waCfg['number']) }}?text={{ urlencode($waCfg['message'] ?? '') }}" target="_blank" rel="noopener" class="joow-fab joow-wa" style="{{ ($waCfg['position'] ?? 'right') === 'left' ? 'left:1.25rem' : 'right:1.25rem' }}" aria-label="Discuter sur WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+@endif
+
+@if($botOn)
+@php $botSide = ($botCfg['position'] ?? 'right') === 'left' ? 'left' : 'right'; if ($waOn && ($waCfg['position'] ?? 'right') === $botSide) { $botSide = $botSide === 'left' ? 'right' : 'left'; } @endphp
+<button type="button" class="joow-fab joow-bot" id="joow-bot-fab" style="{{ $botSide }}:1.25rem" aria-label="Assistant"><i class="fa-solid fa-comment-dots"></i></button>
+<div class="joow-panel" id="joow-bot-panel" style="{{ $botSide }}:1.25rem">
+  <div class="flex items-center gap-3 bg-grad px-4 py-3 text-white">
+    <span class="grid h-9 w-9 place-items-center rounded-full bg-white/20"><i class="fa-solid fa-robot"></i></span>
+    <div class="min-w-0 flex-1"><p class="truncate font-bold">{{ $botCfg['name'] ?? 'Assistant' }}</p><p class="text-xs opacity-80">Répond en quelques secondes</p></div>
+    <button type="button" onclick="document.getElementById('joow-bot-panel').classList.remove('open')" class="text-white/80 hover:text-white">✕</button>
+  </div>
+  <div class="joow-msgs" id="joow-bot-msgs"><div class="joow-msg ai">{{ $botCfg['welcome'] ?? 'Bonjour 👋 Une question ?' }}</div></div>
+  <form id="joow-bot-form" class="flex gap-2 border-t border-slate-100 p-3">
+    <input id="joow-bot-input" type="text" placeholder="Votre question…" class="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-accent" autocomplete="off">
+    <button type="submit" class="rounded-xl bg-grad px-3 py-2 text-white"><i class="fa-solid fa-paper-plane"></i></button>
+  </form>
+</div>
+@endif
+
+@if($legalOn)
+<dialog id="joow-legal">
+  <div class="legal">
+    <div class="flex items-center justify-between"><p class="text-xs font-bold uppercase tracking-[0.3em] accent">Informations légales</p><button type="button" onclick="document.getElementById('joow-legal').close()" class="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200">✕</button></div>
+    {!! $legalHtml !!}
+  </div>
+</dialog>
+@endif
+
+<script>
+(function(){
+  const API='{{ $apiBase }}/api/site/{{ $slug }}';
+  const J={'Content-Type':'application/json','Accept':'application/json'};
+  const form2json=(f,fields)=>{const fd=new FormData(f),o={};fd.forEach((v,k)=>{if(!fields||fields.includes(k))o[k]=v;});return o;};
+
+  @if(!$editMode)
+  // Mesure d'audience anonyme
+  try{fetch(API+'/view',{method:'POST',headers:J,body:'{}',keepalive:true}).catch(()=>{});}catch(e){}
+  @endif
+
+  // ── Réservation restaurant (module natif)
+  const rf=document.getElementById('joow-resa');
+  if(rf){
+    const slotsEl=document.getElementById('resa-slots'),timeEl=document.getElementById('resa-time');
+    const loadSlots=async()=>{
+      const d=rf.date.value,c=rf.covers.value||2;timeEl.value='';
+      if(!d){slotsEl.innerHTML='<span class="text-slate-500">Choisissez une date pour voir les créneaux disponibles.</span>';return;}
+      slotsEl.innerHTML='<span class="text-slate-400">Recherche des créneaux…</span>';
+      try{const r=await fetch(API+'/availability?date='+encodeURIComponent(d)+'&covers='+encodeURIComponent(c),{headers:J});const j=await r.json();
+        if(!j.slots||!j.slots.length){slotsEl.innerHTML='<span class="text-rose-600">'+(j.reason||'Aucun créneau disponible pour ce nombre de couverts.')+'</span>';return;}
+        slotsEl.innerHTML='';let lastSvc='';
+        j.slots.forEach(s=>{if(s.service!==lastSvc){lastSvc=s.service;const h=document.createElement('span');h.className='w-full text-xs font-bold uppercase tracking-wider text-slate-400 mt-1';h.textContent=s.service==='lunch'?'Midi':'Soir';slotsEl.appendChild(h);}
+          const b=document.createElement('button');b.type='button';b.textContent=s.time;b.className='rounded-xl border border-slate-200 px-3.5 py-2 font-semibold text-slate-700 transition hover:border-accent hover:accent';
+          b.onclick=()=>{timeEl.value=s.time;slotsEl.querySelectorAll('button').forEach(x=>x.classList.remove('bg-grad','text-white','border-transparent'));b.classList.add('bg-grad','text-white','border-transparent');};slotsEl.appendChild(b);});
+      }catch(e){slotsEl.innerHTML='<span class="text-rose-600">Impossible de charger les créneaux.</span>';}
+    };
+    rf.date.addEventListener('change',loadSlots);rf.covers.addEventListener('change',loadSlots);
+    rf.addEventListener('submit',async ev=>{ev.preventDefault();
+      const ok=document.getElementById('joow-resa-ok'),er=document.getElementById('joow-resa-err'),btn=document.getElementById('joow-resa-btn');
+      ok.classList.add('hidden');er.classList.add('hidden');
+      if(!timeEl.value){er.textContent='Choisissez un créneau.';er.classList.remove('hidden');return;}
+      btn.disabled=true;
+      try{const r=await fetch(API+'/reserve',{method:'POST',headers:J,body:JSON.stringify(form2json(rf))});const j=await r.json();
+        if(!r.ok||!j.ok)throw new Error(j.error||(j.errors&&Object.values(j.errors)[0][0])||'Erreur');
+        ok.textContent=(j.status==='confirmed'?'✓ Réservation confirmée ! ':'✓ Demande envoyée ! ')+(j.message||'');ok.classList.remove('hidden');rf.reset();slotsEl.innerHTML='';
+      }catch(e){er.textContent=e.message||'Une erreur est survenue.';er.classList.remove('hidden');}
+      finally{btn.disabled=false;}
+    });
+  }
+
+  // ── Chambres / séjour
+  const sf=document.getElementById('joow-stay');
+  window.joowPickRoom=(id)=>{const s=document.getElementById('stay-room');if(s){s.value=id;s.dispatchEvent(new Event('change'));}document.getElementById('stay-box')?.scrollIntoView({behavior:'smooth',block:'start'});};
+  if(sf){
+    const av=document.getElementById('stay-avail'),roomSel=document.getElementById('stay-room');
+    const check=async()=>{
+      const a=sf.check_in.value,b=sf.check_out.value;if(!a||!b||b<=a){av.textContent='';return;}
+      av.textContent='Vérification des disponibilités…';
+      try{const r=await fetch(API+'/rooms?from='+a+'&to='+b,{headers:J});const j=await r.json();
+        const n=Math.round((new Date(b)-new Date(a))/86400000);
+        [...roomSel.options].forEach(o=>{if(!o.value)return;const rm=j.rooms.find(x=>x.id===o.value);o.disabled=rm&&rm.available===false;o.textContent=(rm?rm.name:o.textContent).replace(/ \(.*\)$/,'')+(rm&&rm.available===false?' (indisponible)':'');});
+        const sel=j.rooms.find(x=>x.id===roomSel.value);
+        av.textContent=n+' nuit'+(n>1?'s':'')+(sel&&sel.price_night?' · total estimé '+(n*sel.price_night).toLocaleString('fr-FR')+' €':'')+(sel&&sel.available===false?' · cette chambre est indisponible sur ces dates':' · '+j.rooms.filter(x=>x.available!==false).length+' hébergement(s) disponible(s)');
+      }catch(e){av.textContent='';}
+    };
+    ['check_in','check_out'].forEach(k=>sf[k].addEventListener('change',check));roomSel.addEventListener('change',check);
+    sf.addEventListener('submit',async ev=>{ev.preventDefault();
+      const ok=document.getElementById('joow-stay-ok'),er=document.getElementById('joow-stay-err'),btn=document.getElementById('joow-stay-btn');
+      ok.classList.add('hidden');er.classList.add('hidden');btn.disabled=true;
+      try{const r=await fetch(API+'/stay',{method:'POST',headers:J,body:JSON.stringify(form2json(sf))});const j=await r.json();
+        if(!r.ok||!j.ok)throw new Error(j.error||(j.errors&&Object.values(j.errors)[0][0])||'Erreur');
+        ok.textContent='✓ Demande envoyée pour '+j.nights+' nuit(s)'+(j.total?' · '+j.total.toLocaleString('fr-FR')+' € estimés':'')+'. Nous vous confirmons très vite.';ok.classList.remove('hidden');sf.reset();av.textContent='';
+      }catch(e){er.textContent=e.message||'Une erreur est survenue.';er.classList.remove('hidden');}
+      finally{btn.disabled=false;}
+    });
+  }
+
+  // ── Assistant IA
+  const fab=document.getElementById('joow-bot-fab');
+  if(fab){
+    const panel=document.getElementById('joow-bot-panel'),msgs=document.getElementById('joow-bot-msgs'),form=document.getElementById('joow-bot-form'),input=document.getElementById('joow-bot-input');
+    const hist=[];const add=(role,text)=>{const d=document.createElement('div');d.className='joow-msg '+role;d.textContent=text;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d;};
+    fab.onclick=()=>{panel.classList.toggle('open');if(panel.classList.contains('open'))input.focus();};
+    form.addEventListener('submit',async ev=>{ev.preventDefault();const q=input.value.trim();if(!q)return;input.value='';add('user',q);hist.push({role:'user',text:q});
+      const w=add('ai','…');
+      try{const r=await fetch(API+'/bot',{method:'POST',headers:J,body:JSON.stringify({message:q,history:hist.slice(-8)})});const j=await r.json();w.textContent=j.reply||'…';hist.push({role:'ai',text:w.textContent});}
+      catch(e){w.textContent='Petit souci technique, réessayez dans un instant.';}
+    });
+  }
+})();
 </script>
 
 @if($editMode)

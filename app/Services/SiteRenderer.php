@@ -24,6 +24,14 @@ class SiteRenderer
         $sector = $site->sector ?: 'service';
         $cfg = config("sectors.$sector") ?? config('sectors.service');
 
+        // Modules : état résolu (activé + config) pour chaque clé du catalogue
+        $mods = [];
+        foreach (array_keys(config('modules')) as $key) {
+            $mods[$key] = $site->module($key) + ['enabled' => $site->moduleEnabled($key)];
+        }
+        $mods['restaurant'] = \App\Services\Modules\ReservationAvailability::config($site) + ['enabled' => $site->moduleEnabled('restaurant')];
+        $mods['bot'] = array_replace(\App\Services\Modules\BotAnswer::defaults(), $site->module('bot')) + ['enabled' => $site->moduleEnabled('bot')];
+
         return View::make('generated.site', [
             'b'        => $data['business'] ?? [],
             'c'        => $data['content'] ?? [],
@@ -33,9 +41,12 @@ class SiteRenderer
             'font'     => $data['font'] ?? null,
             'icon'     => $cfg['icon'],
             'cta'      => $cfg['cta'],
-            'modules'  => $site->modules ?: ['booking' => true],
+            'modules'  => $mods,
             'images'   => $data['images'] ?? [],
             'booking'  => $data['booking'] ?? [],
+            'menuItems' => $site->moduleEnabled('menu') ? $site->menuItems()->where('available', true)->get() : collect(),
+            'rooms'    => $site->moduleEnabled('rooms') ? $site->rooms()->where('active', true)->get() : collect(),
+            'legalHtml' => $site->moduleEnabled('legal') ? app(\App\Services\Modules\LegalGenerator::class)->html($site) : null,
             'mapsKey'  => (string) config('services.google_places.key'),
             'slug'     => $site->slug,
             'editMode' => $editMode,
