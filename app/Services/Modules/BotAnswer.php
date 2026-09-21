@@ -79,7 +79,8 @@ TXT;
         try {
             $res = Http::timeout(30)->post(
                 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$key,
-                ['contents' => [['parts' => [['text' => $prompt]]]], 'generationConfig' => ['temperature' => 0.4, 'maxOutputTokens' => 300]]
+                // thinkingBudget 0 : réponse directe (les tokens de réflexion comptaient dans la limite et tronquaient la réponse)
+                ['contents' => [['parts' => [['text' => $prompt]]]], 'generationConfig' => ['temperature' => 0.4, 'maxOutputTokens' => 1024, 'thinkingConfig' => ['thinkingBudget' => 0]]]
             );
             $text = trim((string) data_get($res->json(), 'candidates.0.content.parts.0.text'));
 
