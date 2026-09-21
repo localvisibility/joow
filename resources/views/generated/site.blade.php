@@ -970,7 +970,7 @@ footer.bg-slate-900{background:#07070b!important}
     </div>
     <div class="mt-8 flex flex-col items-center justify-between gap-3 text-sm sm:flex-row">
       <p>{{ $b['address'] ?? '' }}</p>
-      <p class="text-xs">© {{ date('Y') }} {{ $b['name'] ?? '' }} — Site créé avec <a href="https://joow.fr" class="font-semibold accent">Joow</a></p>
+      <p class="text-xs">© {{ date('Y') }} {{ $b['name'] ?? '' }} — Site créé avec <a href="https://joow.fr" class="inline-flex items-center gap-1 font-semibold accent" rel="noopener"><img src="https://app.joow.fr/brand/joow-mark.svg" alt="" width="14" height="14" class="inline-block h-3.5 w-3.5" loading="lazy">Joow</a></p>
     </div>
   </div>
 </footer>

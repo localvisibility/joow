@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import BrandLogo from '@/Components/BrandLogo.vue';
 
 const props = defineProps({
     stats: { type: Object, default: () => ({ sites: 0, rating: 4.8, sectors: 0 }) },
@@ -133,10 +134,7 @@ const openFaq = ref(null);
         <div class="relative z-10">
             <header class="sticky top-0 z-40 border-b border-white/[0.04] bg-ink-950/60 backdrop-blur-xl">
                 <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-                    <div class="flex items-center gap-2.5">
-                        <span class="grid h-9 w-9 place-items-center rounded-xl bg-brand-gradient font-display text-lg font-bold text-white shadow-glow">J</span>
-                        <span class="font-display text-xl font-bold text-white">joow</span>
-                    </div>
+                    <a href="/" class="block" aria-label="Joow"><BrandLogo class="h-9 w-auto" /></a>
                     <div class="flex items-center gap-2">
                         <Link :href="route('login')" class="rounded-xl px-4 py-2 text-sm font-semibold text-slate-300 transition hover:text-white">Se connecter</Link>
                         <button @click="scrollToSearch" class="btn-brand hidden text-sm sm:inline-flex">Créer mon site</button>
@@ -357,7 +355,10 @@ const openFaq = ref(null);
                 <button @click="scrollToSearch" class="btn-brand reveal mt-8 text-base">Créer mon site maintenant →</button>
             </section>
 
-            <footer class="border-t border-white/[0.06] py-8 text-center text-xs text-slate-600">© 2026 Joow — Vos sites, en mieux.</footer>
+            <footer class="flex flex-col items-center gap-3 border-t border-white/[0.06] py-10 text-center text-xs text-slate-600">
+                <BrandLogo class="h-7 w-auto opacity-80" />
+                <span>© 2026 Joow — Vos sites, en mieux.</span>
+            </footer>
         </div>
 
         <!-- Lightbox -->

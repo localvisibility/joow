@@ -47,7 +47,9 @@
     @if(!empty($brand['url']))<br><a href="{{ $brand['url'] }}" style="color:{{ $accent }};text-decoration:none">{{ str_replace('https://', '', $brand['url']) }}</a>@endif
   </td></tr>
 </table>
-<p style="font-size:11px;color:#94a3b8;margin:16px 0 0">Envoyé via <a href="https://joow.fr" style="color:#94a3b8">Joow</a></p>
+<p style="font-size:11px;color:#94a3b8;margin:18px 0 0;line-height:1.6">
+  <a href="https://joow.fr" style="color:#94a3b8;text-decoration:none"><img src="https://app.joow.fr/brand/joow-logo-email.png" width="64" height="28" alt="Joow" style="display:inline-block;vertical-align:middle;width:64px;height:auto;border:0;margin-right:6px">Envoyé via Joow</a>
+</p>
 </td></tr>
 </table>
 </body>

@@ -1,5 +1,6 @@
 <script setup>
 import { Link } from '@inertiajs/vue3';
+import BrandLogo from '@/Components/BrandLogo.vue';
 </script>
 
 <template>
@@ -9,10 +10,7 @@ import { Link } from '@inertiajs/vue3';
 
         <div class="relative w-full max-w-md">
             <div class="mb-8 flex flex-col items-center">
-                <Link href="/" class="flex items-center gap-2.5">
-                    <span class="grid h-11 w-11 place-items-center rounded-2xl bg-brand-gradient font-display text-2xl font-bold text-white shadow-glow">J</span>
-                    <span class="font-display text-3xl font-bold tracking-tight text-white">joow</span>
-                </Link>
+                <Link href="/" class="block" aria-label="Joow"><BrandLogo class="h-12 w-auto" /></Link>
                 <p class="mt-3 text-sm text-slate-400">Votre plateforme de sites, en un seul endroit.</p>
             </div>
 

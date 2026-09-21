@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import BrandLogo from '@/Components/BrandLogo.vue';
 
 const page = usePage();
 const drawer = ref(false);
@@ -43,9 +44,8 @@ const isActive = (name) => { try { return route().current(name); } catch (e) { r
     <div class="min-h-screen bg-ink-950 bg-mesh text-slate-200">
         <!-- Sidebar (desktop) -->
         <aside class="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-white/[0.06] bg-ink-900/60 backdrop-blur-xl lg:flex">
-            <div class="flex h-16 items-center gap-2.5 px-6">
-                <span class="grid h-9 w-9 place-items-center rounded-xl bg-brand-gradient font-display text-lg font-bold text-white shadow-glow">J</span>
-                <span class="font-display text-xl font-bold tracking-tight text-white">joow</span>
+            <div class="flex h-16 items-center px-6">
+                <Link :href="route('dashboard')" class="block" aria-label="Joow"><BrandLogo class="h-8 w-auto" /></Link>
             </div>
 
             <div class="px-4 pb-2 pt-2">
@@ -88,7 +88,7 @@ const isActive = (name) => { try { return route().current(name); } catch (e) { r
             <button @click="drawer = true" class="grid h-10 w-10 place-items-center rounded-xl border border-white/10 text-slate-300">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
-            <Link :href="route('dashboard')" class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-lg bg-brand-gradient font-display text-base font-bold text-white">J</span><span class="font-display text-lg font-bold text-white">joow</span></Link>
+            <Link :href="route('dashboard')" class="block" aria-label="Joow"><BrandLogo class="h-7 w-auto" /></Link>
             <Link :href="route('sites.create')" class="grid h-10 w-10 place-items-center rounded-xl bg-brand-gradient text-white shadow-glow"><svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/></svg></Link>
         </header>
 
@@ -97,7 +97,7 @@ const isActive = (name) => { try { return route().current(name); } catch (e) { r
             <div v-if="drawer" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm lg:hidden" @click="drawer = false">
                 <aside class="absolute inset-y-0 left-0 flex w-72 flex-col bg-ink-900 p-4" @click.stop>
                     <div class="mb-4 flex items-center justify-between">
-                        <span class="flex items-center gap-2"><span class="grid h-8 w-8 place-items-center rounded-lg bg-brand-gradient font-display font-bold text-white">J</span><span class="font-display text-lg font-bold text-white">joow</span></span>
+                        <BrandLogo class="h-7 w-auto" />
                         <button @click="drawer = false" class="text-slate-400">✕</button>
                     </div>
                     <nav class="flex-1 space-y-5 overflow-y-auto">

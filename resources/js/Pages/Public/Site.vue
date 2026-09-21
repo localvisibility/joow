@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
+import BrandLogo from '@/Components/BrandLogo.vue';
 
 const props = defineProps({ site: Object });
 
@@ -35,10 +36,7 @@ onUnmounted(() => timer && clearInterval(timer));
 
     <div class="min-h-screen bg-ink-950 bg-mesh text-slate-200">
         <header class="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
-            <Link :href="route('home')" class="flex items-center gap-2.5">
-                <span class="grid h-9 w-9 place-items-center rounded-xl bg-brand-gradient font-display text-lg font-bold text-white shadow-glow">J</span>
-                <span class="font-display text-xl font-bold text-white">joow</span>
-            </Link>
+            <Link :href="route('home')" class="block" aria-label="Joow"><BrandLogo class="h-9 w-auto" /></Link>
             <Link :href="route('login')" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25">Se connecter</Link>
         </header>
 
