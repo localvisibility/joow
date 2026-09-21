@@ -10,7 +10,7 @@
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
         <link rel="icon" href="/favicon.ico" sizes="32x32">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-        <link rel="manifest" href="/site.webmanifest">
+        <link rel="manifest" href="/manifest.json">
         <meta name="theme-color" content="#08080c">
         <meta name="description" content="Joow crée le site professionnel de votre établissement en 30 secondes : textes, photos, avis, réservation. Design premium, sans compte.">
         <meta property="og:type" content="website">
