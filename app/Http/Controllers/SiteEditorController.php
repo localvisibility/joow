@@ -162,6 +162,9 @@ class SiteEditorController extends Controller
         $site = $this->ownedSite($request, $slug);
         $data = $request->validate(['message' => ['required', 'string', 'min:2', 'max:600']]);
 
+        // L'appel Gemini peut prendre 20-60 s : ne pas se faire tuer par max_execution_time.
+        @set_time_limit(150);
+
         $content = $site->site_data['content'] ?? [];
         if (! $content) {
             return response()->json(['reply' => 'Ce site doit d\'abord être régénéré pour activer l\'édition IA.', 'version' => null], 422);

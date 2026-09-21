@@ -43,13 +43,16 @@ jobs:
           set_env GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
           set_env GEMINI_API_KEY "${GEMINI_API_KEY:-}"
 
+          # Image applicative (Dockerfile / entrypoint / php.ini) — cache Docker, rapide si inchangé
+          docker compose build app horizon scheduler
+
           # Dépendances PHP (si le lock a changé) + assets front
           docker compose run --rm app composer install --no-interaction --prefer-dist
           docker compose run --rm node
 
           # Migrations de schéma (additives) + démarrage
           docker compose run --rm app php artisan migrate --force
-          docker compose up -d
+          docker compose up -d --remove-orphans
           docker compose restart app web horizon scheduler
 
           # Health-check ; rollback automatique si l'app ne répond pas
