@@ -55,9 +55,12 @@ Réponds UNIQUEMENT avec un JSON valide de cette forme exacte :
   "faq": [
     {"q": "question fréquente réelle du secteur", "a": "réponse claire (2-3 phrases)"}
   ],
+  "process": [
+    {"title": "étape du parcours client (3-5 mots, commence par 'Vous' ou 'On')", "desc": "1 phrase rassurante"}
+  ],
   "cta_text": "phrase d'appel à l'action chaleureuse (1 phrase)"
 }
-Donne exactement 3 stats, 6 services et 5 questions FAQ pertinents et crédibles pour ce métier précis.
+Donne exactement 3 stats, 6 services, 5 questions FAQ et 3 étapes de parcours (process) pertinents et crédibles pour ce métier précis.
 Adapte le vocabulaire au secteur (ex: un restaurant parle de carte/réservation, un plombier d'urgence/dépannage).
 TXT;
 

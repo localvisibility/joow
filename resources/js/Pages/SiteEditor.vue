@@ -77,6 +77,7 @@ const onMessage = (e) => {
 };
 const sectionOfPath = (p) => {
     if (/hero_|tagline|cta_label|badges|stats/.test(p)) return 'hero';
+    if (/process/.test(p)) return 'process'; if (/cta_band/.test(p)) return 'cta';
     if (/services/.test(p)) return 'services'; if (/about/.test(p)) return 'about';
     if (/faq/.test(p)) return 'faq'; if (/reviews/.test(p)) return 'reviews';
     if (/gallery/.test(p)) return 'gallery'; if (/contact|cta_text/.test(p)) return 'contact';
@@ -102,11 +103,13 @@ onUnmounted(() => { window.removeEventListener('message', onMessage); window.rem
 const SECTIONS = [
     { id: 'hero', label: 'Accueil', fixed: true },
     { id: 'services', label: 'Services' },
+    { id: 'process', label: 'Parcours (comment ça se passe)' },
     { id: 'gallery', label: 'Galerie' },
     { id: 'about', label: 'À propos' },
     { id: 'reviews', label: 'Avis Google' },
     { id: 'faq', label: 'FAQ' },
     { id: 'booking', label: 'Réservation / RDV / Devis' },
+    { id: 'cta', label: 'Appel à l\'action' },
     { id: 'contact', label: 'Contact' },
 ];
 const order = computed(() => {
@@ -412,6 +415,24 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                     <button @click="addStep" class="mt-2 w-full rounded-lg border border-dashed border-white/15 py-2 text-xs font-semibold text-slate-300 hover:border-brand-400 hover:text-white">+ Ajouter une étape</button>
                                 </div>
                                 <p class="text-xs text-slate-500">Les demandes arrivent dans <Link :href="route('leads.index')" class="text-brand-400">Demandes</Link> et par email, avec toutes les réponses.</p>
+                            </template>
+
+                            <!-- PARCOURS -->
+                            <template v-else-if="s.id==='process'">
+                                <label class="lbl">Surtitre<input class="fld" :value="st.content.process_tag || 'Comment ça se passe'" @change="edit('content.process_tag',$event.target.value)" /></label>
+                                <label class="lbl">Titre<input class="fld" :value="st.content.process_title || 'Simple, rapide, sans surprise'" @change="edit('content.process_title',$event.target.value)" /></label>
+                                <p class="text-xs text-slate-500">3 étapes rassurantes. Laissez vide pour utiliser les étapes proposées pour votre métier.</p>
+                                <div v-for="i in 3" :key="i" class="rounded-xl border border-white/[0.06] p-3">
+                                    <input class="fld font-semibold" :value="st.content.process?.[i-1]?.title || ''" :placeholder="`Étape ${i}`" @change="edit(`content.process.${i-1}.title`,$event.target.value,{reload:true})" />
+                                    <input class="fld mt-1.5" :value="st.content.process?.[i-1]?.desc || ''" placeholder="Une phrase" @change="edit(`content.process.${i-1}.desc`,$event.target.value,{reload:true})" />
+                                </div>
+                            </template>
+
+                            <!-- APPEL À L'ACTION -->
+                            <template v-else-if="s.id==='cta'">
+                                <label class="lbl">Surtitre<input class="fld" :value="st.content.cta_band_tag || 'On vous attend'" @change="edit('content.cta_band_tag',$event.target.value)" /></label>
+                                <label class="lbl">Titre<textarea class="fld" rows="2" :value="st.content.cta_band_title || st.content.cta_text || ''" @change="edit('content.cta_band_title',$event.target.value)"></textarea></label>
+                                <p class="text-xs text-slate-500">Bande animée avant le contact, avec votre bouton principal et votre téléphone.</p>
                             </template>
 
                             <!-- CONTACT -->

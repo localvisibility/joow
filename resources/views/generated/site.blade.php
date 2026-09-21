@@ -36,7 +36,35 @@
 
     // Sections : visibilité + ordre (flex order)
     $secCfg = $c['sections'] ?? [];
-    $defaultOrder = ['services', 'menu', 'rooms', 'gallery', 'about', 'reviews', 'faq', 'booking', 'contact'];
+    $defaultOrder = ['services', 'process', 'menu', 'rooms', 'gallery', 'about', 'reviews', 'faq', 'booking', 'cta', 'contact'];
+
+    // Icône par service (mots-clés) — repli sur l'icône du secteur
+    $svcIcon = function (string $name) use ($icon): string {
+        $n = mb_strtolower($name);
+        $map = ['livraison' => 'fa-truck', 'mariage' => 'fa-ring', 'brunch' => 'fa-mug-hot', 'dégustation' => 'fa-utensils', 'menu' => 'fa-utensils', 'vin' => 'fa-wine-glass', 'cave' => 'fa-wine-glass', 'privatis' => 'fa-key', 'traiteur' => 'fa-cake-candles', 'terrasse' => 'fa-umbrella-beach',
+            'coupe' => 'fa-scissors', 'coiff' => 'fa-scissors', 'couleur' => 'fa-palette', 'balayage' => 'fa-palette', 'lissage' => 'fa-wind', 'soin' => 'fa-spa', 'ongle' => 'fa-hand-sparkles', 'massage' => 'fa-hands', 'épilation' => 'fa-feather',
+            'isolation' => 'fa-temperature-low', 'peinture' => 'fa-paint-roller', 'cuisine' => 'fa-kitchen-set', 'salle de bain' => 'fa-bath', 'électri' => 'fa-bolt', 'plomb' => 'fa-faucet', 'toit' => 'fa-house-chimney', 'extension' => 'fa-up-right-and-down-left-from-center', 'combles' => 'fa-up-right-and-down-left-from-center', 'rénovation' => 'fa-hammer', 'chauffage' => 'fa-fire', 'clim' => 'fa-snowflake', 'fenêtre' => 'fa-window-maximize', 'menuiserie' => 'fa-ruler-combined', 'carrel' => 'fa-border-all',
+            'estimation' => 'fa-tag', 'vente' => 'fa-handshake', 'achat' => 'fa-key', 'recherche' => 'fa-magnifying-glass', 'location' => 'fa-file-signature', 'gestion' => 'fa-file-signature', 'investis' => 'fa-chart-line', 'home staging' => 'fa-couch',
+            'urgence' => 'fa-bolt', 'dépannage' => 'fa-bolt', 'entretien' => 'fa-oil-can', 'révision' => 'fa-oil-can', 'pneu' => 'fa-circle-dot', 'frein' => 'fa-circle-dot', 'diagnostic' => 'fa-stethoscope', 'carrosserie' => 'fa-car-burst', 'contrôle technique' => 'fa-clipboard-check',
+            'consultation' => 'fa-user-doctor', 'enfant' => 'fa-baby', 'nourrisson' => 'fa-baby', 'pédiatr' => 'fa-baby', 'sport' => 'fa-person-running', 'enceinte' => 'fa-person-pregnant', 'grossesse' => 'fa-person-pregnant', 'digest' => 'fa-hand-holding-medical', 'suivi' => 'fa-notes-medical', 'dos' => 'fa-bone',
+            'chambre' => 'fa-bed', 'suite' => 'fa-bed', 'petit-déj' => 'fa-mug-saucer', 'spa' => 'fa-spa', 'piscine' => 'fa-water-ladder', 'événement' => 'fa-champagne-glasses', 'séminaire' => 'fa-people-group', 'conciergerie' => 'fa-bell-concierge', 'parking' => 'fa-square-parking',
+            'formation' => 'fa-chalkboard-user', 'coaching' => 'fa-user-tie', 'stratégie' => 'fa-chess', 'marketing' => 'fa-bullhorn', 'organisation' => 'fa-sitemap', 'rh' => 'fa-people-group',
+            'divorce' => 'fa-people-roof', 'famille' => 'fa-people-roof', 'travail' => 'fa-briefcase', 'pénal' => 'fa-gavel', 'immobilier' => 'fa-building', 'succession' => 'fa-scroll', 'contrat' => 'fa-file-contract',
+            'création' => 'fa-rocket', 'paie' => 'fa-users', 'bilan' => 'fa-book', 'compta' => 'fa-book', 'fiscal' => 'fa-percent', 'juridique' => 'fa-scale-balanced', 'assurance' => 'fa-shield-halved', 'devis' => 'fa-file-invoice', 'conseil' => 'fa-lightbulb', 'garantie' => 'fa-shield-halved'];
+        foreach ($map as $k => $ic) { if (str_contains($n, $k)) return $ic; }
+        return $icon;
+    };
+
+    // "Comment ça se passe" : 3 étapes (IA) ou repli générique
+    $process = array_values(array_filter($c['process'] ?? [], fn($p) => is_array($p) && !empty($p['title'])));
+    if (count($process) < 2) {
+        $process = match (true) {
+            in_array($sector, ['restaurant'], true) => [['title' => 'Vous réservez', 'desc' => 'En ligne ou par téléphone, en 30 secondes.'], ['title' => 'On prépare votre table', 'desc' => 'Vos préférences sont notées, votre place vous attend.'], ['title' => 'Vous savourez', 'desc' => 'Le reste, c\'est notre métier.']],
+            in_array($sector, ['hebergement'], true) => [['title' => 'Vous choisissez vos dates', 'desc' => 'Disponibilités en direct, réponse rapide.'], ['title' => 'On confirme votre séjour', 'desc' => 'Tout est prêt avant votre arrivée.'], ['title' => 'Vous profitez', 'desc' => 'Un accueil aux petits soins, du premier au dernier jour.']],
+            in_array($sector, ['sante', 'bienetre', 'beaute'], true) => [['title' => 'Vous prenez rendez-vous', 'desc' => 'En ligne ou par téléphone, selon vos disponibilités.'], ['title' => 'On vous écoute', 'desc' => 'Un diagnostic personnalisé, sans précipitation.'], ['title' => 'On prend soin de vous', 'desc' => 'Des gestes experts et un suivi attentif.']],
+            default => [['title' => 'Vous nous contactez', 'desc' => 'Un premier échange gratuit pour comprendre votre besoin.'], ['title' => 'On vous propose une solution', 'desc' => 'Un devis clair et détaillé, sans surprise.'], ['title' => 'On s\'occupe de tout', 'desc' => 'Travail soigné, délais tenus, suivi jusqu\'au bout.']],
+        };
+    }
     $order = array_values(array_unique(array_merge(array_values($secCfg['order'] ?? []), $defaultOrder)));
     $hidden = $secCfg['hidden'] ?? [];
     $show = fn($k) => empty($hidden[$k]);
@@ -154,6 +182,67 @@ main{display:flex;flex-direction:column}
 .glow{pointer-events:none;position:absolute;inset:0;background:radial-gradient(520px circle at var(--mx,50%) var(--my,40%),color-mix(in srgb,var(--c) 28%,transparent),transparent 60%);opacity:.9}
 .hero-photo{border-radius:2rem;box-shadow:0 40px 80px -30px rgba(0,0,0,.7)}
 @media (prefers-reduced-motion:reduce){.kb,.stagger>*,#joow-curtain span{animation:none}.hero-img{opacity:1}}
+/* ── Bandeau de confiance défilant ── */
+.trust{border-top:1px solid rgba(15,23,42,.06);border-bottom:1px solid rgba(15,23,42,.06);overflow:hidden;background:#fff}
+.trust-track{display:flex;width:max-content;gap:2.5rem;padding:.9rem 0;animation:marq 32s linear infinite;white-space:nowrap}
+.trust:hover .trust-track{animation-play-state:paused}
+.trust-item{display:inline-flex;align-items:center;gap:.5rem;font-size:.85rem;font-weight:600;color:#475569}
+.trust-item i{color:var(--c)}
+.trust-item .g{display:inline-grid;place-items:center;width:1.25rem;height:1.25rem;border-radius:9999px;background:#fff;box-shadow:0 0 0 1px #e2e8f0;font-weight:800;font-size:.7rem;color:#4285f4}
+/* ── Services bento ── */
+.bento{display:grid;gap:1.25rem;grid-template-columns:repeat(1,minmax(0,1fr))}
+@media(min-width:768px){.bento{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:1024px){.bento{grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:minmax(200px,auto)}.bento .feat{grid-column:span 2;grid-row:span 2}}
+.svc{position:relative;overflow:hidden;border-radius:1.5rem;border:1px solid #f1f5f9;background:#fff;padding:1.75rem;transition:transform .35s cubic-bezier(.22,1,.36,1),box-shadow .35s,border-color .35s;transform-style:preserve-3d}
+.svc:hover{box-shadow:0 30px 60px -28px rgba(15,23,42,.35);border-color:color-mix(in srgb,var(--c) 35%,#f1f5f9)}
+.svc::before{content:"";position:absolute;inset:0;background:radial-gradient(420px circle at var(--px,50%) var(--py,50%),color-mix(in srgb,var(--c) 10%,transparent),transparent 60%);opacity:0;transition:opacity .35s;pointer-events:none}
+.svc:hover::before{opacity:1}
+.svc-ic{display:grid;place-items:center;width:3.25rem;height:3.25rem;border-radius:1rem;background:var(--grad);color:#fff;font-size:1.15rem;box-shadow:0 14px 30px -14px color-mix(in srgb,var(--c) 70%,transparent);transition:transform .35s}
+.svc:hover .svc-ic{transform:scale(1.08) rotate(-4deg)}
+.svc-num{position:absolute;right:1.25rem;top:1rem;font-family:'{{ $displayFont }}',sans-serif;font-size:3rem;font-weight:700;color:#f1f5f9;line-height:1;transition:color .35s}
+.svc:hover .svc-num{color:color-mix(in srgb,var(--c) 18%,#f1f5f9)}
+.svc.feat{min-height:26rem;color:#fff;border:0;display:flex;flex-direction:column;justify-content:flex-end}
+.svc.feat img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform 1.2s cubic-bezier(.22,1,.36,1)}
+.svc.feat:hover img{transform:scale(1.06)}
+.svc.feat .ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,8,14,.05) 0%,rgba(7,8,14,.55) 55%,rgba(7,8,14,.9) 100%)}
+.svc.feat>*:not(img):not(.ov){position:relative}
+.svc.feat .svc-tag{display:inline-flex;align-items:center;gap:.4rem;border-radius:9999px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);padding:.35rem .8rem;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+/* ── Parcours (timeline) ── */
+.steps{position:relative;display:grid;gap:1.5rem}
+@media(min-width:768px){.steps{grid-template-columns:repeat(3,minmax(0,1fr))}.steps::before{content:"";position:absolute;left:12%;right:12%;top:2.1rem;height:2px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--c) 45%,transparent),transparent)}}
+.step{position:relative;text-align:center;padding:0 .75rem}
+.step-n{position:relative;z-index:1;margin:0 auto 1.1rem;display:grid;place-items:center;width:4.2rem;height:4.2rem;border-radius:9999px;background:var(--grad);color:#fff;font-family:'{{ $displayFont }}',sans-serif;font-size:1.5rem;font-weight:700;box-shadow:0 0 0 8px color-mix(in srgb,var(--c) 12%,transparent),0 20px 40px -18px color-mix(in srgb,var(--c) 75%,transparent)}
+/* ── Avis : note + carrousel ── */
+.rating-big{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1.5rem}
+.rating-num{font-family:'{{ $displayFont }}',sans-serif;font-size:4.5rem;font-weight:700;line-height:1}
+.rev-mask{-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.rev-track{display:flex;width:max-content;gap:1.25rem}
+.rev-left{animation:marq 48s linear infinite}.rev-right{animation:marqr 52s linear infinite}
+@keyframes marqr{from{transform:translateX(-50%)}to{transform:translateX(0)}}
+.rev-mask:hover .rev-track{animation-play-state:paused}
+.rev{width:22rem;flex-shrink:0;border-radius:1.5rem;border:1px solid #f1f5f9;background:#fff;padding:1.5rem;box-shadow:0 10px 30px -22px rgba(15,23,42,.35);position:relative}
+.rev .q{position:absolute;right:1.25rem;top:.9rem;font-family:Georgia,serif;font-size:3.5rem;line-height:1;color:color-mix(in srgb,var(--c) 22%,#fff)}
+/* ── Lightbox ── */
+#joow-lb{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;background:rgba(3,6,23,.92);backdrop-filter:blur(6px)}
+#joow-lb.open{display:flex}
+#joow-lb img{max-width:92vw;max-height:86vh;border-radius:1rem;box-shadow:0 40px 80px -30px rgba(0,0,0,.8);animation:rise .35s both}
+#joow-lb button{position:absolute;display:grid;place-items:center;width:3rem;height:3rem;border-radius:9999px;background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);cursor:pointer;font-size:1.1rem}
+#joow-lb .lb-x{top:1.25rem;right:1.25rem}#joow-lb .lb-p{left:1.25rem;top:50%;transform:translateY(-50%)}#joow-lb .lb-n{right:1.25rem;top:50%;transform:translateY(-50%)}
+[data-lb]{cursor:zoom-in}
+/* ── Bande d'appel à l'action ── */
+.cta-band{position:relative;overflow:hidden;border-radius:2rem;background:#0b0b10;color:#fff;padding:3.5rem 2rem;text-align:center;isolation:isolate}
+.cta-band::before{content:"";position:absolute;inset:-40%;background:conic-gradient(from 180deg at 50% 50%,color-mix(in srgb,var(--c) 55%,transparent),transparent 30%,color-mix(in srgb,var(--c) 40%,#7c3aed) 60%,transparent 80%,color-mix(in srgb,var(--c) 55%,transparent));filter:blur(60px);opacity:.55;animation:spin 18s linear infinite;z-index:-1}
+@keyframes spin{to{transform:rotate(1turn)}}
+/* ── Cascade & relief ── */
+.stagger-grid>.reveal:nth-child(2){transition-delay:.08s}.stagger-grid>.reveal:nth-child(3){transition-delay:.16s}.stagger-grid>.reveal:nth-child(4){transition-delay:.24s}.stagger-grid>.reveal:nth-child(5){transition-delay:.32s}.stagger-grid>.reveal:nth-child(6){transition-delay:.4s}
+.tilt{will-change:transform}
+/* ── Pied de page ── */
+.foot-grid{display:grid;gap:2.5rem}
+@media(min-width:768px){.foot-grid{grid-template-columns:1.4fr 1fr 1fr}}
+.foot-link{display:block;padding:.3rem 0;color:#94a3b8;transition:color .2s}.foot-link:hover{color:#fff}
+.theme-dark .trust{background:#0e0e15;border-color:rgba(255,255,255,.07)}.theme-dark .trust-item{color:#cbd5e1}
+.theme-dark .svc{background:#12121a;border-color:rgba(255,255,255,.08)}.theme-dark .svc-num{color:rgba(255,255,255,.06)}
+.theme-dark .rev{background:#12121a;border-color:rgba(255,255,255,.08)}
 /* ── Formulaire multi-étapes ── */
 .jw-progress{display:flex;gap:.5rem}
 .jw-pstep{flex:1;display:flex;align-items:center;gap:.5rem;min-width:0;opacity:.45;transition:opacity .3s}
@@ -356,6 +445,26 @@ footer.bg-slate-900{background:#07070b!important}
   <a href="#services" class="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 transition hover:text-white"><i class="fa-solid fa-chevron-down animate-bounce"></i></a>
 </header>
 
+<!-- BANDEAU DE CONFIANCE DÉFILANT -->
+@php
+  $trust = array_values(array_filter(array_merge(
+      !empty($b['rating']) ? [['g', $b['rating'].'/5 · '.($b['reviews_count'] ?? 0).' avis Google']] : [],
+      array_map(fn($x) => ['fa-circle-check', $x], array_slice($badges, 0, 4)),
+      array_map(fn($s) => ['fa-star', trim(($s['v'] ?? '').' '.($s['l'] ?? ''))], $stats),
+      !empty($b['city']) ? [['fa-location-dot', $b['city']]] : [],
+      [['fa-shield-halved', $label]],
+  )));
+@endphp
+@if(count($trust) >= 3)
+<div class="trust">
+  <div class="trust-track">
+    @foreach(array_merge($trust, $trust) as [$ic, $txt])
+    <span class="trust-item">@if($ic === 'g')<span class="g">G</span>@else<i class="fa-solid {{ $ic }}"></i>@endif{{ $txt }}</span>
+    @endforeach
+  </div>
+</div>
+@endif
+
 <!-- STATS BAND (mobile) -->
 <section class="border-b border-slate-100 bg-white">
   <div class="mx-auto grid max-w-5xl grid-cols-3 gap-4 px-5 py-8 text-center lg:hidden">
@@ -375,17 +484,55 @@ footer.bg-slate-900{background:#07070b!important}
       <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl" data-edit="content.services_title">{{ $t('services_title', 'Un savoir-faire complet') }}</h2>
       <p class="mt-4 text-lg text-slate-500" data-edit="content.services_intro">{{ $t('services_intro', $c['about_p1'] ?? '') }}</p>
     </div>
-    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    @php $featImg = $images['services'] ?? ($pool[2] ?? ($pool[1] ?? $hero)); $featLq = $lqip($featImg); @endphp
+    <div class="bento stagger-grid">
       @foreach($services as $i => $s)
-      <div class="reveal card-hover group relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-8 shadow-sm hover:shadow-2xl">
-        <span class="absolute right-5 top-4 font-display text-5xl font-bold text-slate-100 transition group-hover:text-slate-200">{{ sprintf('%02d', $i+1) }}</span>
-        <div class="relative mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-grad text-white shadow-c"><i class="fa-solid fa-check text-lg"></i></div>
-        <h3 class="relative font-display text-xl font-bold" data-edit="content.services.{{ $i }}.name">{{ $s['name'] ?? '' }}</h3>
-        <p class="relative mt-2 text-slate-500" data-edit="content.services.{{ $i }}.desc">{{ $s['desc'] ?? '' }}</p>
-        <div class="relative mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
+      @if($i === 0 && count($services) >= 3)
+      <div class="reveal svc feat tilt">
+        @if($featLq)<div class="lqip absolute inset-0" style="background-image:url('{{ $featLq }}')"></div>@endif
+        <img src="{{ $featImg }}" alt="{{ $s['name'] ?? '' }}" loading="lazy" decoding="async" @if($editMode) data-edit-img="images.services" @endif>
+        <div class="ov"></div>
+        <span class="svc-tag"><i class="fa-solid fa-star"></i> Le plus demandé</span>
+        <h3 class="mt-4 font-display text-3xl font-bold leading-tight sm:text-4xl" data-edit="content.services.0.name">{{ $s['name'] ?? '' }}</h3>
+        <p class="mt-2 max-w-md text-white/85" data-edit="content.services.0.desc">{{ $s['desc'] ?? '' }}</p>
+        <div class="mt-5 flex flex-wrap items-center gap-4">
+          <span class="rounded-full bg-white px-4 py-1.5 text-sm font-bold text-slate-900" data-edit="content.services.0.price">{{ $s['price'] ?? 'Sur devis' }}</span>
+          <a href="{{ $ctaHref }}" class="text-sm font-bold text-white/90 hover:text-white">{{ $ctaLabel }} →</a>
+        </div>
+      </div>
+      @else
+      <div class="reveal svc tilt group">
+        <span class="svc-num">{{ sprintf('%02d', $i+1) }}</span>
+        <div class="svc-ic mb-5"><i class="fa-solid {{ $svcIcon($s['name'] ?? '') }}"></i></div>
+        <h3 class="font-display text-xl font-bold" data-edit="content.services.{{ $i }}.name">{{ $s['name'] ?? '' }}</h3>
+        <p class="mt-2 text-slate-500" data-edit="content.services.{{ $i }}.desc">{{ $s['desc'] ?? '' }}</p>
+        <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
           <span class="text-sm font-bold accent" data-edit="content.services.{{ $i }}.price">{{ $s['price'] ?? 'Sur devis' }}</span>
           <a href="{{ $ctaHref }}" class="text-sm font-semibold text-slate-400 transition group-hover:accent">En savoir plus →</a>
         </div>
+      </div>
+      @endif
+      @endforeach
+    </div>
+  </div>
+</section>
+@endif
+
+<!-- PARCOURS : comment ça se passe -->
+@if($show('process'))
+<section id="parcours" class="relative overflow-hidden py-24" style="order:{{ $ord('process') }}" data-section="process" data-label="Parcours">
+  <div class="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full blur-3xl" style="background:var(--grad);opacity:.10"></div>
+  <div class="mx-auto max-w-6xl px-5">
+    <div class="reveal mb-14 text-center">
+      <p class="text-sm font-bold uppercase tracking-[0.3em] accent" data-edit="content.process_tag">{{ $t('process_tag', 'Comment ça se passe') }}</p>
+      <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl" data-edit="content.process_title">{{ $t('process_title', 'Simple, rapide, sans surprise') }}</h2>
+    </div>
+    <div class="steps stagger-grid">
+      @foreach(array_slice($process, 0, 4) as $pi => $p)
+      <div class="reveal step">
+        <div class="step-n">{{ $pi + 1 }}</div>
+        <h3 class="font-display text-xl font-bold" data-edit="content.process.{{ $pi }}.title">{{ $p['title'] }}</h3>
+        <p class="mt-2 text-slate-500" data-edit="content.process.{{ $pi }}.desc">{{ $p['desc'] ?? '' }}</p>
       </div>
       @endforeach
     </div>
@@ -435,7 +582,7 @@ footer.bg-slate-900{background:#07070b!important}
   </div>
   <div class="flex w-max marq gap-5 pl-5">
     @foreach(($editMode ? $gallery : array_merge($gallery, $gallery)) as $gi => $g)
-    <div class="h-64 w-96 shrink-0 overflow-hidden rounded-3xl"><img src="{{ $g }}" class="h-full w-full object-cover" alt="{{ $b['name'] ?? '' }}" loading="lazy" @if($editMode) data-edit-img="images.gallery.{{ $gi }}" @endif></div>
+    <div class="group h-64 w-96 shrink-0 overflow-hidden rounded-3xl"><img src="{{ $g }}" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" alt="{{ $b['name'] ?? '' }}" loading="lazy" @if($editMode) data-edit-img="images.gallery.{{ $gi }}" @else data-lb="{{ $g }}" @endif></div>
     @endforeach
     @if($editMode)<button type="button" class="joow-img-btn" style="position:static;height:16rem;width:12rem;border-radius:1.5rem;justify-content:center;border:2px dashed #c7d2fe;background:#f5f3ff" data-edit-img="images.gallery.{{ count($gallery) }}"><i class="fa-solid fa-plus"></i> Ajouter une photo</button>@endif
   </div>
@@ -478,27 +625,41 @@ footer.bg-slate-900{background:#07070b!important}
 @if($show('reviews') && $reviews->count())
 <section id="avis" class="py-24" style="order:{{ $ord('reviews') }}" data-section="reviews" data-label="Avis">
   <div class="mx-auto max-w-6xl px-5">
-    <div class="reveal mb-14 text-center">
+    <div class="reveal mb-12 text-center">
       <p class="text-sm font-bold uppercase tracking-[0.3em] accent">Témoignages</p>
       <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl" data-edit="content.reviews_title">{{ $t('reviews_title', 'Ils nous recommandent') }}</h2>
-      @if(!empty($b['rating']))<p class="mt-3 text-slate-500"><span class="text-amber-500">{{ $stars($b['rating']) }}</span> {{ $b['rating'] }}/5 · {{ $b['reviews_count'] ?? 0 }} avis sur Google</p>@endif
     </div>
-    <div class="grid gap-6 md:grid-cols-3">
-      @foreach($reviews->take(6) as $r)
-      <figure class="reveal card-hover rounded-3xl border border-slate-100 bg-white p-7 shadow-sm hover:shadow-xl">
-        <div class="mb-4 flex items-center justify-between">
-          <div class="text-amber-500">{{ $stars($r['rating'] ?? 5) }}</div>
-          <i class="fa-brands fa-google text-slate-300"></i>
-        </div>
-        <blockquote class="text-slate-600">"{{ Str::limit($r['text'], 220) }}"</blockquote>
+    @if(!empty($b['rating']))
+    <div class="reveal rating-big mb-12">
+      <div class="text-center"><p class="rating-num" data-count>{{ $b['rating'] }}</p><p class="mt-1 text-2xl text-amber-500">{{ $stars($b['rating']) }}</p></div>
+      <div class="text-left">
+        <p class="flex items-center gap-2 font-display text-xl font-bold"><span class="grid h-7 w-7 place-items-center rounded-full bg-white text-sm font-black text-[#4285f4] shadow ring-1 ring-slate-200">G</span> {{ $b['reviews_count'] ?? 0 }} avis Google</p>
+        <p class="mt-1 text-slate-500">Note moyenne authentique, mise à jour depuis notre fiche Google.</p>
+        <div class="mt-3 h-2 w-64 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-grad" style="width:{{ min(100, round(((float) $b['rating']) / 5 * 100)) }}%"></div></div>
+      </div>
+    </div>
+    @endif
+  </div>
+  @php $revCards = $reviews->take(8)->values(); $twoRows = $revCards->count() >= 4; $rowA = $twoRows ? $revCards->filter(fn($r, $i) => $i % 2 === 0)->values() : $revCards; $rowB = $twoRows ? $revCards->filter(fn($r, $i) => $i % 2 === 1)->values() : collect(); @endphp
+  @foreach([[$rowA, 'rev-left'], [$rowB, 'rev-right']] as [$row, $dir])
+  @if($row->count())
+  <div class="rev-mask reveal mt-5">
+    <div class="rev-track {{ $editMode ? '' : $dir }}">
+      @foreach(($editMode ? $row : $row->concat($row)) as $r)
+      <figure class="rev">
+        <span class="q">"</span>
+        <div class="text-amber-500">{{ $stars($r['rating'] ?? 5) }}</div>
+        <blockquote class="mt-3 text-slate-600">{{ Str::limit($r['text'], 200) }}</blockquote>
         <figcaption class="mt-5 flex items-center gap-3">
           <span class="grid h-10 w-10 place-items-center rounded-full bg-grad font-display font-bold text-white">{{ $initial($r['author'] ?? 'C') }}</span>
-          <span class="font-bold text-slate-800">{{ $r['author'] ?: 'Client' }}</span>
+          <span><span class="block font-bold text-slate-800">{{ $r['author'] ?: 'Client' }}</span><span class="text-xs text-slate-400"><i class="fa-brands fa-google mr-1"></i>Avis Google</span></span>
         </figcaption>
       </figure>
       @endforeach
     </div>
   </div>
+  @endif
+  @endforeach
 </section>
 @endif
 
@@ -718,6 +879,23 @@ footer.bg-slate-900{background:#07070b!important}
 </section>
 @endif
 
+<!-- BANDE D'APPEL À L'ACTION -->
+@if($show('cta'))
+<section class="py-12" style="order:{{ $ord('cta') }}" data-section="cta" data-label="Appel à l'action">
+  <div class="mx-auto max-w-6xl px-5">
+    <div class="reveal cta-band">
+      <p class="text-xs font-bold uppercase tracking-[0.3em] text-white/70" data-edit="content.cta_band_tag">{{ $t('cta_band_tag', 'On vous attend') }}</p>
+      <h2 class="mx-auto mt-3 max-w-3xl font-display text-3xl font-bold leading-tight sm:text-5xl" data-edit="content.cta_band_title">{{ $t('cta_band_title', $c['cta_text'] ?? 'Prêt à nous rencontrer ?') }}</h2>
+      <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+        <a href="{{ $ctaHref }}" class="shine rounded-xl bg-white px-7 py-4 font-bold text-slate-900 shadow-2xl transition hover:-translate-y-0.5">{{ $ctaLabel }} <i class="fa-solid fa-arrow-right ml-1"></i></a>
+        @if($phoneHref)<a href="{{ $phoneHref }}" class="rounded-xl border-2 border-white/30 px-7 py-4 font-bold text-white backdrop-blur transition hover:bg-white/10"><i class="fa-solid fa-phone mr-2"></i>{{ $b['phone'] }}</a>@endif
+      </div>
+      @if(!empty($b['rating']))<p class="mt-6 text-sm text-white/70"><span class="text-amber-400">{{ $stars($b['rating']) }}</span> {{ $b['rating'] }}/5 · {{ $b['reviews_count'] ?? 0 }} avis Google</p>@endif
+    </div>
+  </div>
+</section>
+@endif
+
 <!-- CONTACT -->
 @if($show('contact'))
 <section id="contact" class="relative py-24" style="order:{{ $ord('contact') }}" data-section="contact" data-label="Contact">
@@ -754,18 +932,38 @@ footer.bg-slate-900{background:#07070b!important}
 </main>
 
 <!-- FOOTER -->
-<footer class="bg-slate-900 py-14 text-slate-400">
+<footer class="bg-slate-900 py-16 text-slate-400">
   <div class="mx-auto max-w-6xl px-5">
-    <div class="flex flex-col items-center justify-between gap-6 border-b border-white/10 pb-8 sm:flex-row">
-      <a href="#top" class="flex items-center gap-2.5 text-white">
-        <span class="grid h-10 w-10 place-items-center rounded-xl bg-grad"><i class="fa-solid {{ $icon }}"></i></span>
-        <span class="font-display text-lg font-bold">{{ $b['name'] ?? '' }}</span>
-      </a>
-      <div class="flex items-center gap-6 text-sm">
-        @if($show('services') && count($services))<a href="#services" class="transition hover:text-white">Services</a>@endif
-        @if($show('about'))<a href="#apropos" class="transition hover:text-white">À propos</a>@endif
-        @if($show('contact'))<a href="#contact" class="transition hover:text-white">Contact</a>@endif
-        @if($legalOn)<a href="#" onclick="document.getElementById('joow-legal').showModal();return false;" class="transition hover:text-white">Mentions légales</a>@endif
+    <div class="foot-grid border-b border-white/10 pb-10">
+      <div>
+        <a href="#top" class="flex items-center gap-2.5 text-white">
+          <span class="grid h-11 w-11 place-items-center rounded-xl bg-grad"><i class="fa-solid {{ $icon }}"></i></span>
+          <span class="font-display text-xl font-bold">{{ $b['name'] ?? '' }}</span>
+        </a>
+        <p class="mt-4 max-w-sm text-sm leading-relaxed">{{ Str::limit($t('hero_subtitle', $tagline), 160) }}</p>
+        @if(!empty($b['rating']))<p class="mt-4 text-sm"><span class="text-amber-400">{{ $stars($b['rating']) }}</span> <span class="text-white">{{ $b['rating'] }}/5</span> · {{ $b['reviews_count'] ?? 0 }} avis Google</p>@endif
+        @if($waOn)<a href="https://wa.me/{{ preg_replace('/\D/', '', $waCfg['number']) }}" target="_blank" rel="noopener" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-sm text-white transition hover:bg-white/10"><i class="fa-brands fa-whatsapp text-[#25D366]"></i> Écrire sur WhatsApp</a>@endif
+      </div>
+      <div>
+        <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Navigation</p>
+        @if($show('services') && count($services))<a href="#services" class="foot-link">Services</a>@endif
+        @if($menuOn)<a href="#carte" class="foot-link">Carte</a>@endif
+        @if($roomsOn)<a href="#sejour" class="foot-link">Chambres</a>@endif
+        @if($show('about'))<a href="#apropos" class="foot-link">À propos</a>@endif
+        @if($reviews->count() && $show('reviews'))<a href="#avis" class="foot-link">Avis</a>@endif
+        @if($show('contact'))<a href="#contact" class="foot-link">Contact</a>@endif
+        @if($legalOn)<a href="#" onclick="document.getElementById('joow-legal').showModal();return false;" class="foot-link">Mentions légales</a>@endif
+      </div>
+      <div>
+        <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{{ count($hours) ? 'Horaires' : 'Contact' }}</p>
+        @if(count($hours))
+        <ul class="space-y-1 text-sm">
+          @foreach(array_slice($hours, 0, 7) as $h)<li class="flex justify-between gap-3"><span class="capitalize">{{ Str::before($h, ':') }}</span><span class="text-slate-300">{{ trim(Str::after($h, ':')) }}</span></li>@endforeach
+        </ul>
+        @else
+        @if(!empty($b['phone']))<a href="{{ $phoneHref }}" class="foot-link"><i class="fa-solid fa-phone mr-2 accent"></i>{{ $b['phone'] }}</a>@endif
+        @if(!empty($b['address']))<p class="foot-link"><i class="fa-solid fa-location-dot mr-2 accent"></i>{{ $b['address'] }}</p>@endif
+        @endif
       </div>
     </div>
     <div class="mt-8 flex flex-col items-center justify-between gap-3 text-sm sm:flex-row">
@@ -776,8 +974,21 @@ footer.bg-slate-900{background:#07070b!important}
 </footer>
 
 <!-- BARRE MOBILE STICKY -->
-@if($phoneHref && !$editMode)
-<a href="{{ $phoneHref }}" class="fixed inset-x-4 bottom-4 z-50 flex items-center justify-center gap-2 rounded-2xl bg-grad px-6 py-4 font-bold text-white shadow-2xl md:hidden"><i class="fa-solid fa-phone"></i>Appeler {{ Str::limit($b['name'] ?? '', 18) }}</a>
+@if(!$editMode)
+<div class="fixed inset-x-4 bottom-4 z-50 flex gap-2 md:hidden">
+  @if($phoneHref)<a href="{{ $phoneHref }}" class="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-white/20 bg-slate-900/90 text-white shadow-2xl backdrop-blur"><i class="fa-solid fa-phone"></i></a>@endif
+  <a href="{{ $ctaHref }}" class="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-grad px-6 py-4 font-bold text-white shadow-2xl">{{ $ctaLabel }} <i class="fa-solid fa-arrow-right"></i></a>
+</div>
+@endif
+
+<!-- LIGHTBOX GALERIE -->
+@if(!$editMode)
+<div id="joow-lb" role="dialog" aria-label="Photo">
+  <button type="button" class="lb-x" aria-label="Fermer">✕</button>
+  <button type="button" class="lb-p" aria-label="Précédente"><i class="fa-solid fa-chevron-left"></i></button>
+  <img src="" alt="">
+  <button type="button" class="lb-n" aria-label="Suivante"><i class="fa-solid fa-chevron-right"></i></button>
+</div>
 @endif
 
 <script>
@@ -818,6 +1029,25 @@ if(op){try{
     op.querySelector('.open-dot').classList.toggle('off',!open);op.lastElementChild.textContent=label;op.style.display='inline-flex';
   }
 }catch(e){}}
+
+// ── Relief 3D au survol (desktop) + halo suivant le curseur sur les cartes
+if(matchMedia('(pointer:fine)').matches&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+  document.querySelectorAll('.tilt').forEach(el=>{
+    el.addEventListener('pointermove',e=>{const r=el.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+      el.style.transform='perspective(900px) rotateX('+((.5-y)*6)+'deg) rotateY('+((x-.5)*8)+'deg) translateY(-4px)';el.style.setProperty('--px',(x*100)+'%');el.style.setProperty('--py',(y*100)+'%');});
+    el.addEventListener('pointerleave',()=>{el.style.transform='';});
+  });
+}
+// ── Lightbox galerie
+const lb=document.getElementById('joow-lb');
+if(lb){const imgs=[...document.querySelectorAll('[data-lb]')],srcs=[...new Set(imgs.map(i=>i.dataset.lb))],im=lb.querySelector('img');let k=0;
+  const open=n=>{k=(n+srcs.length)%srcs.length;im.src=srcs[k];lb.classList.add('open');document.body.style.overflow='hidden';};
+  const close=()=>{lb.classList.remove('open');document.body.style.overflow='';};
+  imgs.forEach(i=>i.addEventListener('click',()=>open(srcs.indexOf(i.dataset.lb))));
+  lb.querySelector('.lb-x').onclick=close;lb.querySelector('.lb-p').onclick=()=>open(k-1);lb.querySelector('.lb-n').onclick=()=>open(k+1);
+  lb.addEventListener('click',e=>{if(e.target===lb)close();});
+  addEventListener('keydown',e=>{if(!lb.classList.contains('open'))return;if(e.key==='Escape')close();if(e.key==='ArrowLeft')open(k-1);if(e.key==='ArrowRight')open(k+1);});
+}
 
 // ── Formulaire multi-étapes -> API Joow (demandes)
 const W=document.getElementById('joow-wizard');
