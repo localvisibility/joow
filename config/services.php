@@ -44,7 +44,15 @@ return [
     ],
     'sites_path' => env('SITES_PATH', '/var/www/sites'),
 
+    // SMS transactionnels (Brevo) : confirmations et rappels de réservation.
+    'brevo' => [
+        'key'        => env('BREVO_API_KEY'),
+        'sms_sender' => env('SMS_SENDER', 'Joow'), // 11 caractères alphanumériques max
+    ],
+
     'stripe' => [
+        // Commission plateforme sur les paiements encaissés via Stripe Connect (en %).
+        'platform_fee_percent' => (float) env('STRIPE_PLATFORM_FEE_PERCENT', 0),
         // Formule Pro : abonnement mensuel (39€ HT/mois) avec essai gratuit.
         'price_pro'     => env('STRIPE_PRICE_PRO', env('STRIPE_PRICE_HOSTING')),
         'trial_days'    => (int) env('STRIPE_TRIAL_DAYS', 7),

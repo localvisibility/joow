@@ -45,7 +45,10 @@ class LeadController extends Controller
             'ip'        => $request->ip(),
         ]);
 
-        $this->notifyOwner($site, $lead);
+        \App\Models\SiteStat::bump($slug, 'leads');
+        if ($site) {
+            app(\App\Services\Notifier::class)->leadReceived($site, $lead);
+        }
 
         return response()->json(['ok' => true, 'id' => $lead->id]);
     }

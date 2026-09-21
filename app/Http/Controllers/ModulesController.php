@@ -85,6 +85,12 @@ class ModulesController extends Controller
             'menu_count' => $site->menuItems()->count(),
             'rooms_count' => $site->rooms()->count(),
             'domain'    => ['custom' => $site->custom_domain, 'verified' => (bool) $site->domain_verified, 'requests' => DomainRequest::where('site_slug', $site->slug)->latest()->take(3)->get(['domain', 'type', 'status', 'created_at'])],
+            'stripe'    => [
+                'configured'      => (bool) config('cashier.secret'),
+                'connected'       => (bool) $site->stripe_account_id,
+                'charges_enabled' => (bool) $site->stripe_charges_enabled,
+            ],
+            'sms_enabled' => (bool) config('services.brevo.key'),
             'live_url'  => 'https://'.$site->slug.'.joow.fr',
         ];
     }
@@ -100,7 +106,7 @@ class ModulesController extends Controller
             'rooms'      => ['enabled' => false, 'notify_email' => '', 'intro' => ''],
             'menu'       => ['enabled' => false, 'title' => 'Notre carte', 'qr' => true],
             'zenchef'    => ['enabled' => false, 'restaurant_id' => ''],
-            'payment'    => ['enabled' => false, 'type' => 'deposit', 'deposit_percent' => 30],
+            'payment'    => ['enabled' => false, 'type' => 'deposit', 'deposit_percent' => 30, 'hold_per_cover' => 10, 'notify_email' => ''],
             'booking'    => ['enabled' => true],
             default      => ['enabled' => false],
         };

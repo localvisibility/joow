@@ -31,6 +31,8 @@ class SiteRenderer
         }
         $mods['restaurant'] = \App\Services\Modules\ReservationAvailability::config($site) + ['enabled' => $site->moduleEnabled('restaurant')];
         $mods['bot'] = array_replace(\App\Services\Modules\BotAnswer::defaults(), $site->module('bot')) + ['enabled' => $site->moduleEnabled('bot')];
+        // Paiement : "ready" = compte Stripe connecté et capable d'encaisser
+        $mods['payment']['ready'] = (bool) config('cashier.secret') && $site->stripe_account_id && $site->stripe_charges_enabled;
 
         return View::make('generated.site', [
             'b'        => $data['business'] ?? [],

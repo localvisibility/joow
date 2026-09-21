@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Listeners\StripeWebhookListener;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Cashier\Events\WebhookReceived;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,5 +24,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Vite::prefetch(concurrency: 3);
+
+        // Paiements Stripe Connect (acomptes, empreintes) — Cashier vérifie la signature.
+        Event::listen(WebhookReceived::class, StripeWebhookListener::class);
     }
 }

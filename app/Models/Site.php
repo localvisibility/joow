@@ -21,6 +21,7 @@ class Site extends Model
         'contact_form_config' => 'array',
         'domain_verified'     => 'boolean',
         'domain_ssl_active'   => 'boolean',
+        'stripe_charges_enabled' => 'boolean',
         'cancel_at_period_end' => 'boolean',
         'rating'              => 'float',
         'paid_at'             => 'datetime',

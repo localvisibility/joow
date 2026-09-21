@@ -22,13 +22,17 @@ Artisan::command('modules:ical-sync', function (IcalSync $ical) {
     $this->info("iCal : $n événement(s) synchronisé(s).");
 })->purpose('Importe les indisponibilités iCal des chambres');
 
-// Rappels de réservation la veille (module Réservation Restaurant)
-Artisan::command('modules:reservation-reminders', function () {
+// Rappels de réservation la veille — email brandé + SMS (module Réservation Restaurant)
+Artisan::command('modules:reservation-reminders', function (\App\Services\Notifier $notifier) {
     $tomorrow = now()->addDay()->toDateString();
-    $rows = Reservation::whereDate('date', $tomorrow)->where('status', 'confirmed')->where('reminder_sent', false)->whereNotNull('email')->get();
+    $rows = Reservation::whereDate('date', $tomorrow)->where('status', 'confirmed')->where('reminder_sent', false)
+        ->where(fn ($q) => $q->whereNotNull('email')->orWhereNotNull('phone'))->get();
+    $sites = \App\Models\Site::whereIn('slug', $rows->pluck('site_slug')->unique())->get()->keyBy('slug');
     foreach ($rows as $r) {
         try {
-            Mail::raw("Rappel : votre réservation demain {$tomorrow} à ".substr((string) $r->time, 0, 5)." pour {$r->covers} personne(s). À très vite !", fn ($m) => $m->to($r->email)->subject('Rappel de votre réservation'));
+            if ($site = $sites[$r->site_slug] ?? null) {
+                $notifier->reservationReminder($site, $r, \App\Services\Modules\ReservationAvailability::config($site));
+            }
             $r->update(['reminder_sent' => true]);
         } catch (\Throwable $e) {
             Log::warning('Rappel réservation : '.$e->getMessage());

@@ -29,6 +29,8 @@ class ReservationAvailability
             'max_advance_days'     => 30,
             'auto_confirm'         => true,
             'require_email'        => false,
+            'sms_confirm'          => true,   // SMS de confirmation (si Brevo configuré)
+            'sms_reminder'         => true,   // SMS de rappel la veille
             'notify_email'         => null,
             'confirmation_message' => 'Merci ! Votre réservation est bien enregistrée. À très vite.',
             'hours'                => array_combine(self::DAYS, array_fill(0, 7, $day)),

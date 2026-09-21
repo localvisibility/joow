@@ -59,10 +59,9 @@ return [
     ],
     'payment' => [
         'name' => 'Paiement en ligne', 'icon' => '💳', 'free' => false,
-        'desc' => 'Acceptez les acomptes, arrhes ou paiements intégraux par carte lors d\'une réservation. Sécurisé par Stripe.',
-        'features' => ['Acompte / arrhes / intégral', 'Stripe', 'Notification'],
+        'desc' => 'Acomptes sur les séjours, empreinte bancaire anti no-show sur les tables. L\'argent arrive directement sur votre compte (Stripe Connect).',
+        'features' => ['Acompte / intégral', 'Empreinte anti no-show', 'Virement sur votre compte', 'Sécurisé Stripe'],
         'sectors' => ['restaurant', 'hebergement'],
-        'soon' => true,
     ],
     'stats' => [
         'name' => 'Statistiques', 'icon' => '📈', 'free' => true,

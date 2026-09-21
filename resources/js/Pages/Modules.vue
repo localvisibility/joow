@@ -221,7 +221,10 @@ const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch
                         <div class="flex flex-wrap gap-6 text-sm text-slate-300">
                             <label class="flex items-center gap-2"><input type="checkbox" v-model="cfg.auto_confirm" class="h-4 w-4 rounded border-white/20 bg-white/5" /> Confirmation automatique</label>
                             <label class="flex items-center gap-2"><input type="checkbox" v-model="cfg.require_email" class="h-4 w-4 rounded border-white/20 bg-white/5" /> Email obligatoire</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" v-model="cfg.sms_confirm" class="h-4 w-4 rounded border-white/20 bg-white/5" /> SMS de confirmation</label>
+                            <label class="flex items-center gap-2"><input type="checkbox" v-model="cfg.sms_reminder" class="h-4 w-4 rounded border-white/20 bg-white/5" /> SMS de rappel la veille</label>
                         </div>
+                        <p v-if="!state.sms_enabled" class="text-xs text-amber-300/90">Les SMS seront envoyés dès que l'envoi SMS sera activé sur la plateforme (Brevo). Les emails brandés, eux, partent déjà.</p>
                         <label class="lbl">Message de confirmation<textarea v-model="cfg.confirmation_message" rows="2" class="fld"></textarea></label>
                         <div>
                             <p class="mb-2 text-sm font-semibold text-white">Services par jour</p>
@@ -306,6 +309,32 @@ const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch
                     <div v-else-if="open==='zenchef'" class="space-y-4">
                         <label class="lbl">Identifiant restaurant ZenChef (rid)<input v-model="cfg.restaurant_id" class="fld" placeholder="123456" /></label>
                         <p class="text-xs text-slate-500">Vous le trouvez dans votre espace ZenChef → Widget de réservation (paramètre <code>rid</code>). Le widget remplacera le formulaire de réservation Joow.</p>
+                    </div>
+
+                    <!-- Paiement en ligne (Stripe Connect) -->
+                    <div v-else-if="open==='payment'" class="space-y-5">
+                        <div class="rounded-xl border p-4" :class="state.stripe.charges_enabled ? 'border-emerald-400/30 bg-emerald-500/[0.06]' : 'border-amber-400/30 bg-amber-500/[0.06]'">
+                            <p class="font-semibold text-white">{{ state.stripe.charges_enabled ? '✅ Compte Stripe connecté — vous pouvez encaisser' : (state.stripe.connected ? '⏳ Onboarding Stripe à terminer' : '💳 Connectez votre compte Stripe') }}</p>
+                            <p class="mt-1 text-sm text-slate-400">L'argent des acomptes et des empreintes arrive <strong class="text-slate-200">directement sur votre compte bancaire</strong> via Stripe (compte gratuit, ouverture en 5 minutes).</p>
+                            <p v-if="!state.stripe.configured" class="mt-2 text-xs text-amber-300">La connexion Stripe sera disponible dès l'activation des clés Stripe de la plateforme.</p>
+                            <a v-else-if="!state.stripe.charges_enabled" :href="route('modules.stripe.connect', current)" class="btn-brand mt-3 inline-flex text-sm">{{ state.stripe.connected ? 'Terminer la configuration Stripe →' : 'Connecter mon compte Stripe →' }}</a>
+                        </div>
+                        <label class="lbl">Ce que vous encaissez
+                            <select v-model="cfg.type" class="fld">
+                                <option value="deposit">Acompte sur les séjours (% du total)</option>
+                                <option value="full">Paiement intégral des séjours</option>
+                                <option value="hold">Empreinte bancaire anti no-show sur les tables</option>
+                            </select>
+                        </label>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <label v-if="cfg.type==='deposit'" class="lbl">Acompte (% du total)<input type="number" v-model.number="cfg.deposit_percent" class="fld" min="1" max="100" /></label>
+                            <label v-if="cfg.type==='hold'" class="lbl">Empreinte par couvert (€)<input type="number" v-model.number="cfg.hold_per_cover" class="fld" min="1" /></label>
+                            <label class="lbl">Email de notification<input v-model="cfg.notify_email" class="fld" placeholder="vous@exemple.fr" /></label>
+                        </div>
+                        <ul class="space-y-1 text-xs text-slate-500">
+                            <li>• <strong class="text-slate-300">Séjours</strong> : quand vous confirmez une demande, le client reçoit un email brandé avec le bouton « Régler l'acompte ». Le séjour est garanti dès paiement.</li>
+                            <li>• <strong class="text-slate-300">Tables</strong> : à la réservation, le client enregistre sa carte (aucun débit). Marquez « No-show » dans Réservations pour débiter l'empreinte ; « Installés » ou « Annuler » la libère automatiquement.</li>
+                        </ul>
                     </div>
 
                     <div v-else class="text-sm text-slate-400">Aucun réglage pour ce module.</div>

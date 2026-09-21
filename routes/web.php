@@ -51,6 +51,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/modules', [\App\Http\Controllers\ModulesController::class, 'index'])->name('modules.index');
     Route::post('/modules/{slug}', [\App\Http\Controllers\ModulesController::class, 'update'])->name('modules.update');
     Route::post('/modules/{slug}/domaine', [\App\Http\Controllers\ModulesController::class, 'domain'])->name('modules.domain');
+    Route::get('/modules/{slug}/stripe/connecter', [\App\Http\Controllers\PaymentController::class, 'connect'])->name('modules.stripe.connect');
+    Route::get('/modules/{slug}/stripe/retour', [\App\Http\Controllers\PaymentController::class, 'connectReturn'])->name('modules.stripe.return');
 
     // Réservations (tables) & séjours (chambres)
     Route::get('/reservations', [\App\Http\Controllers\ReservationsController::class, 'index'])->name('reservations.index');
@@ -100,6 +102,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/sites/{slug}/editeur/accent', [SiteEditorController::class, 'accent'])->name('sites.editor.accent');
     Route::post('/sites/{slug}/editeur/regenerer', [SiteEditorController::class, 'regenerate'])->middleware('throttle:5,1')->name('sites.editor.regenerate');
 });
+
+// ─── Liens publics signés (emails / SMS) & retour de paiement ───
+Route::get('/r/{reservation}/annuler', [\App\Http\Controllers\PaymentController::class, 'cancelReservation'])->middleware('signed')->name('public.reservation.cancel');
+Route::get('/s/{booking}/annuler', [\App\Http\Controllers\PaymentController::class, 'cancelStay'])->middleware('signed')->name('public.stay.cancel');
+Route::get('/paiement/retour', [\App\Http\Controllers\PaymentController::class, 'paymentReturn'])->name('public.pay.return');
 
 // Images uploadées depuis l'éditeur (servies aux sites générés, public)
 Route::get('/media/{slug}/{file}', [\App\Http\Controllers\MediaController::class, 'show'])

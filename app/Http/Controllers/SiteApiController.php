@@ -10,6 +10,8 @@ use App\Models\Site;
 use App\Models\SiteStat;
 use App\Services\Modules\BotAnswer;
 use App\Services\Modules\ReservationAvailability;
+use App\Services\Notifier;
+use App\Services\Payments\StripeConnect;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -58,19 +60,39 @@ class SiteApiController extends Controller
             return response()->json(['ok' => false, 'error' => "Ce créneau n'est plus disponible. Choisissez-en un autre."], 422);
         }
 
+        // Empreinte bancaire anti no-show (module Paiement, type "hold", compte Stripe connecté)
+        $pay = $site->module('payment');
+        $connect = app(StripeConnect::class);
+        $holdPer = (float) ($pay['hold_per_cover'] ?? 0);
+        $hold = $site->moduleEnabled('payment') && ($pay['type'] ?? '') === 'hold' && $holdPer > 0 && $connect->ready($site);
+
         $r = Reservation::create([
             'site_id' => $site->id, 'site_slug' => $slug,
             'date' => $data['date'], 'time' => $data['time'].':00', 'covers' => $data['covers'],
             'name' => $data['name'], 'phone' => $data['phone'], 'email' => $data['email'] ?? null,
             'notes' => $data['notes'] ?? null,
-            'status' => $cfg['auto_confirm'] ? 'confirmed' : 'pending', 'source' => 'website',
+            'status' => $hold ? 'pending' : ($cfg['auto_confirm'] ? 'confirmed' : 'pending'),
+            'payment_status' => $hold ? 'pending' : 'none',
+            'hold_amount' => $hold ? round($holdPer * (int) $data['covers'], 2) : null,
+            'source' => 'website',
         ]);
-        SiteStat::bump($slug, 'reservations');
-        $this->notify($site, $cfg['notify_email'] ?? null, "Nouvelle réservation — {$site->name}",
-            "Réservation {$r->status}\nDate : {$data['date']} à {$data['time']}\nCouverts : {$data['covers']}\nNom : {$data['name']}\nTéléphone : {$data['phone']}\nEmail : ".($data['email'] ?? '—')."\nNotes : ".($data['notes'] ?? '—'));
-        if (! empty($data['email'])) {
-            $this->sendTo($data['email'], "Votre réservation — {$site->name}", ($cfg['confirmation_message'] ?: 'Merci pour votre réservation.')."\n\nDate : {$data['date']} à {$data['time']}\nCouverts : {$data['covers']}\n\n{$site->name}".(! empty($site->site_data['business']['phone']) ? "\n".$site->site_data['business']['phone'] : ''));
+
+        if ($hold) {
+            try {
+                $ret = route('public.pay.return', ['kind' => 'hold', 'site' => $slug]);
+                $sess = $connect->checkoutForHold($site, $r, (float) $r->hold_amount, $ret.'&status=ok', $ret.'&status=cancel');
+                $r->update(['stripe_session_id' => $sess['id']]);
+
+                // La réservation sera confirmée (et notifiée) par le webhook une fois l'empreinte enregistrée.
+                return response()->json(['ok' => true, 'status' => 'payment', 'pay_url' => $sess['url'], 'hold_amount' => $r->hold_amount]);
+            } catch (\Throwable $e) {
+                Log::warning('Empreinte Stripe : '.$e->getMessage());
+                $r->update(['payment_status' => 'none', 'hold_amount' => null, 'status' => $cfg['auto_confirm'] ? 'confirmed' : 'pending']);
+            }
         }
+
+        SiteStat::bump($slug, 'reservations');
+        app(Notifier::class)->reservationCreated($site, $r, $cfg);
 
         return response()->json(['ok' => true, 'status' => $r->status, 'message' => $cfg['confirmation_message']]);
     }
@@ -131,8 +153,7 @@ class SiteApiController extends Controller
             'status' => 'pending', 'source' => 'website',
         ]);
         SiteStat::bump($slug, 'bookings');
-        $this->notify($site, $cfg['notify_email'] ?? null, "Nouvelle demande de séjour — {$site->name}",
-            "Du {$data['check_in']} au {$data['check_out']} ({$nights} nuit(s))\nPersonnes : {$data['guests']}\nChambre : ".($room?->name ?? 'au choix')."\nTotal estimé : ".($total !== null ? $total.' €' : '—')."\nNom : {$data['name']}\nTéléphone : {$data['phone']}\nEmail : ".($data['email'] ?? '—')."\nNotes : ".($data['notes'] ?? '—'));
+        app(Notifier::class)->stayRequested($site, $bk->load('room'), $cfg);
 
         return response()->json(['ok' => true, 'nights' => $nights, 'total' => $total, 'id' => $bk->id]);
     }

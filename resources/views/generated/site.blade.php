@@ -471,6 +471,10 @@ main{display:flex;flex-direction:column}
         <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Email{{ !empty($rsCfg['require_email']) ? '' : ' (optionnel, pour la confirmation)' }}</span><input name="email" type="email" {{ !empty($rsCfg['require_email']) ? 'required' : '' }} class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
         <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Demande particulière (optionnel)</span><textarea name="notes" rows="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></textarea></label>
         <button type="submit" id="joow-resa-btn" class="w-full rounded-xl bg-grad px-6 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="booking.cta">{{ $bk('cta', 'Réserver ma table') }}</span></button>
+        @php $payCfg = $mod('payment'); @endphp
+        @if($on('payment') && ($payCfg['type'] ?? '') === 'hold' && !empty($payCfg['ready']) && (float) ($payCfg['hold_per_cover'] ?? 0) > 0)
+        <p class="flex items-center justify-center gap-2 text-center text-xs text-slate-500"><i class="fa-solid fa-lock accent"></i>Empreinte bancaire de {{ number_format((float) $payCfg['hold_per_cover'], 0, ',', ' ') }} € par couvert, débitée uniquement en cas de no-show · paiement sécurisé Stripe</p>
+        @endif
         <p id="joow-resa-ok" class="hidden rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700"></p>
         <p id="joow-resa-err" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-center text-sm font-semibold text-rose-700"></p>
       </form>
@@ -708,6 +712,7 @@ dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)
       btn.disabled=true;
       try{const r=await fetch(API+'/reserve',{method:'POST',headers:J,body:JSON.stringify(form2json(rf))});const j=await r.json();
         if(!r.ok||!j.ok)throw new Error(j.error||(j.errors&&Object.values(j.errors)[0][0])||'Erreur');
+        if(j.pay_url){ok.textContent='Redirection vers l\'enregistrement sécurisé de votre carte…';ok.classList.remove('hidden');location.href=j.pay_url;return;}
         ok.textContent=(j.status==='confirmed'?'✓ Réservation confirmée ! ':'✓ Demande envoyée ! ')+(j.message||'');ok.classList.remove('hidden');rf.reset();slotsEl.innerHTML='';
       }catch(e){er.textContent=e.message||'Une erreur est survenue.';er.classList.remove('hidden');}
       finally{btn.disabled=false;}
