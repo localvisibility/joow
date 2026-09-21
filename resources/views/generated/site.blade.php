@@ -144,6 +144,8 @@
   --grad:linear-gradient(135deg, {{ $color }} 0%, color-mix(in srgb, {{ $color }} 55%, #7c3aed) 100%);
 }
 *{font-family:'Plus Jakarta Sans',sans-serif}
+/* Aucun débordement horizontal (carrousels) : évite l'élargissement du viewport mobile et garde les éléments fixed calés sur l'écran. */
+html,body{overflow-x:clip;max-width:100%}
 .font-display{font-family:'{{ $displayFont }}',sans-serif;letter-spacing:-.01em}
 .accent{color:var(--c)}.bg-accent{background:var(--c)}.bg-grad{background:var(--grad)}
 .text-grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -215,7 +217,7 @@ main{display:flex;flex-direction:column}
 /* ── Avis : note + carrousel ── */
 .rating-big{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:1.5rem}
 .rating-num{font-family:'{{ $displayFont }}',sans-serif;font-size:4.5rem;font-weight:700;line-height:1}
-.rev-mask{-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
+.rev-mask{overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent)}
 .rev-track{display:flex;width:max-content;gap:1.25rem}
 .rev-left{animation:marq 48s linear infinite}.rev-right{animation:marqr 52s linear infinite}
 @keyframes marqr{from{transform:translateX(-50%)}to{transform:translateX(0)}}
