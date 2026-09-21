@@ -263,7 +263,8 @@ main{display:flex;flex-direction:column}
       @endif
     </div>
     <div class="grid gap-8 md:grid-cols-2">
-      @foreach($menuItems->groupBy('category') as $cat => $items)
+      @php $catOrder = ['menus', 'formules', 'entrées', 'entrees', 'plats', 'poissons', 'viandes', 'pizzas', 'burgers', 'desserts', 'fromages', 'boissons', 'vins', 'cocktails']; @endphp
+      @foreach($menuItems->groupBy('category')->sortBy(fn($g, $cat) => (($i = array_search(mb_strtolower($cat), $catOrder, true)) === false ? 50 : $i)) as $cat => $items)
       <div class="reveal rounded-3xl border border-slate-100 bg-white p-7 shadow-sm">
         <h3 class="font-display text-2xl font-bold accent">{{ $cat }}</h3>
         <ul class="mt-5 divide-y divide-slate-100">
