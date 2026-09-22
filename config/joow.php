@@ -9,6 +9,11 @@ return [
         explode(',', (string) env('JOOW_ADMIN_EMAILS', ''))
     ))),
 
+    // Domaines personnalisés : IP publique du VPS (par défaut : résolution de APP_URL).
+    'domains' => [
+        'server_ip' => env('JOOW_SERVER_IP'),
+    ],
+
     // Crédits IA du Studio (1 action = 1 crédit, création d'une page = 2).
     // Les modifications manuelles sont illimitées.
     'credits' => [

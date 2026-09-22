@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import DomainPanel from '@/Components/DomainPanel.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
 
@@ -79,9 +80,7 @@ const deleteItem = async (i) => { await api('DELETE', route('menu.destroy', [pro
 const toggleItem = async (i) => { await api('PATCH', route('menu.update', [props.current, i.id]), { category: i.category, name: i.name, price: i.price, description: i.description, available: !i.available }); loadMenu(); };
 const doImport = async () => { if (!importText.value.trim()) return; busy.value = true; try { await api('POST', route('menu.import', props.current), { text: importText.value }); importText.value = ''; loadMenu(); } finally { busy.value = false; } };
 
-/* ───────── domaine ───────── */
-const domain = reactive({ domain: '', type: 'connect', notes: '' });
-const submitDomain = () => router.post(route('modules.domain', props.current), domain, { preserveScroll: true, onSuccess: () => { domain.domain = ''; } });
+/* ───────── domaine : voir le composant DomainPanel ───────── */
 
 const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch: ['12:00', '14:00'], dinner: ['19:00', '22:00'] }; if (!cfg.hours[d].lunch) cfg.hours[d].lunch = ['', '']; if (!cfg.hours[d].dinner) cfg.hours[d].dinner = ['', '']; return cfg.hours[d]; };
 </script>
@@ -139,21 +138,7 @@ const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch
             </div>
 
             <!-- Domaine -->
-            <div class="glass mt-8 rounded-2xl p-6">
-                <div class="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                        <h3 class="font-display text-lg font-bold text-white">🌐 Nom de domaine</h3>
-                        <p class="mt-1 text-sm text-slate-400">Votre site est en ligne sur <a :href="state.live_url" target="_blank" class="text-brand-400">{{ state.live_url.replace('https://','') }}</a>. Connectez votre propre domaine ou commandez-en un.</p>
-                        <p v-if="state.domain.custom" class="mt-2 text-sm text-slate-300">Domaine demandé : <strong class="text-white">{{ state.domain.custom }}</strong> <span class="chip ml-1" :class="state.domain.verified ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'">{{ state.domain.verified ? 'Actif' : 'En cours' }}</span></p>
-                    </div>
-                    <form @submit.prevent="submitDomain" class="flex flex-wrap items-end gap-2">
-                        <input v-model="domain.domain" class="field w-56" placeholder="mon-etablissement.fr" required />
-                        <select v-model="domain.type" class="field w-44"><option value="connect">Je possède ce domaine</option><option value="order">Commander ce domaine</option></select>
-                        <button class="btn-brand text-sm">Demander</button>
-                    </form>
-                </div>
-                <p class="mt-3 text-xs text-slate-500">Nous configurons le DNS et le certificat SSL pour vous, puis vous confirmons par email.</p>
-            </div>
+            <div class="mt-8"><DomainPanel :key="current" :slug="current" /></div>
         </template>
 
         <!-- ═══ MODALE DE CONFIGURATION ═══ -->

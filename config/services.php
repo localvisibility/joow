@@ -52,6 +52,14 @@ return [
         'redirect'      => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
     ],
 
+    // API Hostinger : achat de domaines pour les clients + zone DNS (compte Joow).
+    // hPanel → API → jeton. WHOIS et moyen de paiement par défaut du compte utilisés si non précisés.
+    'hostinger' => [
+        'token'             => env('HOSTINGER_API_TOKEN'),
+        'whois_id'          => env('HOSTINGER_WHOIS_ID'),          // optionnel : profil WHOIS (id) à utiliser
+        'payment_method_id' => env('HOSTINGER_PAYMENT_METHOD_ID'), // optionnel : sinon le moyen par défaut
+    ],
+
     // SMS transactionnels (Brevo) : confirmations et rappels de réservation.
     'brevo' => [
         'key'        => env('BREVO_API_KEY'),

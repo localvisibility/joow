@@ -86,6 +86,8 @@ class SiteRenderer
             'mapsKey'  => (string) config('services.google_places.key'),
             'slug'     => $site->slug,
             'editMode' => $editMode,
+            // Domaine personnalisé actif : canonical + redirection depuis <slug>.joow.fr
+            'customDomain' => ($site->domain_ssl_active && $site->custom_domain) ? $site->custom_domain : null,
             // Pages additionnelles + page courante (null = accueil)
             'pages'    => $pages,
             'page'     => $page,

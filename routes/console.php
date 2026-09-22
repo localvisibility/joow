@@ -43,3 +43,5 @@ Artisan::command('modules:reservation-reminders', function (\App\Services\Notifi
 
 Schedule::command('modules:ical-sync')->hourly();
 Schedule::command('modules:reservation-reminders')->dailyAt('18:00');
+// Domaines personnalisés : DNS, certificats (agent hôte), export
+Schedule::command('domains:sync')->everyMinute()->withoutOverlapping();

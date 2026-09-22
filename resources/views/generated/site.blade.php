@@ -143,6 +143,11 @@
 <title>{{ $t('hero_title', $b['name'] ?? '') }} — {{ $b['name'] ?? '' }}{{ !empty($b['city']) ? ', '.$b['city'] : '' }}</title>
 <meta name="description" content="{{ $t('hero_subtitle', $label) }} — {{ $b['name'] ?? '' }}{{ !empty($b['city']) ? ', '.$b['city'] : '' }}. {{ $c['cta_text'] ?? '' }}">
 @endif
+@php $customDomain = $customDomain ?? null; @endphp
+@if($customDomain && !$editMode)
+<link rel="canonical" href="https://{{ $customDomain }}{{ $page ? '/'.$page['slug'].'/' : '/' }}">
+<script>if(/\.joow\.fr$/.test(location.hostname)){location.replace('https://{{ $customDomain }}'+location.pathname+location.search+location.hash);}</script>
+@endif
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

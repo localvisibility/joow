@@ -110,6 +110,16 @@ Route::prefix('/sites/{slug}/editeur')->name('sites.editor')->group(function () 
     Route::post('/regenerer', [SiteEditorController::class, 'regenerate'])->middleware('throttle:5,1')->name('.regenerate');
 });
 
+// ─── Nom de domaine d'un site (compte requis) ───
+Route::middleware(['auth', 'throttle:60,1'])->prefix('/sites/{slug}/domaine')->name('domains.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\DomainsController::class, 'state'])->name('state');
+    Route::post('/connecter', [\App\Http\Controllers\DomainsController::class, 'connect'])->name('connect');
+    Route::post('/verifier', [\App\Http\Controllers\DomainsController::class, 'check'])->name('check');
+    Route::delete('/', [\App\Http\Controllers\DomainsController::class, 'remove'])->name('remove');
+    Route::get('/recherche', [\App\Http\Controllers\DomainsController::class, 'search'])->name('search');
+    Route::post('/commander', [\App\Http\Controllers\DomainsController::class, 'order'])->middleware('throttle:5,1')->name('order');
+});
+
 // ─── Crédits IA : recharge (compte requis) ───
 Route::post('/sites/{slug}/credits/checkout', [\App\Http\Controllers\CreditsController::class, 'checkout'])->middleware(['auth', 'throttle:10,1'])->name('credits.checkout');
 Route::get('/sites/{slug}/credits/retour', [\App\Http\Controllers\CreditsController::class, 'return'])->name('credits.return');

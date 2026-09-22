@@ -55,6 +55,11 @@ jobs:
           docker compose up -d --remove-orphans
           docker compose restart app web horizon scheduler
 
+          # Agent « domaines personnalisés » (hôte) : mise à jour silencieuse si sudo sans mot de passe
+          if sudo -n true 2>/dev/null; then
+            sudo -n bash deploy/domains/install.sh --update || echo "⚠ agent domaines : mise à jour ignorée"
+          fi
+
           # Health-check ; rollback automatique si l'app ne répond pas
           ok=0
           for i in $(seq 1 10); do

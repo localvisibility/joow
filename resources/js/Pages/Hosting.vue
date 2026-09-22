@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import DomainPanel from '@/Components/DomainPanel.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
@@ -11,6 +12,7 @@ const props = defineProps({
 const offline = computed(() => props.sites.filter((s) => !s.online));
 const online = computed(() => props.sites.filter((s) => s.online));
 const selected = ref(offline.value[0]?.slug || props.sites[0]?.slug || null);
+const domainSite = ref(online.value[0]?.slug || null);
 
 const form = useForm({ email: props.userEmail, plan: 'pro' });
 const buy = (plan) => {
@@ -118,11 +120,13 @@ const included = [
         <div v-if="online.length" class="mt-8">
             <p class="mb-3 text-sm font-semibold text-white">Déjà en ligne</p>
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div v-for="s in online" :key="s.slug" class="glass flex items-center justify-between rounded-xl p-4">
+                <button v-for="s in online" :key="s.slug" type="button" @click="domainSite = s.slug" class="glass flex items-center justify-between rounded-xl p-4 text-left transition" :class="domainSite === s.slug ? 'border-brand-500/50' : ''">
                     <span class="min-w-0"><span class="block truncate text-sm font-semibold text-white">{{ s.name }}</span><span class="chip mt-1 bg-emerald-500/15 text-emerald-300 capitalize">{{ s.plan || 'en ligne' }}</span></span>
-                    <a :href="`https://${s.slug}.joow.fr`" target="_blank" rel="noopener" class="shrink-0 text-sm font-semibold text-brand-400">Voir →</a>
-                </div>
+                    <a :href="`https://${s.slug}.joow.fr`" target="_blank" rel="noopener" class="shrink-0 text-sm font-semibold text-brand-400" @click.stop>Voir →</a>
+                </button>
             </div>
+            <!-- Nom de domaine du site sélectionné -->
+            <div v-if="domainSite" class="mt-5"><DomainPanel :key="domainSite" :slug="domainSite" /></div>
         </div>
     </AuthenticatedLayout>
 </template>
