@@ -110,6 +110,16 @@ Route::prefix('/sites/{slug}/editeur')->name('sites.editor')->group(function () 
     Route::post('/regenerer', [SiteEditorController::class, 'regenerate'])->middleware('throttle:5,1')->name('.regenerate');
 });
 
+// ─── Crédits IA : recharge (compte requis) ───
+Route::post('/sites/{slug}/credits/checkout', [\App\Http\Controllers\CreditsController::class, 'checkout'])->middleware(['auth', 'throttle:10,1'])->name('credits.checkout');
+Route::get('/sites/{slug}/credits/retour', [\App\Http\Controllers\CreditsController::class, 'return'])->name('credits.return');
+
+// ─── Connexion sans mot de passe (lien signé) & Google ───
+Route::post('/connexion/lien', [\App\Http\Controllers\Auth\MagicLinkController::class, 'send'])->middleware('throttle:6,1')->name('magic.send');
+Route::get('/connexion/lien/{user}', [\App\Http\Controllers\Auth\MagicLinkController::class, 'login'])->middleware('signed')->name('magic.login');
+Route::get('/auth/google', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])->name('google.redirect');
+Route::get('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callback'])->name('google.callback');
+
 // ─── Liens publics signés (emails / SMS) & retour de paiement ───
 Route::get('/r/{reservation}/annuler', [\App\Http\Controllers\PaymentController::class, 'cancelReservation'])->middleware('signed')->name('public.reservation.cancel');
 Route::get('/s/{booking}/annuler', [\App\Http\Controllers\PaymentController::class, 'cancelStay'])->middleware('signed')->name('public.stay.cancel');

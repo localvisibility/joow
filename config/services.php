@@ -44,6 +44,14 @@ return [
     ],
     'sites_path' => env('SITES_PATH', '/var/www/sites'),
 
+    // Connexion « Continuer avec Google » (Socialite). Créer un client OAuth 2.0 dans Google Cloud,
+    // URI de redirection autorisée : https://app.joow.fr/auth/google/callback
+    'google' => [
+        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect'      => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+    ],
+
     // SMS transactionnels (Brevo) : confirmations et rappels de réservation.
     'brevo' => [
         'key'        => env('BREVO_API_KEY'),

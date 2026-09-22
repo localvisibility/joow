@@ -40,6 +40,13 @@ class StripeWebhookListener
     {
         $pi = $s['payment_intent'] ?? null;
 
+        // Recharge de crédits IA (pack) : créditer le portefeuille du site (idempotent par session)
+        if (($meta['type'] ?? '') === 'credits' && ! empty($meta['site_slug']) && ($s['payment_status'] ?? '') === 'paid') {
+            if ($site = Site::where('slug', $meta['site_slug'])->first()) {
+                app(\App\Services\AiCredits::class)->grantWallet($site, (int) ($meta['credits'] ?? 0), 'purchase', ['pack' => $meta['pack'] ?? null], (string) ($s['id'] ?? ''));
+            }
+        }
+
         if (($meta['type'] ?? '') === 'stay_deposit' && ! empty($meta['booking_id'])) {
             $bk = RoomBooking::find($meta['booking_id']);
             if ($bk && $bk->payment_status !== 'paid') {

@@ -297,6 +297,12 @@ const startCheckout = (plan) => {
     add('_token', csrf()); add('email', checkout.value.email); add('plan', plan);
     document.body.appendChild(f); f.submit();
 };
+const buyCredits = (pk) => {
+    const f = document.createElement('form'); f.method = 'POST'; f.action = route('credits.checkout', slug);
+    const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); };
+    add('_token', csrf()); add('pack', pk.key);
+    document.body.appendChild(f); f.submit();
+};
 const claim = ref({ email: props.site.owner_email || '', done: false, link: props.site.edit_link, sending: false });
 const saveClaim = async () => {
     if (!claim.value.email) return;
@@ -323,11 +329,14 @@ const send = async (text) => {
     try {
         await flush();
         const d = await postJson(route('sites.editor.chat', slug), { message: msg });
-        messages.value.pop(); messages.value.push({ role: 'ai', text: d.reply || 'C\'est fait ✅', applied: d.applied || [], undo_id: d.undo_id });
+        messages.value.pop(); messages.value.push({ role: 'ai', text: d.reply || 'C\'est fait ✅', applied: d.applied || [], undo_id: d.undo_id, cost: d.cost || 0 });
         if (d.state) { const chat = st.value?.chat; st.value = d.state; if (!d.state.chat && chat) st.value.chat = chat; pagesSnap = clone(d.state.pages || []); }
         if (curPage.value && !pages.value.some((p) => p.slug === curPage.value)) curPage.value = '';
         status.value = d.queued ? 'queued' : 'saved'; reload(d.version);
-    } catch (e) { messages.value.pop(); messages.value.push({ role: 'ai', text: e?.reply || e?.message || 'Je n\'ai pas pu appliquer cette demande. Reformulez ?', applied: [] }); }
+    } catch (e) {
+        messages.value.pop(); messages.value.push({ role: 'ai', text: e?.reply || e?.message || 'Je n\'ai pas pu appliquer cette demande. Reformulez ?', applied: [] });
+        if (e?.error === 'no_credits' && st.value) { st.value.credits = e.credits || { ...st.value.credits, balance: 0 }; }
+    }
     finally { clearInterval(wt); sending.value = false; scrollChat(); }
 };
 const revert = async (m) => {
@@ -368,6 +377,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     <button @click="device='desktop'" :class="device==='desktop' ? 'bg-white/10 text-white' : 'text-slate-400'" class="rounded-lg px-2.5 py-1.5 text-sm" title="Ordinateur">🖥️</button>
                     <button @click="device='mobile'" :class="device==='mobile' ? 'bg-white/10 text-white' : 'text-slate-400'" class="rounded-lg px-2.5 py-1.5 text-sm" title="Mobile">📱</button>
                 </div>
+                <button v-if="st?.credits" @click="modal='credits'" class="hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition md:inline-flex" :class="st.credits.balance > 0 ? 'border-white/10 text-slate-200 hover:border-white/25' : 'border-amber-400/40 bg-amber-500/10 text-amber-200'" title="Crédits IA disponibles">✦ {{ st.credits.balance }} <span class="hidden xl:inline">crédits IA</span></button>
                 <a :href="liveUrl" target="_blank" rel="noopener" class="hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25 md:inline">Voir ↗</a>
                 <button v-if="!authUser" @click="modal='claim'" class="hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25 lg:inline">Retrouver mon site plus tard</button>
                 <button v-if="paid" @click="publish" :disabled="publishing" class="btn-brand !px-4 !py-2 text-sm">{{ publishing ? 'Publication…' : 'Publier' }}</button>
@@ -412,16 +422,34 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                     <div v-if="m.applied?.length" class="mt-2.5 flex flex-wrap gap-1.5">
                                         <span v-for="(a,k) in m.applied" :key="k" class="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">✓ {{ a }}</span>
                                     </div>
-                                    <button v-if="m.undo_id && !m.reverted" @click="revert(m)" class="mt-2 text-[11px] font-semibold text-slate-400 underline-offset-2 hover:text-white hover:underline">↶ Annuler ces modifications</button>
+                                    <div v-if="m.undo_id && !m.reverted" class="mt-2 flex items-center gap-3 text-[11px]">
+                                        <button @click="revert(m)" class="font-semibold text-slate-400 underline-offset-2 hover:text-white hover:underline">↶ Annuler ces modifications</button>
+                                        <span v-if="m.cost" class="text-slate-500">−{{ m.cost }} crédit{{ m.cost > 1 ? 's' : '' }}</span>
+                                    </div>
                                 </template>
                             </div>
                         </div>
                     </div>
-                    <div class="flex flex-wrap gap-1.5 px-4 pb-2"><button v-for="s in suggestions" :key="s" @click="send(s)" :disabled="sending" class="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-brand-400/60 hover:text-white disabled:opacity-40">{{ s }}</button></div>
-                    <form @submit.prevent="send()" class="flex items-end gap-2 border-t border-white/[0.06] p-3">
-                        <textarea v-model="input" :disabled="sending || !site.editable" rows="2" @keydown.enter.exact.prevent="send()" :placeholder="curPage ? `Que changer sur la page « ${page?.title} » ?` : 'Ex : crée une page Nos réalisations avec une galerie…'" class="field flex-1 resize-none text-sm"></textarea>
-                        <button type="submit" :disabled="sending || !site.editable || !input.trim()" class="btn-brand shrink-0 !px-4 !py-3 text-sm">{{ sending ? '…' : '↑' }}</button>
-                    </form>
+                    <template v-if="st.credits && st.credits.balance <= 0">
+                        <div class="m-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm">
+                            <p class="font-semibold text-amber-200">Vous avez utilisé vos {{ st.credits.quota }} crédits IA.</p>
+                            <p class="mt-1 text-slate-300">Les modifications manuelles restent illimitées (onglet Contenu). Pour continuer avec l'IA :</p>
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                <button v-if="!paid" @click="modal='publish'" class="btn-brand !px-4 !py-2 text-xs">🚀 Mettre en ligne · 100 crédits inclus</button>
+                                <button @click="modal='credits'" class="rounded-xl border border-white/15 px-4 py-2 text-xs font-semibold text-white hover:bg-white/5">{{ paid ? 'Recharger mes crédits' : 'Voir les options' }}</button>
+                            </div>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div class="flex flex-wrap gap-1.5 px-4 pb-2"><button v-for="s in suggestions" :key="s" @click="send(s)" :disabled="sending" class="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-brand-400/60 hover:text-white disabled:opacity-40">{{ s }}</button></div>
+                        <form @submit.prevent="send()" class="border-t border-white/[0.06] p-3">
+                            <div class="flex items-end gap-2">
+                                <textarea v-model="input" :disabled="sending || !site.editable" rows="2" @keydown.enter.exact.prevent="send()" :placeholder="curPage ? `Que changer sur la page « ${page?.title} » ?` : 'Ex : crée une page Nos réalisations avec une galerie…'" class="field flex-1 resize-none text-sm"></textarea>
+                                <button type="submit" :disabled="sending || !site.editable || !input.trim()" class="btn-brand shrink-0 !px-4 !py-3 text-sm">{{ sending ? '…' : '↑' }}</button>
+                            </div>
+                            <p v-if="st.credits" class="mt-2 flex items-center justify-between text-[11px] text-slate-500"><span>1 crédit par action · 2 pour une page · questions gratuites</span><button type="button" @click="modal='credits'" class="font-semibold text-slate-400 hover:text-white">✦ {{ st.credits.balance }} restant{{ st.credits.balance > 1 ? 's' : '' }}</button></p>
+                        </form>
+                    </template>
                 </div>
 
                 <!-- ══ CONTENU : ACCUEIL ══ -->
@@ -789,6 +817,40 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                             <div class="mt-2 flex gap-2"><input readonly :value="claim.link" class="field flex-1 text-xs" /><button @click="copy(claim.link)" class="rounded-xl border border-white/15 px-3 text-xs font-semibold text-white">Copier</button></div>
                             <Link :href="route('register')" class="mt-3 inline-block text-xs font-semibold text-brand-400">Créer mon compte gratuit →</Link>
                         </div>
+                    </template>
+
+                    <!-- Crédits IA -->
+                    <template v-else-if="modal==='credits'">
+                        <div class="mb-2 flex items-center justify-between"><h3 class="font-display text-xl font-bold text-white">Crédits IA</h3><button @click="modal=null" class="text-slate-400 hover:text-white">✕</button></div>
+                        <div class="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                            <div><p class="text-xs uppercase tracking-wider text-slate-500">Solde</p><p class="font-display text-4xl font-bold text-white">{{ st.credits.balance }}<span class="ml-2 text-base font-medium text-slate-400">crédit{{ st.credits.balance > 1 ? 's' : '' }}</span></p></div>
+                            <div class="text-right text-xs text-slate-400">
+                                <p v-if="st.credits.plan==='pro'">Formule Pro : {{ st.credits.quota }} crédits / mois<span v-if="st.credits.reset_at"> · renouvelés le {{ st.credits.reset_at }}</span></p>
+                                <p v-else-if="st.credits.plan==='liberte'">Formule Liberté : {{ st.credits.quota }} crédits offerts</p>
+                                <p v-else>Aperçu gratuit : {{ st.credits.quota }} crédits offerts</p>
+                                <p v-if="st.credits.wallet">dont {{ st.credits.wallet }} achetés (sans expiration)</p>
+                            </div>
+                        </div>
+                        <p class="mt-4 text-sm text-slate-400">1 crédit par action de l'assistant, 2 pour la création d'une page. Les questions sans modification et toutes les modifications manuelles sont gratuites. Annuler une action rend le crédit.</p>
+                        <template v-if="!paid">
+                            <div class="mt-4 rounded-2xl border border-brand-500/40 bg-brand-500/[0.08] p-5">
+                                <p class="font-semibold text-white">Mettez votre site en ligne : 100 crédits inclus</p>
+                                <p class="mt-1 text-sm text-slate-300">Formule Pro : 100 crédits renouvelés chaque mois. Formule Liberté : 100 crédits offerts, puis recharge à volonté.</p>
+                                <button @click="modal='publish'" class="btn-brand mt-3 text-sm">🚀 Mettre en ligne</button>
+                            </div>
+                        </template>
+                        <template v-else>
+                            <p class="mt-5 text-xs font-bold uppercase tracking-wider text-slate-500">Recharger</p>
+                            <div class="mt-2 grid gap-3 sm:grid-cols-2">
+                                <div v-for="pk in st.credits.packs" :key="pk.key" class="relative rounded-2xl border p-4" :class="pk.best ? 'border-brand-500/50 bg-brand-500/[0.06]' : 'border-white/10 bg-white/[0.03]'">
+                                    <span v-if="pk.best" class="absolute right-3 top-3 rounded-full bg-brand-gradient px-2 py-0.5 text-[10px] font-bold text-white">Meilleur prix</span>
+                                    <p class="font-display text-2xl font-bold text-white">{{ pk.credits }} crédits</p>
+                                    <p class="text-sm text-slate-400">{{ pk.label }}</p>
+                                    <button @click="buyCredits(pk)" :disabled="!pk.ready || !authUser" class="mt-3 w-full rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50" :class="pk.best ? 'btn-brand !py-2' : 'border border-white/15 text-white hover:bg-white/5'">{{ !authUser ? 'Connexion requise' : pk.ready ? 'Acheter →' : 'Bientôt disponible' }}</button>
+                                </div>
+                            </div>
+                            <p class="mt-3 text-center text-[11px] text-slate-500">🔒 Paiement sécurisé Stripe · crédits ajoutés immédiatement</p>
+                        </template>
                     </template>
 
                     <!-- Mise en ligne -->

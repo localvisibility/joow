@@ -195,6 +195,13 @@ class SiteEditorController extends Controller
             return response()->json(['reply' => 'Ce site doit d\'abord être régénéré pour activer l\'édition IA.', 'version' => null], 422);
         }
 
+        // Crédits IA : renouvellement éventuel du quota, puis solde requis
+        $credits = app(\App\Services\AiCredits::class);
+        $credits->refresh($site);
+        if ($credits->balance($site) <= 0) {
+            return response()->json(['error' => 'no_credits', 'reply' => 'Vous n\'avez plus de crédits IA. Les modifications manuelles restent illimitées.', 'credits' => $credits->state($site)], 402);
+        }
+
         $history = array_slice($site->site_data['chat'] ?? [], -10);
         $before = ['site_data' => $site->site_data, 'modules' => $site->modules];
 
@@ -202,9 +209,10 @@ class SiteEditorController extends Controller
 
         // Historique de conversation (persistant, borné) et instantané pour "Annuler"
         $undoId = null;
+        $cost = $credits->costFor($out['ops'], $out['applied']);
         if (count($out['applied'])) {
             $undoId = Str::lower(Str::random(8));
-            Cache::put("joow:snap:{$site->id}:$undoId", $before, now()->addDay());
+            Cache::put("joow:snap:{$site->id}:$undoId", $before + ['cost' => $cost], now()->addDay());
         }
         $chat = array_slice(array_merge($history, [
             ['role' => 'user', 'text' => Str::limit($data['message'], 600, '…')],
@@ -214,11 +222,13 @@ class SiteEditorController extends Controller
         $siteData['chat'] = $chat;
 
         $site->update(['site_data' => $siteData, 'modules' => $out['modules'] ?: $site->modules]);
+        $credits->charge($site, $cost, ['undo_id' => $undoId, 'message' => Str::limit($data['message'], 120)]);
         $pub = $renderer->publish($site);
 
         return response()->json([
             'reply'   => $out['reply'],
             'applied' => $out['applied'],
+            'cost'    => $cost,
             'undo_id' => $undoId,
             'version' => now()->timestamp,
             'queued'  => $pub['queued'],
@@ -237,6 +247,10 @@ class SiteEditorController extends Controller
         $siteData = $snap['site_data'] ?? [];
         $siteData['chat'] = array_merge($site->site_data['chat'] ?? [], [['role' => 'ai', 'text' => 'Modifications annulées, retour à l\'état précédent.', 'applied' => []]]);
         $site->update(['site_data' => $siteData, 'modules' => $snap['modules'] ?? $site->modules]);
+        // Le crédit dépensé est rendu
+        if (($snap['cost'] ?? 0) > 0) {
+            app(\App\Services\AiCredits::class)->grantWallet($site, (int) $snap['cost'], 'revert', ['undo_id' => $data['id']]);
+        }
         $pub = $renderer->publish($site);
 
         return response()->json(['ok' => true, 'version' => now()->timestamp, 'queued' => $pub['queued'], 'state' => $this->stateOf($site->fresh())]);
@@ -323,6 +337,7 @@ class SiteEditorController extends Controller
             'live_url' => 'https://'.$site->slug.'.joow.fr',
             'paid'     => in_array($site->status, ['paid', 'published'], true),
             'owner_email' => $site->owner_email,
+            'credits'  => tap(app(\App\Services\AiCredits::class), fn ($c) => $c->refresh($site))->state($site),
             'version'  => optional($site->updated_at)->timestamp ?? now()->timestamp,
         ];
     }

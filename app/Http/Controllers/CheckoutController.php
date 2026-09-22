@@ -93,6 +93,8 @@ class CheckoutController extends Controller
                 'subscription_status' => $plan === 'liberte' ? 'lifetime' : 'active',
                 'purchase_type'       => $plan === 'liberte' ? 'one_time' : 'subscription',
             ]);
+            // Crédits IA de la formule (Pro : 100 / mois renouvelés ; Liberté : 100 offerts)
+            app(\App\Services\AiCredits::class)->onPaid($site->fresh(), $plan);
             if ($site->user) {
                 Auth::login($site->user);
             }
