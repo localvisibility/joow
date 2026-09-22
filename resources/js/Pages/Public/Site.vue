@@ -3,10 +3,18 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
 
-const props = defineProps({ site: Object });
+const props = defineProps({ site: Object, can_edit: { type: Boolean, default: false } });
 
 const checkout = useForm({ email: '', plan: 'pro' });
-const buy = (plan) => { checkout.plan = plan; checkout.post(route('public.checkout', props.site.slug)); };
+// Envoi en formulaire natif : le serveur redirige vers Stripe (domaine externe), impossible en XHR Inertia.
+const buy = (plan) => {
+    if (!checkout.email) { checkout.setError('email', 'Indiquez votre email pour recevoir vos accès.'); return; }
+    checkout.plan = plan; checkout.processing = true;
+    const f = document.createElement('form'); f.method = 'POST'; f.action = route('public.checkout', props.site.slug);
+    const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); };
+    add('_token', document.querySelector('meta[name=csrf-token]')?.content || ''); add('email', checkout.email); add('plan', plan);
+    document.body.appendChild(f); f.submit();
+};
 
 const retryForm = useForm({});
 const retry = () => retryForm.post(route('public.site.retry', props.site.slug));
@@ -68,7 +76,12 @@ onUnmounted(() => timer && clearInterval(timer));
             <div class="mb-8 text-center">
                 <p class="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">🎉 Votre site est prêt</p>
                 <h1 class="font-display text-3xl font-bold text-white sm:text-4xl">{{ site.name }}</h1>
-                <p class="mt-2 text-slate-400">Voici l'aperçu de votre site. Mettez-le en ligne sur votre domaine en un clic.</p>
+                <p class="mt-2 text-slate-400">Voici l'aperçu de votre site. Personnalisez-le gratuitement dans le Studio, puis mettez-le en ligne quand il est parfait.</p>
+                <div v-if="can_edit" class="mt-6 flex flex-wrap items-center justify-center gap-3">
+                    <Link :href="route('sites.editor', site.slug)" class="btn-brand !px-7 !py-3.5 text-base">✨ Personnaliser mon site dans le Studio</Link>
+                    <a :href="liveUrl" target="_blank" rel="noopener" class="rounded-xl border border-white/10 px-5 py-3.5 text-sm font-semibold text-slate-300 transition hover:border-white/25">Voir en plein écran ↗</a>
+                </div>
+                <p v-if="can_edit" class="mt-3 text-xs text-slate-500">Textes, photos, pages, couleurs, formulaire… tout est modifiable en 2 clics ou avec l'assistant IA. Gratuit, sans compte.</p>
             </div>
 
             <!-- Fenêtre navigateur -->

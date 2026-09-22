@@ -87,20 +87,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/factures', [InvoicesController::class, 'index'])->name('invoices.index');
     Route::get('/factures/{invoice}', [InvoicesController::class, 'show'])->name('invoices.show');
 
-    // Éditeur de site "Studio" (édition en place + IA)
-    Route::get('/sites/{slug}/editeur', [SiteEditorController::class, 'show'])->name('sites.editor');
-    Route::get('/sites/{slug}/editeur/preview', [SiteEditorController::class, 'preview'])->name('sites.editor.preview');
-    Route::get('/sites/{slug}/editeur/state', [SiteEditorController::class, 'state'])->name('sites.editor.state');
-    Route::post('/sites/{slug}/editeur/content', [SiteEditorController::class, 'content'])->middleware('throttle:120,1')->name('sites.editor.content');
-    Route::post('/sites/{slug}/editeur/bulk', [SiteEditorController::class, 'bulk'])->middleware('throttle:120,1')->name('sites.editor.bulk');
-    Route::post('/sites/{slug}/editeur/image', [SiteEditorController::class, 'image'])->middleware('throttle:30,1')->name('sites.editor.image');
-    Route::post('/sites/{slug}/editeur/sections', [SiteEditorController::class, 'sections'])->name('sites.editor.sections');
-    Route::post('/sites/{slug}/editeur/style', [SiteEditorController::class, 'style'])->name('sites.editor.style');
-    Route::post('/sites/{slug}/editeur/publish', [SiteEditorController::class, 'publish'])->middleware('throttle:20,1')->name('sites.editor.publish');
-    Route::post('/sites/{slug}/editeur/chat', [SiteEditorController::class, 'chat'])->middleware('throttle:20,1')->name('sites.editor.chat');
-    Route::post('/sites/{slug}/editeur/module', [SiteEditorController::class, 'module'])->name('sites.editor.module');
-    Route::post('/sites/{slug}/editeur/accent', [SiteEditorController::class, 'accent'])->name('sites.editor.accent');
-    Route::post('/sites/{slug}/editeur/regenerer', [SiteEditorController::class, 'regenerate'])->middleware('throttle:5,1')->name('sites.editor.regenerate');
+});
+
+// ─── Éditeur de site "Studio" (édition en place, pages, IA) ───
+// Accessible sans compte au créateur du site (session ou lien signé) : on modifie AVANT de payer.
+// Le contrôle d'accès est fait par SiteEditorController::ownedSite().
+Route::prefix('/sites/{slug}/editeur')->name('sites.editor')->group(function () {
+    Route::get('/', [SiteEditorController::class, 'show']);
+    Route::get('/preview', [SiteEditorController::class, 'preview'])->name('.preview');
+    Route::get('/state', [SiteEditorController::class, 'state'])->name('.state');
+    Route::post('/content', [SiteEditorController::class, 'content'])->middleware('throttle:120,1')->name('.content');
+    Route::post('/bulk', [SiteEditorController::class, 'bulk'])->middleware('throttle:120,1')->name('.bulk');
+    Route::post('/image', [SiteEditorController::class, 'image'])->middleware('throttle:30,1')->name('.image');
+    Route::post('/sections', [SiteEditorController::class, 'sections'])->name('.sections');
+    Route::post('/style', [SiteEditorController::class, 'style'])->name('.style');
+    Route::post('/publish', [SiteEditorController::class, 'publish'])->middleware('throttle:20,1')->name('.publish');
+    Route::post('/chat', [SiteEditorController::class, 'chat'])->middleware('throttle:20,1')->name('.chat');
+    Route::post('/revert', [SiteEditorController::class, 'revert'])->middleware('throttle:30,1')->name('.revert');
+    Route::post('/claim', [SiteEditorController::class, 'claim'])->middleware('throttle:10,1')->name('.claim');
+    Route::post('/module', [SiteEditorController::class, 'module'])->name('.module');
+    Route::post('/accent', [SiteEditorController::class, 'accent'])->name('.accent');
+    Route::post('/regenerer', [SiteEditorController::class, 'regenerate'])->middleware('throttle:5,1')->name('.regenerate');
 });
 
 // ─── Liens publics signés (emails / SMS) & retour de paiement ───

@@ -47,6 +47,9 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+        // Sites créés avant l'inscription (même email ou même session) → rattachés au compte
+        \App\Models\Site::claimFor($user, $request->session()->get('joow_sites', []));
+
+        return redirect()->intended(route('dashboard', absolute: false));
     }
 }

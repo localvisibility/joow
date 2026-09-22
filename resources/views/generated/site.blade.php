@@ -4,6 +4,12 @@
     $booking  = $booking ?? [];
     $editMode = $editMode ?? false;
     $font     = $font ?? null;
+    // ── Pages additionnelles : $pages (toutes), $page (courante ou null = accueil), $pi (index) ──
+    $pages    = $pages ?? [];
+    $page     = $page ?? null;
+    $pi       = $pi ?? null;
+    $home     = $page ? '/' : '';   // préfixe des ancres vers l'accueil depuis une sous-page
+    $navPages = array_values(array_filter($pages, fn($p) => !empty($p['nav'])));
     // ── Système de design sectoriel ──
     $design    = $design ?? [];
     $theme     = ($design['theme'] ?? 'light') === 'dark' ? 'dark' : 'light';
@@ -105,7 +111,7 @@
     $bookTitle = $bk('title', $bookDefaults['title']);
     $bookSub   = $bk('sub', $bookDefaults['sub']);
     $bookCta   = $bk('cta', $ctaLabel);
-    $ctaHref = ($bookingOn || $restaurantOn || $zcOn) ? '#reserver' : ($roomsOn ? '#sejour' : '#contact');
+    $ctaHref = $home.(($bookingOn || $restaurantOn || $zcOn) ? '#reserver' : ($roomsOn ? '#sejour' : '#contact'));
     $apiBase = 'https://app.joow.fr'; // domaine fixe de l'app (réception des demandes)
 
     // Police d'affichage (Google Fonts)
@@ -130,8 +136,13 @@
 <html lang="fr" class="scroll-smooth theme-{{ $theme }}{{ $editMode ? ' joow-edit' : '' }}">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+@if($page)
+<title>{{ $page['title'] }} — {{ $b['name'] ?? '' }}{{ !empty($b['city']) ? ', '.$b['city'] : '' }}</title>
+<meta name="description" content="{{ $page['seo'] ?: ($page['hero']['subtitle'] ?: $page['title'].' — '.($b['name'] ?? '')) }}">
+@else
 <title>{{ $t('hero_title', $b['name'] ?? '') }} — {{ $b['name'] ?? '' }}{{ !empty($b['city']) ? ', '.$b['city'] : '' }}</title>
 <meta name="description" content="{{ $t('hero_subtitle', $label) }} — {{ $b['name'] ?? '' }}{{ !empty($b['city']) ? ', '.$b['city'] : '' }}. {{ $c['cta_text'] ?? '' }}">
+@endif
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -326,6 +337,7 @@ footer.bg-slate-900{background:#07070b!important}
 .joow-edit .floaty{animation:none}
 .joow-edit .reveal{opacity:1;transform:none}
 .joow-edit [data-section]{position:relative}
+.joow-edit header[data-section]:hover::before{top:5.5rem}
 .joow-edit [data-section]:hover::before{content:attr(data-label);position:absolute;top:10px;left:10px;z-index:40;background:#6366f1;color:#fff;font:600 11px/1 'Plus Jakarta Sans',sans-serif;padding:6px 9px;border-radius:999px;letter-spacing:.06em;text-transform:uppercase;pointer-events:none}
 .joow-img-btn{position:absolute;z-index:30;display:inline-flex;align-items:center;gap:.4rem;background:#fff;color:#0f172a;font:600 12px 'Plus Jakarta Sans',sans-serif;padding:.55rem .8rem;border-radius:999px;box-shadow:0 10px 30px -10px rgba(0,0,0,.6);cursor:pointer;border:0}
 .joow-img-btn:hover{background:#eef2ff}
@@ -338,22 +350,27 @@ footer.bg-slate-900{background:#07070b!important}
 <!-- NAV -->
 <nav id="nav" class="fixed inset-x-0 top-0 z-50 transition-all duration-300">
   <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-    <a href="#top" class="flex items-center gap-2.5 text-white" id="brand">
+    <a href="{{ $home }}#top" class="flex items-center gap-2.5 text-white" id="brand" @if($page) data-page="" @endif>
       <span class="grid h-10 w-10 place-items-center rounded-xl text-white bg-grad shadow-c"><i class="fa-solid {{ $icon }}"></i></span>
       <span class="font-display text-lg font-bold" data-edit="business.name">{{ $b['name'] ?? '' }}</span>
     </a>
-    <div class="hidden items-center gap-7 md:flex" id="links">
-      @if($show('services') && count($services))<a href="#services" class="text-sm font-semibold text-white/90 transition hover:text-white">Services</a>@endif
-      @if($menuOn)<a href="#carte" class="text-sm font-semibold text-white/90 transition hover:text-white">Carte</a>@endif
-      @if($roomsOn)<a href="#sejour" class="text-sm font-semibold text-white/90 transition hover:text-white">Chambres</a>@endif
-      @if($show('about'))<a href="#apropos" class="text-sm font-semibold text-white/90 transition hover:text-white">À propos</a>@endif
-      @if($show('reviews') && $reviews->count())<a href="#avis" class="text-sm font-semibold text-white/90 transition hover:text-white">Avis</a>@endif
+    <div class="hidden items-center gap-6 md:flex" id="links">
+      @if($show('services') && count($services))<a href="{{ $home }}#services" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>Services</a>@endif
+      @if($menuOn)<a href="{{ $home }}#carte" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>Carte</a>@endif
+      @if($roomsOn)<a href="{{ $home }}#sejour" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>Chambres</a>@endif
+      @if($show('about'))<a href="{{ $home }}#apropos" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>À propos</a>@endif
+      @if($show('reviews') && $reviews->count() && count($navPages) < 3)<a href="{{ $home }}#avis" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>Avis</a>@endif
+      @foreach(array_slice($navPages, 0, 5) as $np)<a href="/{{ $np['slug'] }}/" data-page="{{ $np['slug'] }}" class="text-sm font-semibold transition hover:text-white {{ $page && $page['slug'] === $np['slug'] ? 'text-white underline decoration-2 underline-offset-8' : 'text-white/90' }}">{{ $np['title'] }}</a>@endforeach
       <a href="{{ $ctaHref }}" class="rounded-xl bg-grad px-5 py-2.5 text-sm font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="content.cta_label">{{ $ctaLabel }}</span></a>
     </div>
     @if($phoneHref)<a href="{{ $phoneHref }}" class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white backdrop-blur md:hidden"><i class="fa-solid fa-phone"></i></a>@endif
   </div>
 </nav>
 
+@if($page)
+{{-- ═══ PAGE ADDITIONNELLE ═══ --}}
+@include('generated.partials.page')
+@else
 <!-- HERO ({{ $heroStyle }}) -->
 @php $heroLq = $lqip($hero); $hoursJson = json_encode(array_values($hours), JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT); @endphp
 <header id="top" class="relative flex min-h-[100svh] items-center overflow-hidden" data-section="hero" data-label="Accueil">
@@ -932,13 +949,14 @@ footer.bg-slate-900{background:#07070b!important}
 </section>
 @endif
 </main>
+@endif {{-- fin accueil / page --}}
 
 <!-- FOOTER -->
 <footer class="bg-slate-900 py-16 text-slate-400">
   <div class="mx-auto max-w-6xl px-5">
     <div class="foot-grid border-b border-white/10 pb-10">
       <div>
-        <a href="#top" class="flex items-center gap-2.5 text-white">
+        <a href="{{ $home }}#top" class="flex items-center gap-2.5 text-white" @if($page) data-page="" @endif>
           <span class="grid h-11 w-11 place-items-center rounded-xl bg-grad"><i class="fa-solid {{ $icon }}"></i></span>
           <span class="font-display text-xl font-bold">{{ $b['name'] ?? '' }}</span>
         </a>
@@ -948,12 +966,13 @@ footer.bg-slate-900{background:#07070b!important}
       </div>
       <div>
         <p class="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Navigation</p>
-        @if($show('services') && count($services))<a href="#services" class="foot-link">Services</a>@endif
-        @if($menuOn)<a href="#carte" class="foot-link">Carte</a>@endif
-        @if($roomsOn)<a href="#sejour" class="foot-link">Chambres</a>@endif
-        @if($show('about'))<a href="#apropos" class="foot-link">À propos</a>@endif
-        @if($reviews->count() && $show('reviews'))<a href="#avis" class="foot-link">Avis</a>@endif
-        @if($show('contact'))<a href="#contact" class="foot-link">Contact</a>@endif
+        @if($show('services') && count($services))<a href="{{ $home }}#services" class="foot-link" @if($page) data-page="" @endif>Services</a>@endif
+        @if($menuOn)<a href="{{ $home }}#carte" class="foot-link" @if($page) data-page="" @endif>Carte</a>@endif
+        @if($roomsOn)<a href="{{ $home }}#sejour" class="foot-link" @if($page) data-page="" @endif>Chambres</a>@endif
+        @if($show('about'))<a href="{{ $home }}#apropos" class="foot-link" @if($page) data-page="" @endif>À propos</a>@endif
+        @if($reviews->count() && $show('reviews'))<a href="{{ $home }}#avis" class="foot-link" @if($page) data-page="" @endif>Avis</a>@endif
+        @foreach($navPages as $np)<a href="/{{ $np['slug'] }}/" data-page="{{ $np['slug'] }}" class="foot-link">{{ $np['title'] }}</a>@endforeach
+        @if($show('contact'))<a href="{{ $home }}#contact" class="foot-link" @if($page) data-page="" @endif>Contact</a>@endif
         @if($legalOn)<a href="#" onclick="document.getElementById('joow-legal').showModal();return false;" class="foot-link">Mentions légales</a>@endif
       </div>
       <div>
@@ -1229,27 +1248,36 @@ dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)
   const send=(m)=>window.parent.postMessage(Object.assign({joow:1},m),'*');
   document.querySelectorAll('.reveal').forEach(e=>e.classList.add('on'));
   // Neutraliser la navigation et les envois de formulaire en mode édition
-  document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&!e.target.closest('[data-edit]'))e.preventDefault();},true);
+  // Les liens vers une autre page du site changent la page affichée dans le Studio
+  document.addEventListener('click',e=>{const a=e.target.closest('a');if(a&&!e.target.closest('[data-edit]')){e.preventDefault();if(a.dataset.page!==undefined)send({type:'page',slug:a.dataset.page});}},true);
   document.querySelectorAll('form').forEach(f=>f.addEventListener('submit',e=>e.preventDefault(),true));
 
   const setEditable=(el,on)=>{try{el.contentEditable=on?'plaintext-only':'false';}catch(_){el.contentEditable=on?'true':'false';}};
+  // Texte multi-paragraphes (blocs de page) : <p> ↔ paragraphes séparés par une ligne vide
+  const isMulti=el=>el.hasAttribute('data-multiline');
+  const multiText=el=>[...el.querySelectorAll('p')].map(p=>p.textContent.trim()).filter(Boolean).join('\n\n')||el.textContent.trim();
+  const renderMulti=(el,v)=>{el.innerHTML='';v.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean).forEach(s=>{const p=document.createElement('p');p.textContent=s;el.appendChild(p);});};
   document.querySelectorAll('[data-edit]').forEach(el=>{
     el.addEventListener('click',e=>{
       e.preventDefault();e.stopPropagation();
       if(el.isContentEditable)return;
-      el.dataset.orig=el.textContent;setEditable(el,true);el.classList.add('joow-editing');el.focus();
+      if(isMulti(el)){el.dataset.orig=multiText(el);el.textContent=el.dataset.orig;el.style.whiteSpace='pre-wrap';}else{el.dataset.orig=el.textContent;}
+      setEditable(el,true);el.classList.add('joow-editing');el.focus();
       const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);
       send({type:'focus',path:el.dataset.edit});
     });
     el.addEventListener('keydown',e=>{
-      const multi=el.matches('p,blockquote');
-      if(e.key==='Enter'&&!(multi&&e.shiftKey)){e.preventDefault();el.blur();}
-      if(e.key==='Escape'){el.textContent=el.dataset.orig;el.blur();}
+      const multi=el.matches('p,blockquote')||isMulti(el);
+      if(e.key==='Enter'&&!(multi&&!e.ctrlKey&&!e.metaKey)&&!(e.shiftKey&&multi)){e.preventDefault();el.blur();}
+      if(e.key==='Enter'&&multi&&(e.ctrlKey||e.metaKey)){e.preventDefault();el.blur();}
+      if(e.key==='Escape'){if(isMulti(el)){renderMulti(el,el.dataset.orig);}else{el.textContent=el.dataset.orig;}el.blur();}
     });
     el.addEventListener('blur',()=>{
       if(!el.isContentEditable)return;
       setEditable(el,false);el.classList.remove('joow-editing');
-      const v=el.textContent.replace(/\s+/g,' ').trim();
+      let v;
+      if(isMulti(el)){v=el.innerText.replace(/\n{3,}/g,'\n\n').trim();el.style.whiteSpace='';renderMulti(el,v);}
+      else{v=el.textContent.replace(/\s+/g,' ').trim();}
       if(v!==el.dataset.orig)send({type:'edit',path:el.dataset.edit,value:v});
     });
   });
@@ -1261,7 +1289,7 @@ dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)
   });
   window.addEventListener('message',e=>{
     const m=e.data||{};if(!m.joow)return;
-    if(m.type==='setText'){document.querySelectorAll('[data-edit="'+m.path+'"]').forEach(el=>{if(!el.isContentEditable)el.textContent=m.value;});}
+    if(m.type==='setText'){document.querySelectorAll('[data-edit="'+m.path+'"]').forEach(el=>{if(el.isContentEditable)return;if(isMulti(el))renderMulti(el,String(m.value||''));else el.textContent=m.value;});}
     if(m.type==='setImage'){document.querySelectorAll('[data-edit-img="'+m.path+'"]').forEach(el=>{if(el.tagName==='IMG')el.src=m.value;});if(m.path==='images.hero'&&hero)hero.src=m.value;}
     if(m.type==='scrollTo'){const s=document.querySelector('[data-section="'+m.id+'"]');if(s)s.scrollIntoView({behavior:'smooth',block:'start'});}
     if(m.type==='setAccent'){const c=m.value;document.documentElement.style.setProperty('--c',c);document.documentElement.style.setProperty('--grad','linear-gradient(135deg, '+c+' 0%, color-mix(in srgb, '+c+' 55%, #7c3aed) 100%)');}

@@ -30,6 +30,40 @@ class Site extends Model
         'subscription_period_end' => 'datetime',
     ];
 
+    /** Jeton d'édition (lien signé envoyé par email) : accès au Studio sans compte. */
+    public function editToken(): string
+    {
+        return substr(hash_hmac('sha256', 'edit:'.$this->id, (string) config('app.key')), 0, 40);
+    }
+
+    /** L'utilisateur (ou la session invitée) peut-il modifier ce site dans le Studio ? */
+    public function editableBy(?User $user, array $guestSlugs = []): bool
+    {
+        if ($user) {
+            if ($user->isAdmin() || ($this->user_id && $this->user_id === $user->id)) {
+                return true;
+            }
+            if ($this->owner_email && strtolower($this->owner_email) === strtolower($user->email)) {
+                return true;
+            }
+        }
+
+        return in_array($this->slug, $guestSlugs, true);
+    }
+
+    /** Rattache à un compte les sites créés sans compte (même email ou même session). */
+    public static function claimFor(User $user, array $guestSlugs = []): int
+    {
+        $q = static::whereNull('user_id')->where(function ($q) use ($user, $guestSlugs) {
+            $q->whereRaw('LOWER(owner_email) = ?', [strtolower($user->email)]);
+            if ($guestSlugs) {
+                $q->orWhereIn('slug', $guestSlugs);
+            }
+        });
+
+        return $q->update(['user_id' => $user->id, 'owner_email' => $user->email]);
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

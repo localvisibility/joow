@@ -31,8 +31,8 @@ class PublishSiteJob implements ShouldQueue
             return;
         }
 
-        $html = $renderer->html($site);
-        $site->update(['html_content' => $html]);
-        $renderer->write($site->slug, $html);
+        $all = $renderer->renderAll($site);
+        $site->update(['html_content' => $all['']]);
+        $renderer->writeAll($site->slug, $all);
     }
 }

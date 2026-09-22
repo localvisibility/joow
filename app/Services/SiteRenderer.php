@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\PublishSiteJob;
 use App\Models\Site;
+use App\Services\Pages\PageSchema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 
@@ -11,14 +12,29 @@ use Illuminate\Support\Facades\View;
  * Rendu HTML d'un site à partir de son contenu stocké (site_data), et
  * publication sur disque (dossier servi par nginx hôte).
  *
+ * Un site = une page d'accueil (index.html) + des pages additionnelles
+ * (site_data.pages → <slug-page>/index.html), qui partagent nav, pied de page,
+ * style et modules.
+ *
  * L'aperçu de l'éditeur est rendu à la volée depuis la base (same-origin),
- * la publication écrit le fichier statique ; si le conteneur web n'a pas
+ * la publication écrit les fichiers statiques ; si le conteneur web n'a pas
  * les droits d'écriture, la publication est déléguée au worker (queue).
  */
 class SiteRenderer
 {
-    /** HTML du site (éditable si $editMode : runtime d'édition injecté). */
-    public function html(Site $site, bool $editMode = false): string
+    /** Pages additionnelles normalisées. */
+    public function pages(Site $site): array
+    {
+        return PageSchema::normalizePages($site->site_data['pages'] ?? []);
+    }
+
+    /**
+     * HTML d'une page du site.
+     *
+     * @param  bool         $editMode  Injecte le runtime d'édition (Studio)
+     * @param  string|null  $pageSlug  null = accueil, sinon slug d'une page additionnelle
+     */
+    public function html(Site $site, bool $editMode = false, ?string $pageSlug = null): string
     {
         $data = $site->site_data ?? [];
         $sector = $site->sector ?: 'service';
@@ -33,6 +49,22 @@ class SiteRenderer
         $mods['bot'] = array_replace(\App\Services\Modules\BotAnswer::defaults(), $site->module('bot')) + ['enabled' => $site->moduleEnabled('bot')];
         // Paiement : "ready" = compte Stripe connecté et capable d'encaisser
         $mods['payment']['ready'] = (bool) config('cashier.secret') && $site->stripe_account_id && $site->stripe_charges_enabled;
+
+        $pages = $this->pages($site);
+        $page = null;
+        $pi = null;
+        if ($pageSlug !== null) {
+            foreach ($pages as $i => $p) {
+                if ($p['slug'] === $pageSlug) {
+                    $page = $p;
+                    $pi = $i;
+                    break;
+                }
+            }
+            if ($page === null) {
+                abort(404);
+            }
+        }
 
         return View::make('generated.site', [
             'b'        => $data['business'] ?? [],
@@ -54,6 +86,10 @@ class SiteRenderer
             'mapsKey'  => (string) config('services.google_places.key'),
             'slug'     => $site->slug,
             'editMode' => $editMode,
+            // Pages additionnelles + page courante (null = accueil)
+            'pages'    => $pages,
+            'page'     => $page,
+            'pi'       => $pi,
             // Système de design sectoriel (police, thème, mise en page du hero, photos de secours)
             'design'   => [
                 'font'  => $cfg['font'] ?? 'Space Grotesk',
@@ -64,14 +100,25 @@ class SiteRenderer
         ])->render();
     }
 
-    /** Re-rend et publie le site. Renvoie ['queued' => bool]. */
+    /** Rend toutes les pages : ['' => html accueil, 'slug-page' => html…]. */
+    public function renderAll(Site $site): array
+    {
+        $out = ['' => $this->html($site)];
+        foreach ($this->pages($site) as $p) {
+            $out[$p['slug']] = $this->html($site, false, $p['slug']);
+        }
+
+        return $out;
+    }
+
+    /** Re-rend et publie le site (accueil + pages). Renvoie ['queued' => bool]. */
     public function publish(Site $site): array
     {
-        $html = $this->html($site);
-        $site->update(['html_content' => $html]);
+        $all = $this->renderAll($site);
+        $site->update(['html_content' => $all['']]);
 
         try {
-            $this->write($site->slug, $html);
+            $this->writeAll($site->slug, $all);
 
             return ['ok' => true, 'queued' => false];
         } catch (\Throwable $e) {
@@ -82,15 +129,27 @@ class SiteRenderer
         }
     }
 
-    /** Écrit index.html avec des droits partagés (web + worker). */
-    public function write(string $slug, string $html): void
+    /** Écrit toutes les pages et supprime les pages retirées. */
+    public function writeAll(string $slug, array $all): void
     {
-        $dir = rtrim(config('services.sites_path', '/var/www/sites'), '/').'/'.$slug;
-
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0777, true);
+        foreach ($all as $pageSlug => $html) {
+            $this->write($slug, $html, $pageSlug ?: null);
         }
-        @chmod($dir, 0777);
+        $this->cleanupPages($slug, array_values(array_filter(array_keys($all))));
+    }
+
+    /** Écrit index.html (ou <page>/index.html) avec des droits partagés (web + worker). */
+    public function write(string $slug, string $html, ?string $pageSlug = null): void
+    {
+        $root = rtrim(config('services.sites_path', '/var/www/sites'), '/').'/'.$slug;
+        $dir = $pageSlug ? $root.'/'.$pageSlug : $root;
+
+        foreach (array_unique([$root, $dir]) as $d) {
+            if (! is_dir($d)) {
+                @mkdir($d, 0777, true);
+            }
+            @chmod($d, 0777);
+        }
 
         $tmp = $dir.'/.index.'.uniqid('', true).'.tmp';
         if (@file_put_contents($tmp, $html) === false) {
@@ -103,13 +162,36 @@ class SiteRenderer
             throw new \RuntimeException("Remplacement impossible de $dir/index.html");
         }
         @chmod($dir.'/index.html', 0666);
+        if ($pageSlug) {
+            // Marqueur : ce dossier est une page Joow (nettoyable si la page est supprimée)
+            @file_put_contents($dir.'/.joow-page', '1');
+            @chmod($dir.'/.joow-page', 0666);
+        }
 
         // Worker (root) : aligner le propriétaire sur le serveur web.
         if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
-            @chown($dir, 'www-data');
-            @chgrp($dir, 'www-data');
-            @chown($dir.'/index.html', 'www-data');
-            @chgrp($dir.'/index.html', 'www-data');
+            foreach (array_unique([$root, $dir, $dir.'/index.html']) as $p) {
+                @chown($p, 'www-data');
+                @chgrp($p, 'www-data');
+            }
+        }
+    }
+
+    /** Supprime les dossiers de pages Joow qui n'existent plus. */
+    public function cleanupPages(string $slug, array $keep): void
+    {
+        $root = rtrim(config('services.sites_path', '/var/www/sites'), '/').'/'.$slug;
+        if (! is_dir($root)) {
+            return;
+        }
+        foreach (glob($root.'/*', GLOB_ONLYDIR) ?: [] as $d) {
+            $name = basename($d);
+            if (in_array($name, $keep, true) || ! is_file($d.'/.joow-page')) {
+                continue;
+            }
+            @unlink($d.'/index.html');
+            @unlink($d.'/.joow-page');
+            @rmdir($d);
         }
     }
 

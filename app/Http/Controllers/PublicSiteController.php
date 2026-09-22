@@ -81,15 +81,20 @@ class PublicSiteController extends Controller
 
         GenerateSiteJob::dispatch($site, $job->id);
 
+        // Le visiteur (même sans compte) peut retoucher son site dans le Studio avant de le mettre en ligne.
+        $request->session()->push('joow_sites', $slug);
+
         return redirect()->route('public.site', $slug);
     }
 
-    public function show(string $slug)
+    public function show(Request $request, string $slug)
     {
         $site = Site::where('slug', $slug)->firstOrFail();
 
         return Inertia::render('Public/Site', [
             'site' => $site->only(['slug', 'name', 'city', 'sector', 'status', 'rating', 'reviews_count', 'preview_url']),
+            // Accès au Studio : créateur de la session, propriétaire connecté ou admin
+            'can_edit' => $site->editableBy($request->user(), $request->session()->get('joow_sites', [])),
         ]);
     }
 

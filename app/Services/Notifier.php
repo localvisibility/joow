@@ -140,6 +140,22 @@ class Notifier
         }
     }
 
+    // ───────────────────────────────── Studio ─────────────────────────────────
+
+    /** Lien d'édition privé du Studio (site créé sans compte). */
+    public function editLink(Site $site, string $to): void
+    {
+        $b = $this->brand($site);
+        $link = route('sites.editor', $site->slug).'?t='.$site->editToken();
+        $this->mail($site, $to, 'Votre site '.$b['name'].' vous attend dans le Studio', [
+            'title' => 'Votre site est prêt à personnaliser',
+            'intro' => "Voici votre lien privé pour retrouver et modifier votre site quand vous voulez : textes, photos, pages, couleurs, formulaire… Gratuit, sans engagement. Mettez-le en ligne quand il est parfait.",
+            'rows'  => [['Aperçu', $b['url']], ['Studio', $link]],
+            'cta'   => ['label' => 'Ouvrir le Studio', 'url' => $link],
+            'note'  => 'Gardez cet email : ce lien est personnel. Vous pouvez aussi créer un compte gratuit avec cette adresse pour tout retrouver dans votre espace.',
+        ]);
+    }
+
     // ───────────────────────────────── Demandes ─────────────────────────────────
 
     public function leadReceived(Site $site, Lead $lead): void

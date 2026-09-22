@@ -31,7 +31,11 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
 
+        $guestSlugs = $request->session()->get('joow_sites', []);
         $request->session()->regenerate();
+
+        // Sites créés sans compte pendant cette session → rattachés au compte
+        \App\Models\Site::claimFor($request->user(), $guestSlugs);
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
