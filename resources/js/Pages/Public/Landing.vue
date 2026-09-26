@@ -45,9 +45,26 @@ const scrollToSearch = () => {
 const goTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
 /* Placeholder animé (métiers qui défilent) */
+/* Machine à écrire dans le champ : des exemples se tapent lettre à lettre, et s'arrêtent dès que la personne clique pour écrire. */
 const placeholders = ['Le Bistrot de Léa, Lyon', 'Garage Martin, Toulouse', 'Studio Éclat coiffure, Paris', 'Plomberie Durand, Nantes', 'Cabinet Ostéo Concorde', 'Villa Belrose, Saint-Tropez'];
-const phIndex = ref(0);
-const placeholder = computed(() => `Ex. ${placeholders[phIndex.value]}`);
+const typed = ref('');
+const twStopped = ref(false);
+const focused = ref(false);
+let twTimer = null;
+const showTypewriter = computed(() => !twStopped.value && !focused.value && !q.value);
+const runTypewriter = () => {
+    let i = 0, pos = 0, deleting = false, pause = 0;
+    const tick = () => {
+        if (twStopped.value) return;
+        const word = placeholders[i];
+        if (pause > 0) { pause--; }
+        else if (!deleting) { pos++; typed.value = word.slice(0, pos); if (pos >= word.length) { deleting = true; pause = 22; } }
+        else { pos--; typed.value = word.slice(0, pos); if (pos <= 0) { deleting = false; i = (i + 1) % placeholders.length; pause = 6; } }
+        twTimer = setTimeout(tick, deleting ? 35 : 70);
+    };
+    tick();
+};
+const stopTypewriter = () => { twStopped.value = true; clearTimeout(twTimer); };
 
 /* ───────────────────────── Vitrine ───────────────────────── */
 const showcase = [
@@ -66,7 +83,7 @@ const lightbox = ref(null);
 const stage = ref(0);
 const stageHover = ref(false);
 const current = computed(() => showcase[stage.value]);
-let stageTimer = null, phTimer = null;
+let stageTimer = null;
 
 /* Vitrine détaillée : onglets */
 const tab = ref(0);
@@ -184,13 +201,13 @@ onMounted(() => {
     window.addEventListener('pointermove', onPointer, { passive: true });
     window.addEventListener('scroll', onScroll, { passive: true });
     stageTimer = setInterval(() => { if (!stageHover.value) stage.value = (stage.value + 1) % showcase.length; }, 4200);
-    phTimer = setInterval(() => { phIndex.value = (phIndex.value + 1) % placeholders.length; }, 2600);
+    runTypewriter();
     genTimer = setInterval(() => { genStep.value = (genStep.value + 1) % (genSteps.length + 2); }, 1300);
 });
 onUnmounted(() => {
     window.removeEventListener('pointermove', onPointer);
     window.removeEventListener('scroll', onScroll);
-    clearInterval(stageTimer); clearInterval(phTimer); clearInterval(genTimer);
+    clearInterval(stageTimer); clearTimeout(twTimer); clearInterval(genTimer);
 });
 </script>
 
@@ -242,9 +259,18 @@ onUnmounted(() => {
                         </p>
 
                         <form @submit.prevent="submit" class="reveal mx-auto mt-8 max-w-xl lg:mx-0">
+                            <label v-show="!selected" for="search-input" class="mb-2 flex items-center justify-center gap-2 text-sm font-semibold text-white lg:justify-start">
+                                <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-gradient text-[11px] font-bold">1</span>
+                                Tapez le nom de votre établissement
+                                <span class="hidden font-normal text-slate-500 sm:inline">· tel qu'il apparaît sur Google</span>
+                            </label>
                             <div class="search-shell" v-show="!selected">
-                                <svg class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path :d="icons.search"/></svg>
-                                <input id="search-input" v-model="q" type="text" autocomplete="off" class="field !rounded-2xl !py-4 pl-12 pr-32 text-base" :placeholder="placeholder" @focus="open = results.length > 0" />
+                                <svg class="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path :d="icons.search"/></svg>
+                                <!-- Machine à écrire : exemples tapés en blanc, stoppée au premier clic -->
+                                <div v-if="showTypewriter" class="typewriter pointer-events-none absolute inset-y-0 left-12 right-32 flex items-center text-base text-white" aria-hidden="true">
+                                    <span class="truncate">{{ typed }}</span><span class="tw-cursor"></span>
+                                </div>
+                                <input id="search-input" v-model="q" type="text" autocomplete="off" class="field !rounded-2xl !border-white/20 !bg-white/[0.06] !py-4 pl-12 pr-32 text-base text-white" :placeholder="twStopped || focused ? 'Nom de votre établissement…' : ''" @focus="focused = true; stopTypewriter(); open = results.length > 0" @blur="focused = false" @input="stopTypewriter" />
                                 <button type="button" @click="q.trim().length >= 3 ? null : scrollToSearch()" class="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white sm:block">Rechercher</button>
                                 <div v-if="searching" class="absolute right-28 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-white/20 border-t-brand-500"></div>
                                 <div v-if="open" class="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 text-left shadow-2xl">
@@ -743,6 +769,9 @@ onUnmounted(() => {
 
 /* Recherche */
 .search-shell { position: relative; }
+.typewriter { z-index: 5; font-weight: 500; letter-spacing: .01em; }
+.tw-cursor { display: inline-block; width: 2px; height: 1.15em; margin-left: 2px; background: #a5b4fc; animation: twblink 1s steps(1) infinite; }
+@keyframes twblink { 50% { opacity: 0; } }
 .search-shell::before { content: ""; position: absolute; inset: -3px; border-radius: 1.2rem; background: linear-gradient(100deg, #6366f1, #a855f7, #38bdf8, #6366f1); background-size: 300% 100%; opacity: .5; filter: blur(10px); animation: glowshift 6s linear infinite; z-index: -1; }
 @keyframes glowshift { to { background-position: 300% 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
