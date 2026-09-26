@@ -126,7 +126,11 @@ onUnmounted(() => clearInterval(poll));
             </div>
 
             <div v-else class="mt-4">
-                <template v-if="st.purchase_enabled">
+                <div v-if="st.trial_ends_at" class="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-slate-200">
+                    <p class="font-semibold text-amber-200">Domaine inclus disponible après votre essai gratuit</p>
+                    <p class="mt-1 text-slate-300">Votre domaine .fr ou .com offert sera commandable dès le premier paiement de votre abonnement, le <strong class="text-white">{{ st.trial_ends_at }}</strong>. D'ici là, vous pouvez déjà connecter un domaine que vous possédez.</p>
+                </div>
+                <template v-else-if="st.purchase_enabled">
                     <p class="text-sm text-slate-400">Tapez le nom souhaité : on vérifie la disponibilité en direct, on achète, on configure. Aucune manipulation de votre côté.</p>
                     <div class="relative mt-3">
                         <input v-model="q" class="field pr-10" placeholder="Ex : latabledemile" />

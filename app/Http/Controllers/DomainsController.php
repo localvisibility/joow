@@ -83,6 +83,9 @@ class DomainsController extends Controller
         $site = $this->site($request, $slug);
         $this->requirePaid($site);
         abort_unless($hostinger->enabled(), 503, 'L\'achat de domaine n\'est pas encore disponible.');
+        if ($t = $this->trialEndsAt($site)) {
+            abort(422, 'Le domaine inclus sera disponible à la fin de votre essai gratuit, le '.$t->format('d/m/Y').'. En attendant, vous pouvez connecter un domaine que vous possédez déjà.');
+        }
         abort_unless($this->domainIncluded($site), 422, 'Un domaine a déjà été commandé pour ce site.');
         $data = $request->validate(['domain' => ['required', 'string', 'max:120']]);
 
@@ -124,20 +127,50 @@ class DomainsController extends Controller
 
     private function payload(Site $site, DomainManager $dm, HostingerClient $hostinger): array
     {
+        $trialEnd = $this->trialEndsAt($site);
+
         return $dm->state($site) + [
             'paid'          => in_array($site->status, ['paid', 'published'], true),
             'plan'          => $site->hosting_plan,
             'live_url'      => 'https://'.$site->slug.'.joow.fr',
             'purchase_enabled' => $hostinger->enabled(),
             'included'      => $this->domainIncluded($site),
+            // Formule Pro en période d'essai : l'achat du domaine inclus attend le premier paiement
+            'trial_ends_at' => $trialEnd?->toDateString(),
         ];
     }
 
-    /** Le premier domaine acheté est inclus dans la formule. */
+    /**
+     * Le premier domaine acheté est inclus dans la formule — une fois l'abonnement
+     * réellement payé (pas pendant l'essai gratuit de la formule Pro).
+     */
     private function domainIncluded(Site $site): bool
     {
         return in_array($site->status, ['paid', 'published'], true)
+            && $this->trialEndsAt($site) === null
             && ! DomainRequest::where('site_slug', $site->slug)->where('type', 'order')->whereIn('status', ['in_progress', 'active'])->exists();
+    }
+
+    /** Fin de l'essai gratuit si l'abonnement Pro est encore en période d'essai, sinon null. */
+    private function trialEndsAt(Site $site): ?\Carbon\Carbon
+    {
+        if ($site->hosting_plan !== 'pro' || ! $site->user) {
+            return null;
+        }
+        try {
+            $sub = $site->user->subscription('hosting');
+            if ($sub && $sub->onTrial()) {
+                return $sub->trial_ends_at;
+            }
+            // Pas encore d'abonnement synchronisé : on considère l'essai en cours pendant la durée configurée
+            if (! $sub && $site->paid_at && $site->paid_at->gt(now()->subDays((int) config('services.stripe.trial_days', 7)))) {
+                return $site->paid_at->copy()->addDays((int) config('services.stripe.trial_days', 7));
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
     }
 
     private function requirePaid(Site $site): void
