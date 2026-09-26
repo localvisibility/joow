@@ -20,7 +20,7 @@ class PublicSiteController extends Controller
     {
         // Preuve sociale réelle (issue du parc migré).
         $stats = [
-            'sites'   => Site::count(),
+            'sites'   => max(Site::count(), (int) config('joow.landing.sites_min', 0)),
             'rating'  => round((float) Site::whereNotNull('rating')->where('rating', '>', 0)->avg('rating'), 1) ?: 4.8,
             'sectors' => Site::whereNotNull('sector')->distinct('sector')->count('sector'),
         ];

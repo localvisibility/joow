@@ -9,6 +9,12 @@ return [
         explode(',', (string) env('JOOW_ADMIN_EMAILS', ''))
     ))),
 
+    // Landing : compteur « sites créés » affiché au minimum à cette valeur (parc historique
+    // Local Visibility + Joow). Le compteur réel prend le relais dès qu'il dépasse ce plancher.
+    'landing' => [
+        'sites_min' => (int) env('JOOW_SITES_DISPLAY_MIN', 1000),
+    ],
+
     // Domaines personnalisés : IP publique du VPS (par défaut : résolution de APP_URL).
     'domains' => [
         'server_ip' => env('JOOW_SERVER_IP'),
