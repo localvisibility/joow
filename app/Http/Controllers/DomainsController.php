@@ -123,6 +123,44 @@ class DomainsController extends Controller
         return response()->json($this->payload($site->fresh(), $dm, $hostinger));
     }
 
+    /**
+     * Le client ne veut pas attendre la fin de l'essai : on termine l'essai maintenant,
+     * Stripe facture le premier mois immédiatement, et le domaine inclus se débloque.
+     */
+    public function startSubscription(Request $request, string $slug, DomainManager $dm, HostingerClient $hostinger)
+    {
+        $site = $this->site($request, $slug);
+        $this->requirePaid($site);
+        abort_unless($site->hosting_plan === 'pro' && $site->user, 422, 'Cette action concerne la formule Pro en période d\'essai.');
+
+        $sub = $site->user->subscription('hosting');
+        abort_unless($sub, 422, 'Abonnement introuvable pour le moment. Réessayez dans quelques minutes.');
+
+        $paid = true;
+        $payUrl = null;
+        try {
+            if ($sub->onTrial()) {
+                $sub->endTrial(); // trial_end = now → facture du 1er mois émise et prélevée immédiatement
+            }
+            $stripeSub = $sub->asStripeSubscription(['latest_invoice']);
+            $inv = $stripeSub->latest_invoice ?? null;
+            if (is_object($inv) && ($inv->status ?? 'paid') !== 'paid') {
+                $paid = false;
+                $payUrl = $inv->hosted_invoice_url ?? null; // 3-D Secure ou carte refusée : le client finalise sur Stripe
+            }
+        } catch (\Throwable $e) {
+            Log::error("Fin d'essai anticipée ($slug) : ".$e->getMessage());
+
+            return response()->json(['error' => 'Impossible de démarrer l\'abonnement maintenant. Réessayez ou contactez-nous.'], 502);
+        }
+
+        if ($paid) {
+            $site->forceFill(['subscription_status' => 'active'])->save();
+        }
+
+        return response()->json($this->payload($site->fresh(), $dm, $hostinger) + ['started' => true, 'invoice_paid' => $paid, 'pay_url' => $payUrl]);
+    }
+
     // ───────────────────────────── helpers ─────────────────────────────
 
     private function payload(Site $site, DomainManager $dm, HostingerClient $hostinger): array

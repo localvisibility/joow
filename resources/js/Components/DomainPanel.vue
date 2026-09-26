@@ -27,6 +27,19 @@ const act = async (fn) => { busy.value = true; err.value = ''; try { st.value = 
 const connect = () => own.value && act(() => call('POST', route('domains.connect', props.slug), { domain: own.value }));
 const check = () => act(() => call('POST', route('domains.check', props.slug)));
 const remove = () => confirm('Retirer ce domaine du site ?') && act(() => call('DELETE', route('domains.remove', props.slug)));
+const startMsg = ref(null);
+const startNow = async () => {
+    if (!confirm('Mettre fin à votre essai gratuit et prélever le premier mois (39 € HT) dès aujourd\'hui ?')) return;
+    busy.value = true; err.value = ''; startMsg.value = null;
+    try {
+        const d = await call('POST', route('domains.start', props.slug));
+        st.value = d;
+        startMsg.value = d.invoice_paid
+            ? { ok: true, text: 'Abonnement démarré, paiement confirmé. Votre domaine inclus est disponible ci-dessous.' }
+            : { ok: false, text: 'Le paiement demande une confirmation de votre banque.', url: d.pay_url };
+        if (d.invoice_paid) mode.value = 'buy';
+    } catch (e) { err.value = e.message; } finally { busy.value = false; }
+};
 const order = (d) => confirm(`Commander ${d} ${st.value.included ? '(inclus dans votre formule)' : ''} ?`) && act(() => call('POST', route('domains.order', props.slug), { domain: d }));
 const search = async () => {
     const v = q.value.trim(); if (v.length < 2) { results.value = null; return; }
@@ -129,6 +142,9 @@ onUnmounted(() => clearInterval(poll));
                 <div v-if="st.trial_ends_at" class="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-slate-200">
                     <p class="font-semibold text-amber-200">Domaine inclus disponible après votre essai gratuit</p>
                     <p class="mt-1 text-slate-300">Votre domaine .fr ou .com offert sera commandable dès le premier paiement de votre abonnement, le <strong class="text-white">{{ st.trial_ends_at }}</strong>. D'ici là, vous pouvez déjà connecter un domaine que vous possédez.</p>
+                    <p class="mt-3 text-slate-300">Vous ne voulez pas attendre ? Démarrez l'abonnement dès maintenant : le premier mois est prélevé aujourd'hui et votre domaine est débloqué immédiatement.</p>
+                    <button @click="startNow" :disabled="busy" class="btn-brand mt-3 !py-2 text-sm">{{ busy ? 'Un instant…' : 'Commencer mon abonnement maintenant' }}</button>
+                    <p v-if="startMsg" class="mt-2 text-xs" :class="startMsg.ok ? 'text-emerald-300' : 'text-amber-200'">{{ startMsg.text }} <a v-if="startMsg.url" :href="startMsg.url" target="_blank" class="underline">Finaliser le paiement ↗</a></p>
                 </div>
                 <template v-else-if="st.purchase_enabled">
                     <p class="text-sm text-slate-400">Tapez le nom souhaité : on vérifie la disponibilité en direct, on achète, on configure. Aucune manipulation de votre côté.</p>

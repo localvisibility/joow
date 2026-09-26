@@ -118,6 +118,7 @@ Route::middleware(['auth', 'throttle:60,1'])->prefix('/sites/{slug}/domaine')->n
     Route::delete('/', [\App\Http\Controllers\DomainsController::class, 'remove'])->name('remove');
     Route::get('/recherche', [\App\Http\Controllers\DomainsController::class, 'search'])->name('search');
     Route::post('/commander', [\App\Http\Controllers\DomainsController::class, 'order'])->middleware('throttle:5,1')->name('order');
+    Route::post('/demarrer-abonnement', [\App\Http\Controllers\DomainsController::class, 'startSubscription'])->middleware('throttle:5,1')->name('start');
 });
 
 // ─── Crédits IA : recharge (compte requis) ───
