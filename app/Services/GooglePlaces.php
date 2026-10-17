@@ -2,15 +2,23 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * Récupération d'une fiche Google Business (API Places legacy).
+ * Récupération d'une fiche Google Business via Places API (New).
  * Accepte : un lien Google Maps, un place_id, ou un texte "nom ville".
+ *
+ * L'ancienne API Places (« legacy ») n'est plus activable sur les nouveaux projets
+ * Google Cloud ; tout passe désormais par places.googleapis.com/v1.
  */
 class GooglePlaces
 {
+    private const BASE = 'https://places.googleapis.com/v1';
+
     private string $key;
 
     public function __construct()
@@ -21,7 +29,14 @@ class GooglePlaces
     /** Résout une entrée libre en fiche normalisée, ou null si introuvable. */
     public function lookup(string $input): ?array
     {
+        if (! $this->key) {
+            Log::warning('Places : GOOGLE_PLACES_API_KEY absente, recherche désactivée.');
+
+            return null;
+        }
+
         $placeId = $this->resolvePlaceId(trim($input));
+
         return $placeId ? $this->details($placeId) : null;
     }
 
@@ -32,29 +47,43 @@ class GooglePlaces
             return [];
         }
         if (! $this->key) {
-            \Illuminate\Support\Facades\Log::warning('Places : GOOGLE_PLACES_API_KEY absente, recherche désactivée.');
+            Log::warning('Places : GOOGLE_PLACES_API_KEY absente, recherche désactivée.');
 
             return [];
         }
 
-        $res = Http::timeout(10)->get('https://maps.googleapis.com/maps/api/place/autocomplete/json', [
-            'input' => $input,
-            'language' => 'fr',
-            'components' => 'country:fr',
-            'types' => 'establishment',
-            'key' => $this->key,
-        ])->json();
+        $res = $this->client()->post(self::BASE.'/places:autocomplete', [
+            'input'               => $input,
+            'languageCode'        => 'fr',
+            'regionCode'          => 'FR',
+            'includedRegionCodes' => ['fr'],
+        ]);
+        $this->logFailure('autocomplete', $res);
 
-        // Google répond 200 même en cas d'erreur (clé invalide, facturation, quota) : on la journalise
-        if (! in_array($res['status'] ?? '', ['OK', 'ZERO_RESULTS'], true)) {
-            \Illuminate\Support\Facades\Log::warning('Places autocomplete : '.($res['status'] ?? 'réponse vide').' — '.($res['error_message'] ?? ''));
+        return collect($res->json('suggestions') ?? [])
+            ->pluck('placePrediction')
+            ->filter(fn ($p) => ! empty($p['placeId']))
+            ->take(6)
+            ->map(fn ($p) => [
+                'place_id'  => $p['placeId'],
+                'main'      => $p['structuredFormat']['mainText']['text'] ?? ($p['text']['text'] ?? ''),
+                'secondary' => $p['structuredFormat']['secondaryText']['text'] ?? '',
+            ])->values()->all();
+    }
+
+    private function client(string $fieldMask = ''): PendingRequest
+    {
+        $req = Http::timeout(15)->withHeaders(['X-Goog-Api-Key' => $this->key]);
+
+        return $fieldMask ? $req->withHeaders(['X-Goog-FieldMask' => $fieldMask]) : $req;
+    }
+
+    /** Places API (New) renvoie les erreurs en HTTP 4xx avec un objet error : on les journalise. */
+    private function logFailure(string $op, Response $res): void
+    {
+        if ($res->failed()) {
+            Log::warning("Places $op : HTTP {$res->status()} ".($res->json('error.status') ?? '').' — '.($res->json('error.message') ?? $res->body()));
         }
-
-        return collect($res['predictions'] ?? [])->take(6)->map(fn ($p) => [
-            'place_id'  => $p['place_id'],
-            'main'      => $p['structured_formatting']['main_text'] ?? $p['description'],
-            'secondary' => $p['structured_formatting']['secondary_text'] ?? '',
-        ])->values()->all();
     }
 
     private function resolvePlaceId(string $input): ?string
@@ -84,6 +113,7 @@ class GooglePlaces
             $res = Http::withOptions(['allow_redirects' => ['track_redirects' => true]])
                 ->timeout(12)->get($url);
             $chain = $res->handlerStats()['redirect_url'] ?? null;
+
             return $chain ?: ($res->effectiveUri() ? (string) $res->effectiveUri() : $url);
         } catch (\Throwable) {
             return $url;
@@ -92,65 +122,64 @@ class GooglePlaces
 
     private function findPlaceId(string $text): ?string
     {
-        $res = Http::timeout(12)->get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json', [
-            'input' => $text,
-            'inputtype' => 'textquery',
-            'fields' => 'place_id',
-            'language' => 'fr',
-            'key' => $this->key,
-        ])->json();
+        $res = $this->client('places.id')->post(self::BASE.'/places:searchText', [
+            'textQuery'    => $text,
+            'languageCode' => 'fr',
+            'regionCode'   => 'FR',
+            'pageSize'     => 1,
+        ]);
+        $this->logFailure('searchText', $res);
 
-        return $res['candidates'][0]['place_id'] ?? null;
+        return $res->json('places.0.id');
     }
 
     private function details(string $placeId): ?array
     {
-        $res = Http::timeout(15)->get('https://maps.googleapis.com/maps/api/place/details/json', [
-            'place_id' => $placeId,
-            'language' => 'fr',
-            'fields' => 'place_id,name,formatted_address,formatted_phone_number,international_phone_number,'
-                .'rating,user_ratings_total,reviews,photos,types,geometry,url,website,opening_hours',
-            'key' => $this->key,
-        ])->json();
+        $res = $this->client(implode(',', [
+            'id', 'displayName', 'formattedAddress', 'addressComponents', 'nationalPhoneNumber', 'internationalPhoneNumber',
+            'rating', 'userRatingCount', 'reviews', 'photos', 'types', 'location', 'googleMapsUri', 'websiteUri',
+            'regularOpeningHours',
+        ]))->get(self::BASE.'/places/'.rawurlencode($placeId), ['languageCode' => 'fr']);
+        $this->logFailure('details', $res);
 
-        $r = $res['result'] ?? null;
-        if (! $r) {
+        $r = $res->successful() ? $res->json() : null;
+        if (! $r || empty($r['id'])) {
             return null;
         }
 
-        $city = null;
-        if (preg_match('/\d{5}\s+([^,]+)/', $r['formatted_address'] ?? '', $m)) {
+        $city = collect($r['addressComponents'] ?? [])
+            ->first(fn ($c) => in_array('locality', $c['types'] ?? [], true))['longText'] ?? null;
+        if (! $city && preg_match('/\d{5}\s+([^,]+)/', $r['formattedAddress'] ?? '', $m)) {
             $city = trim($m[1]);
         }
 
         return [
-            'place_id'      => $r['place_id'] ?? $placeId,
-            'name'          => $r['name'] ?? '',
-            'address'       => $r['formatted_address'] ?? '',
+            'place_id'      => $r['id'],
+            'name'          => $r['displayName']['text'] ?? '',
+            'address'       => $r['formattedAddress'] ?? '',
             'city'          => $city,
-            'phone'         => $r['formatted_phone_number'] ?? ($r['international_phone_number'] ?? null),
+            'phone'         => $r['nationalPhoneNumber'] ?? ($r['internationalPhoneNumber'] ?? null),
             'rating'        => $r['rating'] ?? null,
-            'reviews_count' => $r['user_ratings_total'] ?? 0,
-            'website'       => $r['website'] ?? null,
-            'maps_url'      => $r['url'] ?? null,
-            'lat'           => $r['geometry']['location']['lat'] ?? null,
-            'lng'           => $r['geometry']['location']['lng'] ?? null,
+            'reviews_count' => $r['userRatingCount'] ?? 0,
+            'website'       => $r['websiteUri'] ?? null,
+            'maps_url'      => $r['googleMapsUri'] ?? null,
+            'lat'           => $r['location']['latitude'] ?? null,
+            'lng'           => $r['location']['longitude'] ?? null,
             'types'         => $r['types'] ?? [],
-            'opening_hours' => $r['opening_hours']['weekday_text'] ?? [],
+            'opening_hours' => $r['regularOpeningHours']['weekdayDescriptions'] ?? [],
             'reviews'       => collect($r['reviews'] ?? [])->map(fn ($rv) => [
-                'author' => $rv['author_name'] ?? '',
+                'author' => $rv['authorAttribution']['displayName'] ?? '',
                 'rating' => $rv['rating'] ?? 5,
-                'text'   => $rv['text'] ?? '',
-            ])->take(6)->values()->all(),
+                'text'   => $rv['text']['text'] ?? ($rv['originalText']['text'] ?? ''),
+            ])->filter(fn ($rv) => $rv['text'] !== '')->take(6)->values()->all(),
             // Photos triées pour la première impression : paysage et haute résolution d'abord,
             // les visuels trop petits (< 800 px) sont écartés.
             'photos'        => collect($r['photos'] ?? [])
-                ->filter(fn ($p) => (int) ($p['width'] ?? 0) >= 800)
-                ->sortByDesc(fn ($p) => (($p['width'] ?? 0) >= ($p['height'] ?? 1) ? 1_000_000_000 : 0) + (int) ($p['width'] ?? 0) * (int) ($p['height'] ?? 0))
-                ->take(10)->values()->map(
-                    fn ($p) => 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=1600&photo_reference='
-                        .$p['photo_reference'].'&key='.$this->key
-                )->all(),
+                ->filter(fn ($p) => (int) ($p['widthPx'] ?? 0) >= 800)
+                ->sortByDesc(fn ($p) => (($p['widthPx'] ?? 0) >= ($p['heightPx'] ?? 1) ? 1_000_000_000 : 0) + (int) ($p['widthPx'] ?? 0) * (int) ($p['heightPx'] ?? 0))
+                ->take(10)->values()
+                ->map(fn ($p) => self::BASE.'/'.$p['name'].'/media?maxWidthPx=1600&key='.$this->key)
+                ->all(),
         ];
     }
 }
