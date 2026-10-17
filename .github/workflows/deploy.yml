@@ -17,9 +17,6 @@ jobs:
     steps:
       - name: Deploy to VPS
         working-directory: /opt/joow
-        env:
-          GOOGLE_PLACES_API_KEY: ${{ secrets.GOOGLE_PLACES_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -30,18 +27,9 @@ jobs:
           git reset --hard origin/main
           echo "Nouvelle révision : $(git rev-parse HEAD)"
 
-          # Injecter les clés depuis les secrets GitHub (si définis)
-          set_env() {
-            local k="$1" v="$2"
-            [ -z "$v" ] && return 0
-            if grep -q "^${k}=" .env; then
-              sed -i "s|^${k}=.*|${k}=${v}|" .env
-            else
-              echo "${k}=${v}" >> .env
-            fi
-          }
-          set_env GOOGLE_PLACES_API_KEY "${GOOGLE_PLACES_API_KEY:-}"
-          set_env GEMINI_API_KEY "${GEMINI_API_KEY:-}"
+          # Le fichier /opt/joow/.env du VPS est la seule source de vérité pour les clés :
+          # le déploiement ne l'écrase plus (l'ancienne injection depuis les secrets GitHub
+          # annulait toute modification faite à la main sur le serveur).
 
           # Image applicative (Dockerfile / entrypoint / php.ini) — cache Docker, rapide si inchangé
           docker compose build app horizon scheduler
