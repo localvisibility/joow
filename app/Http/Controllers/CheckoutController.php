@@ -31,8 +31,9 @@ class CheckoutController extends Controller
             ? config('services.stripe.price_liberte')
             : config('services.stripe.price_pro');
 
-        if (! $price) {
-            return back()->withErrors(['email' => "Cette formule n'est pas encore configurée. Réessayez bientôt."]);
+        // Stripe non configuré (clé secrète ou tarif absent) : message clair au lieu d'une erreur 500
+        if (! $price || ! config('cashier.secret')) {
+            return back()->withErrors(['email' => "Le paiement n'est pas encore disponible. Réessayez bientôt."]);
         }
 
         // Compte : réutilise l'existant ou en crée un (mot de passe défini plus tard via reset)

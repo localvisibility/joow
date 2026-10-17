@@ -22,7 +22,7 @@ class CreditsController extends Controller
 
         $data = $request->validate(['pack' => ['required', 'string', 'max:10']]);
         $pack = collect($credits->packs())->firstWhere('key', $data['pack']);
-        abort_unless($pack && $pack['ready'], 422, 'Ce pack n\'est pas disponible pour le moment.');
+        abort_unless($pack && $pack['ready'] && config('cashier.secret'), 422, 'Ce pack n\'est pas disponible pour le moment.');
 
         // Le site doit être rattaché au compte qui paie (facture, historique)
         if (! $site->user_id) {
