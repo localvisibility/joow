@@ -28,7 +28,12 @@ class GooglePlaces
     /** Autocomplétion : liste d'établissements candidats pour une saisie. */
     public function autocomplete(string $input): array
     {
-        if (mb_strlen(trim($input)) < 3 || ! $this->key) {
+        if (mb_strlen(trim($input)) < 3) {
+            return [];
+        }
+        if (! $this->key) {
+            \Illuminate\Support\Facades\Log::warning('Places : GOOGLE_PLACES_API_KEY absente, recherche désactivée.');
+
             return [];
         }
 
@@ -39,6 +44,11 @@ class GooglePlaces
             'types' => 'establishment',
             'key' => $this->key,
         ])->json();
+
+        // Google répond 200 même en cas d'erreur (clé invalide, facturation, quota) : on la journalise
+        if (! in_array($res['status'] ?? '', ['OK', 'ZERO_RESULTS'], true)) {
+            \Illuminate\Support\Facades\Log::warning('Places autocomplete : '.($res['status'] ?? 'réponse vide').' — '.($res['error_message'] ?? ''));
+        }
 
         return collect($res['predictions'] ?? [])->take(6)->map(fn ($p) => [
             'place_id'  => $p['place_id'],
