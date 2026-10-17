@@ -3,12 +3,23 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
 
-const props = defineProps({ site: Object, can_edit: { type: Boolean, default: false } });
+const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false } });
 
-const checkout = useForm({ email: '', plan: 'pro' });
+const checkout = useForm({ email: props.email || '', plan: 'pro' });
+const emailInput = ref(null);
+const shake = ref(false);
+const emailValid = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v || '');
+// Email manquant ou invalide : on amène l'utilisateur dessus (défilement, focus, secousse) avec un message explicite.
+const askEmail = (plan) => {
+    checkout.setError('email', checkout.email ? 'Cet email ne semble pas valide. Vérifiez-le pour recevoir vos accès.' : `Entrez d'abord votre email ci-dessus : c'est là que nous envoyons vos accès${plan === 'pro' ? ' et le lien de votre essai gratuit' : ''}.`);
+    shake.value = false; requestAnimationFrame(() => { shake.value = true; });
+    emailInput.value?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => emailInput.value?.focus({ preventScroll: true }), 350);
+};
 // Envoi en formulaire natif : le serveur redirige vers Stripe (domaine externe), impossible en XHR Inertia.
 const buy = (plan) => {
-    if (!checkout.email) { checkout.setError('email', 'Indiquez votre email pour recevoir vos accès.'); return; }
+    if (!emailValid(checkout.email)) { askEmail(plan); return; }
+    checkout.clearErrors('email');
     checkout.plan = plan; checkout.processing = true;
     const f = document.createElement('form'); f.method = 'POST'; f.action = route('public.checkout', props.site.slug);
     const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); };
@@ -99,14 +110,30 @@ onUnmounted(() => timer && clearInterval(timer));
             <div class="mx-auto mt-10 max-w-3xl">
                 <div class="mb-5 text-center">
                     <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">Aperçu gratuit · vous ne payez qu'en publiant</p>
-                    <h3 class="mt-3 font-display text-2xl font-bold text-white">Choisissez votre formule</h3>
+                    <h3 class="mt-3 font-display text-2xl font-bold text-white">Mettez votre site en ligne</h3>
                 </div>
 
-                <div class="mb-4">
-                    <input v-model="checkout.email" type="email" required class="field text-center" placeholder="Votre email pour recevoir vos accès" />
-                    <p v-if="checkout.errors.email" class="mt-2 text-center text-sm text-rose-400">{{ checkout.errors.email }}</p>
+                <div class="mb-5 rounded-2xl border p-4 transition-colors sm:p-5" :class="checkout.errors.email ? 'border-rose-400/60 bg-rose-500/[0.07]' : 'border-white/10 bg-white/[0.03]'">
+                    <label for="checkout-email" class="flex items-center gap-2 text-sm font-semibold text-white">
+                        <span class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-brand-gradient text-xs font-bold text-white">1</span>
+                        Votre email
+                        <span class="font-normal text-slate-400">· pour recevoir vos accès et votre facture</span>
+                    </label>
+                    <input id="checkout-email" ref="emailInput" v-model="checkout.email" type="email" required autocomplete="email" inputmode="email"
+                        class="field mt-3" :class="{ 'border-rose-400 ring-2 ring-rose-400/40': checkout.errors.email, 'animate-shake': shake }"
+                        :aria-invalid="!!checkout.errors.email" aria-describedby="checkout-email-error"
+                        placeholder="prenom@exemple.fr" @input="checkout.clearErrors('email')" @animationend="shake = false" @keydown.enter.prevent="buy('pro')" />
+                    <p v-if="checkout.errors.email" id="checkout-email-error" class="mt-3 flex items-start gap-2 rounded-xl bg-rose-500/15 px-3 py-2 text-sm font-medium text-rose-200" role="alert">
+                        <svg class="mt-0.5 h-4 w-4 flex-none" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" /></svg>
+                        <span>{{ checkout.errors.email }}</span>
+                    </p>
+                    <p v-else class="mt-2 text-xs text-slate-500">Puis choisissez votre formule ci-dessous (étape 2).</p>
                 </div>
 
+                <p class="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                    <span class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-brand-gradient text-xs font-bold text-white">2</span>
+                    Choisissez votre formule
+                </p>
                 <div class="grid gap-5 sm:grid-cols-2">
                     <!-- Pro -->
                     <div class="glass relative overflow-hidden rounded-2xl border-brand-500/40 p-6">

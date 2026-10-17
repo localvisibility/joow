@@ -93,6 +93,8 @@ class PublicSiteController extends Controller
 
         return Inertia::render('Public/Site', [
             'site' => $site->only(['slug', 'name', 'city', 'sector', 'status', 'rating', 'reviews_count', 'preview_url']),
+            // Email saisi à la génération : pré-rempli dans le tunnel de paiement
+            'email' => $site->owner_email ?: ($request->user()?->email),
             // Accès au Studio : créateur de la session, propriétaire connecté ou admin
             'can_edit' => $site->editableBy($request->user(), $request->session()->get('joow_sites', [])),
         ]);
