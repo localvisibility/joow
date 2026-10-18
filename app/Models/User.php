@@ -41,4 +41,23 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    /**
+     * Exécute une opération Cashier en tolérant un changement de mode Stripe (test ↔ live) :
+     * si le client Stripe mémorisé n'existe pas dans le mode courant, on l'oublie et on réessaie
+     * une fois (Cashier recrée alors un client dans le bon mode).
+     */
+    public function withValidStripeCustomer(callable $operation): mixed
+    {
+        try {
+            return $operation();
+        } catch (\Stripe\Exception\InvalidRequestException $e) {
+            if ($this->stripe_id && str_contains($e->getMessage(), 'No such customer')) {
+                $this->forceFill(['stripe_id' => null, 'pm_type' => null, 'pm_last_four' => null])->save();
+
+                return $operation();
+            }
+            throw $e;
+        }
+    }
 }

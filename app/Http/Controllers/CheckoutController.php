@@ -55,16 +55,18 @@ class CheckoutController extends Controller
         ];
 
         // Liberté : paiement unique. Pro : abonnement mensuel avec essai gratuit.
-        if ($plan === 'liberte') {
-            return $user->checkout([$price => 1], $urls)->redirect();
-        }
+        return $user->withValidStripeCustomer(function () use ($user, $plan, $price, $urls) {
+            if ($plan === 'liberte') {
+                return $user->checkout([$price => 1], $urls)->redirect();
+            }
 
-        $sub = $user->newSubscription('hosting', $price);
-        if (($days = (int) config('services.stripe.trial_days')) > 0) {
-            $sub->trialDays($days);
-        }
+            $sub = $user->newSubscription('hosting', $price);
+            if (($days = (int) config('services.stripe.trial_days')) > 0) {
+                $sub->trialDays($days);
+            }
 
-        return $sub->checkout($urls)->redirect();
+            return $sub->checkout($urls)->redirect();
+        });
     }
 
     /** Retour après paiement réussi : active le site et connecte le client. */

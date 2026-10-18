@@ -29,11 +29,11 @@ class CreditsController extends Controller
             $site->forceFill(['user_id' => $user->id, 'owner_email' => $site->owner_email ?: $user->email])->save();
         }
 
-        return $user->checkout([$pack['price_id'] => 1], [
+        return $user->withValidStripeCustomer(fn () => $user->checkout([$pack['price_id'] => 1], [
             'success_url' => route('credits.return', $slug).'?session_id={CHECKOUT_SESSION_ID}',
             'cancel_url'  => route('sites.editor', $slug),
             'metadata'    => ['type' => 'credits', 'site_slug' => $slug, 'pack' => $pack['key'], 'credits' => $pack['credits'], 'user_id' => $user->id],
-        ])->redirect();
+        ])->redirect());
     }
 
     /** Retour Stripe : crédite si payé (idempotent ; le webhook fait de même). */
