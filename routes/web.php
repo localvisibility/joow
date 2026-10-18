@@ -35,6 +35,14 @@ Route::post('/site/{slug}/retry', [PublicSiteController::class, 'retry'])->middl
 Route::post('/site/{slug}/checkout', [CheckoutController::class, 'start'])->middleware('throttle:10,1')->name('public.checkout');
 Route::get('/site/{slug}/merci', [CheckoutController::class, 'paid'])->name('public.paid');
 
+// Journalisation des erreurs JavaScript du front (diagnostic, pas de données personnelles)
+Route::post('/js-error', function (\Illuminate\Http\Request $request) {
+    $d = $request->validate(['message' => ['required', 'string', 'max:1000'], 'stack' => ['nullable', 'string', 'max:4000'], 'info' => ['nullable', 'string', 'max:200'], 'url' => ['nullable', 'string', 'max:500']]);
+    \Illuminate\Support\Facades\Log::warning('JS : '.$d['message'].' ['.($d['info'] ?? '').'] '.($d['url'] ?? ''), ['stack' => $d['stack'] ?? '', 'ua' => substr((string) $request->userAgent(), 0, 160), 'user' => $request->user()?->id]);
+
+    return response()->noContent();
+})->middleware('throttle:20,1')->name('js.error');
+
 Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified'])->name('dashboard');
 
