@@ -81,6 +81,15 @@ TXT;
                 Log::warning('Bot Gemini : HTTP '.$res->status().' '.Str::limit($res->body(), 300));
             }
             $text = trim((string) data_get($res->json(), 'candidates.0.content.parts.0.text'));
+            if ($text === '') {
+                // Réponse vide occasionnelle du modèle : on journalise la raison et on retente une fois
+                Log::info('Bot Gemini : réponse vide ('.(data_get($res->json(), 'candidates.0.finishReason') ?? data_get($res->json(), 'promptFeedback.blockReason') ?? '?').'), nouvel essai');
+                $res = Http::timeout(30)->post(
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$key,
+                    ['contents' => [['parts' => [['text' => $prompt]]]], 'generationConfig' => ['temperature' => 0.5, 'maxOutputTokens' => 1024, 'thinkingConfig' => ['thinkingBudget' => 0]]]
+                );
+                $text = trim((string) data_get($res->json(), 'candidates.0.content.parts.0.text'));
+            }
 
             return $text ?: "Je n'ai pas bien compris. Pouvez-vous reformuler ?";
         } catch (\Throwable $e) {
