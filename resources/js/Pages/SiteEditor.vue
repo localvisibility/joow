@@ -77,7 +77,12 @@ const edit = (path, value, { reload: rl = false, fromFrame = false, record = tru
     if (!fromFrame && !rl && typeof value === 'string') post({ type: 'setText', path, value });
     queueSave({ [path]: value }, { reload: rl });
 };
-const undo = () => { const u = undoStack.value.pop(); if (!u) return; redoStack.value.push(u); edit(u.path, u.prev, { reload: u.rl || typeof u.prev !== 'string', record: false }); };
+const undo = () => {
+    const u = undoStack.value.pop(); if (!u) return;
+    // Modification faite par l'IA : on restaure l'instantané serveur (pas de « rétablir » possible)
+    if (u.ai) { revert(u.ai); return; }
+    redoStack.value.push(u); edit(u.path, u.prev, { reload: u.rl || typeof u.prev !== 'string', record: false });
+};
 const redo = () => { const u = redoStack.value.pop(); if (!u) return; undoStack.value.push(u); edit(u.path, u.next, { reload: u.rl || typeof u.next !== 'string', record: false }); };
 
 /* ───────────── pont iframe ───────────── */
@@ -199,6 +204,7 @@ const createPage = async () => {
 };
 const removePage = (i) => { if (!confirm(`Supprimer la page « ${st.value.pages[i].title} » ?`)) return; const wasCur = st.value.pages[i].slug === curPage.value; st.value.pages.splice(i, 1); if (wasCur) curPage.value = ''; commitPages(true); };
 const movePage = (i, d) => { const p = st.value.pages; const j = i + d; if (j < 0 || j >= p.length) return; [p[i], p[j]] = [p[j], p[i]]; commitPages(true); };
+const MODULE_BLOCKS = [['menu', 'Carte / menu'], ['booking', 'Réservation / demande'], ['rooms', 'Chambres & séjour'], ['reviews', 'Avis Google'], ['gallery', 'Galerie photos']];
 const BLOCK_DEFAULTS = {
     text: { title: 'Un titre clair', body: 'Votre texte ici.\n\nUn second paragraphe.', image: null, image_side: 'right' },
     features: { title: 'Nos points forts', intro: '', items: [{ icon: 'fa-circle-check', title: 'Point fort 1', desc: 'Une phrase concrète.' }, { icon: 'fa-circle-check', title: 'Point fort 2', desc: 'Une phrase concrète.' }, { icon: 'fa-circle-check', title: 'Point fort 3', desc: 'Une phrase concrète.' }] },
@@ -212,6 +218,7 @@ const BLOCK_DEFAULTS = {
     cta: { title: 'Parlons de votre projet', text: 'Un premier échange gratuit, sans engagement.', button: '' },
     contact: { title: 'Nous trouver', text: '' },
     video: { title: 'En vidéo', url: null },
+    module: { title: '', key: 'booking' },
 };
 const addBlock = (type) => { if (!page.value) return; page.value.blocks.push({ type, ...clone(BLOCK_DEFAULTS[type] || {}) }); openBlock.value = page.value.blocks.length - 1; modal.value = null; commitPages(true); };
 const removeBlock = (j) => { page.value.blocks.splice(j, 1); openBlock.value = -1; commitPages(true); };
@@ -339,7 +346,9 @@ const send = async (text) => {
     try {
         await flush();
         const d = await postJson(route('sites.editor.chat', slug), { message: msg });
-        messages.value.pop(); messages.value.push({ role: 'ai', text: d.reply || 'C\'est fait ✅', applied: d.applied || [], undo_id: d.undo_id, cost: d.cost || 0 });
+        messages.value.pop(); const aiMsg = { role: 'ai', text: d.reply || 'C\'est fait ✅', applied: d.applied || [], undo_id: d.undo_id, cost: d.cost || 0 }; messages.value.push(aiMsg);
+        // Les changements de l'IA deviennent annulables depuis les flèches du haut (Ctrl+Z)
+        if (d.undo_id && (d.applied || []).length) { undoStack.value.push({ ai: aiMsg }); redoStack.value = []; }
         if (d.state) { const chat = st.value?.chat; st.value = d.state; if (!d.state.chat && chat) st.value.chat = chat; pagesSnap = clone(d.state.pages || []); }
         if (curPage.value && !pages.value.some((p) => p.slug === curPage.value)) curPage.value = '';
         status.value = d.queued ? 'queued' : 'saved'; reload(d.version);
@@ -351,7 +360,13 @@ const send = async (text) => {
 };
 const revert = async (m) => {
     if (!m.undo_id || m.reverted) return;
-    try { const d = await postJson(route('sites.editor.revert', slug), { id: m.undo_id }); m.reverted = true; if (d.state) { st.value = d.state; pagesSnap = clone(d.state.pages || []); } messages.value.push({ role: 'ai', text: 'Modifications annulées, retour à l\'état précédent.', applied: [] }); reload(d.version); scrollChat(); }
+    try {
+        const d = await postJson(route('sites.editor.revert', slug), { id: m.undo_id }); m.reverted = true;
+        if (d.state) { st.value = d.state; pagesSnap = clone(d.state.pages || []); }
+        // L'instantané restauré rend caduques les étapes d'annulation plus récentes
+        undoStack.value = undoStack.value.filter((u) => u.ai !== m); redoStack.value = [];
+        messages.value.push({ role: 'ai', text: 'Modifications annulées, retour à l\'état précédent.', applied: [] }); reload(d.version); scrollChat();
+    }
     catch (e) { alert(e?.message || 'Impossible d\'annuler (instantané expiré).'); }
 };
 
@@ -706,6 +721,14 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                             <!-- cta / contact / video -->
                             <label v-if="['cta','contact'].includes(blk.type)" class="lbl">Texte<textarea class="fld" rows="2" :value="blk.text" @change="blk.text=$event.target.value; commitPages()"></textarea></label>
                             <label v-if="blk.type==='cta'" class="lbl">Texte du bouton<input class="fld" :value="blk.button" placeholder="Automatique" @change="blk.button=$event.target.value; commitPages()" /></label>
+                            <template v-if="blk.type==='module'">
+                                <label class="lbl">Module à afficher dans cette page
+                                    <select class="fld" :value="blk.key || 'booking'" @change="blk.key=$event.target.value; commitPages(true)">
+                                        <option v-for="o in MODULE_BLOCKS" :key="o[0]" :value="o[0]">{{ o[1] }}</option>
+                                    </select>
+                                </label>
+                                <p class="text-[11px] text-slate-500">Le module doit être actif (onglet Modules) et, pour la carte ou les chambres, contenir des éléments. Son contenu est le même que sur l'accueil.</p>
+                            </template>
                             <label v-if="blk.type==='video'" class="lbl">Lien YouTube ou Vimeo<input class="fld" :value="blk.url || ''" placeholder="https://www.youtube.com/watch?v=…" @change="blk.url=$event.target.value; commitPages()" /></label>
                         </div>
                     </div>

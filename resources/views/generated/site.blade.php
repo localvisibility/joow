@@ -566,51 +566,12 @@ footer.bg-slate-900{background:#07070b!important}
 
 <!-- CARTE / MENU (module) -->
 @if($show('menu') && $menuOn)
-<section id="carte" class="bg-slate-50 py-24" style="order:{{ $ord('menu') }}" data-section="menu" data-label="Carte">
-  <div class="mx-auto max-w-5xl px-5">
-    <div class="reveal mb-12 flex flex-wrap items-end justify-between gap-6">
-      <div>
-        <p class="text-sm font-bold uppercase tracking-[0.3em] accent">Menu</p>
-        <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl">{{ $menuCfg['title'] ?? 'Notre carte' }}</h2>
-      </div>
-      @if(!empty($menuCfg['qr']) && !$editMode)
-      <div class="text-center"><img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data={{ urlencode('https://'.$slug.'.joow.fr/#carte') }}" class="mx-auto h-24 w-24 rounded-xl border border-slate-200 bg-white p-1" alt="QR code de la carte" loading="lazy"><p class="mt-1 text-[11px] text-slate-500">Carte sur mobile</p></div>
-      @endif
-    </div>
-    <div class="grid gap-8 md:grid-cols-2">
-      @php $catOrder = ['menus', 'formules', 'entrées', 'entrees', 'plats', 'poissons', 'viandes', 'pizzas', 'burgers', 'desserts', 'fromages', 'boissons', 'vins', 'cocktails']; @endphp
-      @foreach($menuItems->groupBy('category')->sortBy(fn($g, $cat) => (($i = array_search(mb_strtolower($cat), $catOrder, true)) === false ? 50 : $i)) as $cat => $items)
-      <div class="reveal rounded-3xl border border-slate-100 bg-white p-7 shadow-sm">
-        <h3 class="font-display text-2xl font-bold accent">{{ $cat }}</h3>
-        <ul class="mt-5 divide-y divide-slate-100">
-          @foreach($items as $it)
-          <li class="flex items-start justify-between gap-4 py-3">
-            <div><p class="font-semibold text-slate-800">{{ $it->name }}</p>@if($it->description)<p class="text-sm text-slate-500">{{ $it->description }}</p>@endif</div>
-            @if($it->price !== null)<span class="shrink-0 font-display font-bold">{{ number_format((float) $it->price, 2, ',', ' ') }} €</span>@endif
-          </li>
-          @endforeach
-        </ul>
-      </div>
-      @endforeach
-    </div>
-  </div>
-</section>
+@include('generated.partials.sec-menu')
 @endif
 
 <!-- GALERIE -->
 @if($show('gallery') && (count($gallery) >= 3 || $editMode))
-<section class="overflow-hidden pb-4" style="order:{{ $ord('gallery') }}" data-section="gallery" data-label="Galerie">
-  <div class="reveal mx-auto mb-10 max-w-6xl px-5">
-    <p class="text-sm font-bold uppercase tracking-[0.3em] accent">Galerie</p>
-    <h2 class="mt-3 font-display text-4xl font-bold" data-edit="content.gallery_title">{{ $t('gallery_title', 'En images') }}</h2>
-  </div>
-  <div class="flex w-max marq gap-5 pl-5">
-    @foreach(($editMode ? $gallery : array_merge($gallery, $gallery)) as $gi => $g)
-    <div class="group h-64 w-96 shrink-0 overflow-hidden rounded-3xl"><img src="{{ $g }}" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" alt="{{ $b['name'] ?? '' }}" loading="lazy" @if($editMode) data-edit-img="images.gallery.{{ $gi }}" @else data-lb="{{ $g }}" @endif></div>
-    @endforeach
-    @if($editMode)<button type="button" class="joow-img-btn" style="position:static;height:16rem;width:12rem;border-radius:1.5rem;justify-content:center;border:2px dashed #c7d2fe;background:#f5f3ff" data-edit-img="images.gallery.{{ count($gallery) }}"><i class="fa-solid fa-plus"></i> Ajouter une photo</button>@endif
-  </div>
-</section>
+@include('generated.partials.sec-gallery')
 @endif
 
 <!-- À PROPOS -->
@@ -647,44 +608,7 @@ footer.bg-slate-900{background:#07070b!important}
 
 <!-- AVIS -->
 @if($show('reviews') && $reviews->count())
-<section id="avis" class="py-24" style="order:{{ $ord('reviews') }}" data-section="reviews" data-label="Avis">
-  <div class="mx-auto max-w-6xl px-5">
-    <div class="reveal mb-12 text-center">
-      <p class="text-sm font-bold uppercase tracking-[0.3em] accent">Témoignages</p>
-      <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl" data-edit="content.reviews_title">{{ $t('reviews_title', 'Ils nous recommandent') }}</h2>
-    </div>
-    @if(!empty($b['rating']))
-    <div class="reveal rating-big mb-12">
-      <div class="text-center"><p class="rating-num" data-count>{{ $b['rating'] }}</p><p class="mt-1 text-2xl text-amber-500">{{ $stars($b['rating']) }}</p></div>
-      <div class="text-left">
-        <p class="flex items-center gap-2 font-display text-xl font-bold"><span class="grid h-7 w-7 place-items-center rounded-full bg-white text-sm font-black text-[#4285f4] shadow ring-1 ring-slate-200">G</span> {{ $b['reviews_count'] ?? 0 }} avis Google</p>
-        <p class="mt-1 text-slate-500">Note moyenne authentique, mise à jour depuis notre fiche Google.</p>
-        <div class="mt-3 h-2 w-64 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-grad" style="width:{{ min(100, round(((float) $b['rating']) / 5 * 100)) }}%"></div></div>
-      </div>
-    </div>
-    @endif
-  </div>
-  @php $revCards = $reviews->take(8)->values(); $twoRows = $revCards->count() >= 4; $rowA = $twoRows ? $revCards->filter(fn($r, $i) => $i % 2 === 0)->values() : $revCards; $rowB = $twoRows ? $revCards->filter(fn($r, $i) => $i % 2 === 1)->values() : collect(); @endphp
-  @foreach([[$rowA, 'rev-left'], [$rowB, 'rev-right']] as [$row, $dir])
-  @if($row->count())
-  <div class="rev-mask reveal mt-5">
-    <div class="rev-track {{ $editMode ? '' : $dir }}">
-      @foreach(($editMode ? $row : $row->concat($row)) as $r)
-      <figure class="rev">
-        <span class="q">"</span>
-        <div class="text-amber-500">{{ $stars($r['rating'] ?? 5) }}</div>
-        <blockquote class="mt-3 text-slate-600">{{ Str::limit($r['text'], 200) }}</blockquote>
-        <figcaption class="mt-5 flex items-center gap-3">
-          <span class="grid h-10 w-10 place-items-center rounded-full bg-grad font-display font-bold text-white">{{ $initial($r['author'] ?? 'C') }}</span>
-          <span><span class="block font-bold text-slate-800">{{ $r['author'] ?: 'Client' }}</span><span class="text-xs text-slate-400"><i class="fa-brands fa-google mr-1"></i>Avis Google</span></span>
-        </figcaption>
-      </figure>
-      @endforeach
-    </div>
-  </div>
-  @endif
-  @endforeach
-</section>
+@include('generated.partials.sec-reviews')
 @endif
 
 <!-- FAQ -->
@@ -709,198 +633,17 @@ footer.bg-slate-900{background:#07070b!important}
 
 <!-- CHAMBRES & SÉJOUR (module) -->
 @if($show('rooms') && $roomsOn)
-@php $rmCfg = $mod('rooms'); @endphp
-<section id="sejour" class="py-24" style="order:{{ $ord('rooms') }}" data-section="rooms" data-label="Chambres">
-  <div class="mx-auto max-w-6xl px-5">
-    <div class="reveal mb-12 max-w-2xl">
-      <p class="text-sm font-bold uppercase tracking-[0.3em] accent">Hébergement</p>
-      <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl">{{ $rmCfg['title'] ?? 'Nos chambres' }}</h2>
-      @if(!empty($rmCfg['intro']))<p class="mt-4 text-lg text-slate-500">{{ $rmCfg['intro'] }}</p>@endif
-    </div>
-    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      @foreach($rooms as $rm)
-      @php $ph = $rm->photos[0] ?? ($photos[($loop->index + 1) % max(1, count($photos))] ?? $hero); @endphp
-      <div class="reveal card-hover overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm hover:shadow-2xl">
-        <img src="{{ $ph }}" class="h-52 w-full object-cover" alt="{{ $rm->name }}" loading="lazy">
-        <div class="p-6">
-          <div class="flex items-start justify-between gap-3">
-            <h3 class="font-display text-xl font-bold">{{ $rm->name }}</h3>
-            @if($rm->price_night)<span class="shrink-0 rounded-full bg-grad px-3 py-1 text-sm font-bold text-white">{{ number_format((float) $rm->price_night, 0, ',', ' ') }} €<span class="font-normal opacity-80">/nuit</span></span>@endif
-          </div>
-          <p class="mt-1 text-sm text-slate-500"><i class="fa-solid fa-user-group accent mr-1"></i>{{ $rm->capacity }} personne{{ $rm->capacity > 1 ? 's' : '' }}</p>
-          @if($rm->description)<p class="mt-3 text-sm text-slate-600">{{ $rm->description }}</p>@endif
-          @if($rm->amenities)<div class="mt-4 flex flex-wrap gap-1.5">@foreach(array_slice($rm->amenities, 0, 6) as $am)<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">{{ $am }}</span>@endforeach</div>@endif
-          <button type="button" class="mt-5 w-full rounded-xl border-2 border-accent px-4 py-2.5 text-sm font-bold accent transition hover:bg-accent hover:text-white" onclick="joowPickRoom('{{ $rm->id }}')">Réserver cette chambre</button>
-        </div>
-      </div>
-      @endforeach
-    </div>
-
-    <div class="reveal mt-14 rounded-[2rem] border border-slate-100 bg-white p-7 shadow-xl sm:p-9" id="stay-box">
-      <h3 class="font-display text-2xl font-bold">Demande de séjour</h3>
-      <p class="mt-1 text-slate-500">Disponibilités vérifiées en direct · réponse rapide</p>
-      <form id="joow-stay" class="mt-6 space-y-4">
-        <input type="text" name="hp" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <div class="grid gap-4 sm:grid-cols-4">
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Arrivée</span><input name="check_in" type="date" required min="{{ now()->toDateString() }}" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Départ</span><input name="check_out" type="date" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Personnes</span><input name="guests" type="number" min="1" value="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Chambre</span><select name="room_id" id="stay-room" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"><option value="">Au choix</option>@foreach($rooms as $rm)<option value="{{ $rm->id }}" data-price="{{ $rm->price_night }}">{{ $rm->name }}</option>@endforeach</select></label>
-        </div>
-        <p id="stay-avail" class="text-sm font-medium text-slate-500"></p>
-        <div class="grid gap-4 sm:grid-cols-3">
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Nom</span><input name="name" type="text" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Téléphone</span><input name="phone" type="tel" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Email</span><input name="email" type="email" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-        </div>
-        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Message (optionnel)</span><textarea name="notes" rows="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></textarea></label>
-        <button type="submit" id="joow-stay-btn" class="w-full rounded-xl bg-grad px-6 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5">Envoyer ma demande de séjour</button>
-        <p id="joow-stay-ok" class="hidden rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700"></p>
-        <p id="joow-stay-err" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-center text-sm font-semibold text-rose-700"></p>
-      </form>
-    </div>
-  </div>
-</section>
+@include('generated.partials.sec-rooms')
 @endif
 
 @if($show('booking') && ($restaurantOn || $zcOn))
 <!-- RÉSERVATION RESTAURANT (module natif ou ZenChef) -->
-<section id="reserver" class="relative overflow-hidden py-24" style="order:{{ $ord('booking') }}" data-section="booking" data-label="Réservation">
-  <div class="pointer-events-none absolute -top-20 right-0 h-80 w-80 rounded-full blur-3xl" style="background:var(--grad);opacity:.14"></div>
-  <div class="mx-auto grid max-w-6xl items-start gap-14 px-5 lg:grid-cols-[.9fr,1.1fr]">
-    <div class="reveal">
-      <p class="text-sm font-bold uppercase tracking-[0.3em] accent">Réservation</p>
-      <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl" data-edit="booking.title">{{ $bk('title', 'Réserver votre table') }}</h2>
-      <p class="mt-4 text-lg text-slate-600" data-edit="booking.sub">{{ $bk('sub', 'Choisissez votre créneau, confirmation immédiate.') }}</p>
-      <ul class="mt-8 space-y-3 text-slate-600">
-        <li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-bolt text-xs"></i></span><span data-edit="booking.point1">{{ $bk('point1', 'Disponibilités en temps réel') }}</span></li>
-        <li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-envelope-circle-check text-xs"></i></span><span data-edit="booking.point2">{{ $bk('point2', 'Confirmation par email') }}</span></li>
-        @if(!empty($b['phone']))<li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-phone text-xs"></i></span>Ou appelez le {{ $b['phone'] }}</li>@endif
-      </ul>
-    </div>
-    <div class="reveal rounded-[2rem] border border-slate-100 bg-white p-7 shadow-xl sm:p-9">
-      @if($zcOn)
-      <iframe src="https://bookings.zenchef.com/results?rid={{ e($zcCfg['restaurant_id']) }}" class="h-[640px] w-full rounded-2xl" style="border:0" loading="lazy" title="Réservation ZenChef"></iframe>
-      @else
-      <form id="joow-resa" class="space-y-4">
-        <input type="text" name="hp" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <div class="grid gap-4 sm:grid-cols-2">
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Date</span><input name="date" type="date" required min="{{ now()->toDateString() }}" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">{{ $partyLabel }}</span><input name="covers" type="number" min="1" max="{{ (int) ($rsCfg['max_party'] ?? 10) }}" value="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-        </div>
-        <div>
-          <span class="mb-2 block text-sm font-semibold text-slate-700">Créneau</span>
-          <div id="resa-slots" class="flex flex-wrap gap-2 text-sm text-slate-500">Choisissez une date pour voir les créneaux disponibles.</div>
-          <input type="hidden" name="time" id="resa-time">
-        </div>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Nom</span><input name="name" type="text" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-          <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Téléphone</span><input name="phone" type="tel" required class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-        </div>
-        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Email{{ !empty($rsCfg['require_email']) ? '' : ' (optionnel, pour la confirmation)' }}</span><input name="email" type="email" {{ !empty($rsCfg['require_email']) ? 'required' : '' }} class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></label>
-        <label class="block"><span class="mb-1 block text-sm font-semibold text-slate-700">Demande particulière (optionnel)</span><textarea name="notes" rows="2" class="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-accent"></textarea></label>
-        <button type="submit" id="joow-resa-btn" class="w-full rounded-xl bg-grad px-6 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="booking.cta">{{ $bk('cta', 'Réserver ma table') }}</span></button>
-        @php $payCfg = $mod('payment'); @endphp
-        @if($on('payment') && ($payCfg['type'] ?? '') === 'hold' && !empty($payCfg['ready']) && (float) ($payCfg['hold_per_cover'] ?? 0) > 0)
-        <p class="flex items-center justify-center gap-2 text-center text-xs text-slate-500"><i class="fa-solid fa-lock accent"></i>Empreinte bancaire de {{ number_format((float) $payCfg['hold_per_cover'], 0, ',', ' ') }} € par couvert, débitée uniquement en cas de no-show · paiement sécurisé Stripe</p>
-        @endif
-        <p id="joow-resa-ok" class="hidden rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700"></p>
-        <p id="joow-resa-err" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-center text-sm font-semibold text-rose-700"></p>
-      </form>
-      @endif
-    </div>
-  </div>
-</section>
+@include('generated.partials.sec-booking-resto')
 @endif
 
 @if($bookingOn)
 <!-- RÉSERVATION / RDV / DEVIS -->
-<section id="reserver" class="relative overflow-hidden py-24" style="order:{{ $ord('booking') }}" data-section="booking" data-label="Réservation">
-  <div class="pointer-events-none absolute -top-20 right-0 h-80 w-80 rounded-full blur-3xl" style="background:var(--grad);opacity:.14"></div>
-  <div class="mx-auto grid max-w-6xl items-center gap-14 px-5 lg:grid-cols-[.9fr,1.1fr]">
-    <div class="reveal">
-      <p class="text-sm font-bold uppercase tracking-[0.3em] accent">{{ $bt === 'reservation' ? 'Réservation' : ($bt === 'rdv' ? 'Rendez-vous' : 'Devis') }}</p>
-      <h2 class="mt-3 font-display text-4xl font-bold sm:text-5xl" data-edit="booking.title">{{ $bookTitle }}</h2>
-      <p class="mt-4 text-lg text-slate-600" data-edit="booking.sub">{{ $bookSub }}</p>
-      <ul class="mt-8 space-y-3 text-slate-600">
-        <li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-bolt text-xs"></i></span><span data-edit="booking.point1">{{ $bk('point1', 'Réponse rapide, sans engagement') }}</span></li>
-        <li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-shield-halved text-xs"></i></span><span data-edit="booking.point2">{{ $bk('point2', 'Vos informations restent confidentielles') }}</span></li>
-        @if(!empty($b['phone']))<li class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-grad text-white"><i class="fa-solid fa-phone text-xs"></i></span>Ou appelez directement le {{ $b['phone'] }}</li>@endif
-      </ul>
-    </div>
-
-    @php
-      $form   = $form ?? (config('forms.'.$sector) ?? config('forms.default'));
-      $fSteps = array_values(array_filter($form['steps'] ?? [], fn($s) => is_array($s)));
-      $fType  = in_array($form['type'] ?? '', ['reservation', 'rdv', 'devis', 'contact'], true) ? $form['type'] : $bt;
-      $wide   = ['cards', 'chips', 'toggle', 'textarea'];
-    @endphp
-    <!-- Formulaire multi-étapes (modèle métier, personnalisable dans le Studio) -->
-    <div class="reveal jw rounded-[2rem] border border-slate-100 bg-white p-6 shadow-xl sm:p-8" id="joow-wizard" data-type="{{ $fType }}" data-success="{{ $form['success'] ?? 'Merci ! Votre demande est bien envoyée.' }}">
-      <div class="jw-progress">
-        @foreach($fSteps as $i => $stp)
-        <div class="jw-pstep{{ $i === 0 ? ' active' : '' }}"><span class="jw-pnum">{{ $i + 1 }}</span><span class="jw-ptitle">{{ $stp['title'] ?? 'Étape '.($i+1) }}</span></div>
-        @endforeach
-      </div>
-      <div class="jw-bar"><div class="jw-bar-fill" style="width:{{ count($fSteps) ? round(100 / count($fSteps)) : 100 }}%"></div></div>
-
-      <form id="joow-form" class="mt-6" novalidate>
-        <input type="text" name="hp" class="hidden" tabindex="-1" autocomplete="off" aria-hidden="true">
-        @foreach($fSteps as $i => $stp)
-        <div class="jw-step{{ $i === 0 ? ' active' : '' }}" data-step="{{ $i }}">
-          <h3 class="jw-h">@if(!empty($stp['icon']))<i class="fa-solid {{ $stp['icon'] }} accent"></i>@endif{{ $stp['title'] ?? '' }}</h3>
-          @if(!empty($stp['contact']))<div class="jw-recap" id="jw-recap" style="display:none"></div>@endif
-          <div class="grid gap-5 sm:grid-cols-2">
-            @foreach(($stp['fields'] ?? []) as $f)
-              @php $key = $f['key'] ?? Str::slug($f['label'] ?? 'champ'); $req = !empty($f['required']); $ft = $f['type'] ?? 'text'; $opts = $f['options'] ?? []; @endphp
-              <div class="jw-field {{ in_array($ft, $wide, true) ? 'sm:col-span-2' : '' }}" data-key="{{ $key }}" data-label="{{ $f['label'] ?? $key }}" data-required="{{ $req ? 1 : 0 }}" data-type="{{ $ft }}">
-                <label class="jw-label">{{ $f['label'] ?? $key }}@if($req)<span class="accent"> *</span>@endif</label>
-                @if($ft === 'cards')
-                  <div class="jw-cards">@foreach($opts as $o)@php $o = is_array($o) ? $o : ['label' => $o]; @endphp<button type="button" class="jw-card" data-value="{{ $o['label'] ?? '' }}"><i class="fa-solid {{ $o['icon'] ?? 'fa-circle-check' }}"></i><span class="jw-card-l">{{ $o['label'] ?? '' }}</span>@if(!empty($o['desc']))<span class="jw-card-d">{{ $o['desc'] }}</span>@endif</button>@endforeach</div>
-                @elseif($ft === 'chips')
-                  <div class="jw-chips">@foreach($opts as $o)<button type="button" class="jw-chip" data-value="{{ is_array($o) ? ($o['label'] ?? '') : $o }}">{{ is_array($o) ? ($o['label'] ?? '') : $o }}</button>@endforeach</div>
-                @elseif($ft === 'toggle')
-                  <div class="jw-toggle">@foreach($opts as $o)<button type="button" class="jw-tg" data-value="{{ is_array($o) ? ($o['label'] ?? '') : $o }}">{{ is_array($o) ? ($o['label'] ?? '') : $o }}</button>@endforeach</div>
-                @elseif($ft === 'select')
-                  <select class="jw-input" name="{{ $key }}"><option value="">Choisir…</option>@foreach($opts as $o)<option>{{ is_array($o) ? ($o['label'] ?? '') : $o }}</option>@endforeach</select>
-                @elseif($ft === 'textarea')
-                  <textarea class="jw-input" name="{{ $key }}" rows="3" placeholder="{{ $f['placeholder'] ?? '' }}"></textarea>
-                @elseif($ft === 'date')
-                  <input class="jw-input" type="date" name="{{ $key }}" min="{{ now()->toDateString() }}">
-                @elseif($ft === 'time')
-                  <input class="jw-input" type="time" name="{{ $key }}">
-                @elseif($ft === 'number')
-                  <input class="jw-input" type="number" name="{{ $key }}" min="{{ $f['min'] ?? 0 }}" placeholder="{{ $f['placeholder'] ?? '' }}">
-                @elseif($ft === 'phone')
-                  <input class="jw-input" type="tel" name="{{ $key }}" placeholder="{{ $f['placeholder'] ?? '' }}" autocomplete="tel">
-                @elseif($ft === 'email')
-                  <input class="jw-input" type="email" name="{{ $key }}" placeholder="{{ $f['placeholder'] ?? '' }}" autocomplete="email">
-                @else
-                  <input class="jw-input" type="text" name="{{ $key }}" placeholder="{{ $f['placeholder'] ?? '' }}" @if($key === 'name') autocomplete="name" @endif>
-                @endif
-                <p class="jw-err">Merci de renseigner ce champ.</p>
-              </div>
-            @endforeach
-          </div>
-        </div>
-        @endforeach
-        <div class="jw-nav">
-          <button type="button" class="jw-back" id="jw-back">← Retour</button>
-          <button type="button" class="jw-next bg-grad shine" id="jw-next">Continuer <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="jw-next bg-grad shine" id="jw-submit" style="display:none">{{ $form['cta'] ?? $bookCta }}</button>
-        </div>
-        <p class="jw-foot"><i class="fa-solid fa-lock accent"></i> {{ $form['delay'] ?? 'Réponse rapide' }} · vos informations restent confidentielles</p>
-      </form>
-
-      <div class="jw-success" id="jw-success" style="display:none">
-        <div class="jw-check"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l8 8 15-16"/></svg></div>
-        <h3 class="font-display">Demande envoyée !</h3>
-        <p></p>
-        @if(!empty($b['phone']))<a href="{{ $phoneHref }}" class="jw-call"><i class="fa-solid fa-phone"></i> Une urgence ? {{ $b['phone'] }}</a>@endif
-      </div>
-    </div>
-  </div>
-</section>
+@include('generated.partials.sec-booking')
 @endif
 
 <!-- BANDE D'APPEL À L'ACTION -->

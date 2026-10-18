@@ -184,6 +184,26 @@
   </div>
 </section>
 
+{{-- ── MODULE DU SITE (carte, réservation, chambres, avis, galerie) ── --}}
+@elseif($type === 'module')
+@php
+  $mk = $blk['key'] ?? 'booking';
+  $mkLabel = ['menu' => 'Carte', 'booking' => 'Réservation', 'rooms' => 'Chambres', 'reviews' => 'Avis Google', 'gallery' => 'Galerie'][$mk] ?? $mk;
+  $mkOk = match ($mk) { 'menu' => $menuOn, 'rooms' => $roomsOn, 'booking' => $restaurantOn || $zcOn || $bookingOn, 'reviews' => $reviews->count() > 0, 'gallery' => count($gallery) >= 3 || $editMode, default => false };
+@endphp
+<div data-section="block-{{ $bi }}" data-label="Module : {{ $mkLabel }}">
+  @if($mkOk)
+    @if($mk === 'menu') @include('generated.partials.sec-menu', ['inPage' => true])
+    @elseif($mk === 'rooms') @include('generated.partials.sec-rooms', ['inPage' => true])
+    @elseif($mk === 'booking') @if($restaurantOn || $zcOn) @include('generated.partials.sec-booking-resto', ['inPage' => true]) @else @include('generated.partials.sec-booking', ['inPage' => true]) @endif
+    @elseif($mk === 'reviews') @include('generated.partials.sec-reviews', ['inPage' => true])
+    @elseif($mk === 'gallery') @include('generated.partials.sec-gallery', ['inPage' => true])
+    @endif
+  @elseif($editMode)
+    <section class="py-16"><div class="mx-auto max-w-3xl rounded-3xl border-2 border-dashed border-slate-300 px-6 py-10 text-center text-slate-500"><p class="font-semibold text-slate-700">Module « {{ $mkLabel }} » inactif ou vide</p><p class="mt-1 text-sm">Activez-le dans l'onglet Modules du Studio{{ $mk === 'menu' ? ' et ajoutez des plats à votre carte' : ($mk === 'rooms' ? ' et ajoutez des chambres' : '') }} pour qu'il apparaisse ici.</p></div></section>
+  @endif
+</div>
+
 {{-- ── CTA ── --}}
 @elseif($type === 'cta')
 <section class="py-16" data-section="block-{{ $bi }}" data-label="Appel à l'action">

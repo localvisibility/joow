@@ -32,7 +32,11 @@ class PageSchema
         'cta'          => ['label' => 'Appel à l\'action', 'desc' => 'Bande colorée avec titre, texte et bouton vers la réservation / le contact.', 'fields' => ['title', 'text', 'button']],
         'contact'      => ['label' => 'Contact & horaires', 'desc' => 'Coordonnées, horaires et carte de l\'établissement (automatique).', 'fields' => ['title', 'text']],
         'video'        => ['label' => 'Vidéo', 'desc' => 'Titre et URL YouTube/Vimeo.', 'fields' => ['title', 'url']],
+        'module'       => ['label' => 'Module du site', 'desc' => 'Insère un module natif dans la page : key = menu (carte), booking (réservation / demande), rooms (chambres), reviews (avis Google), gallery (galerie photos). Le module doit être actif.', 'fields' => ['key']],
     ];
+
+    /** Modules insérables dans une page via un bloc « module ». */
+    public const MODULE_KEYS = ['menu', 'booking', 'rooms', 'reviews', 'gallery'];
 
     /** Nettoie et complète une liste de pages. */
     public static function normalizePages(mixed $pages): array
@@ -140,6 +144,9 @@ class PageSchema
             case 'video':
                 $out += ['url' => self::url($b['url'] ?? null)];
                 break;
+            case 'module':
+                $out += ['key' => in_array($b['key'] ?? '', self::MODULE_KEYS, true) ? $b['key'] : 'booking'];
+                break;
         }
 
         return $out;
@@ -164,6 +171,7 @@ class PageSchema
             'cta'          => ['title' => 'Parlons de votre projet', 'text' => 'Un premier échange gratuit, sans engagement.', 'button' => ''],
             'contact'      => ['title' => 'Nous trouver', 'text' => ''],
             'video'        => ['title' => 'En vidéo', 'url' => null],
+            'module'       => ['title' => '', 'key' => 'booking'],
         ];
 
         return self::normalizeBlock(['type' => $type] + $defaults[$type]);
