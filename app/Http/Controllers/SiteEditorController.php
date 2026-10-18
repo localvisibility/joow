@@ -277,18 +277,41 @@ class SiteEditorController extends Controller
         return response()->json(['ok' => true, 'owner_email' => $site->fresh()->owner_email, 'edit_link' => route('sites.editor', $site->slug).'?t='.$site->editToken()]);
     }
 
-    /** Active/désactive un module (ex : réservation). */
+    /** Champs de réglage modifiables depuis le Studio, par module (le reste se règle dans l'espace Modules). */
+    private const MODULE_SETTINGS = [
+        'bot' => ['name' => 60, 'welcome' => 200, 'tone' => 30, 'practical' => 3000, 'faq' => 4000, 'instructions' => 2000, 'lead_capture' => 'bool', 'position' => 10],
+    ];
+
+    /** Active/désactive un module (ex : réservation) et enregistre ses réglages rapides. */
     public function module(Request $request, string $slug, SiteRenderer $renderer)
     {
         $site = $this->ownedSite($request, $slug);
-        $data = $request->validate(['key' => ['required', 'string', 'max:40'], 'enabled' => ['required', 'boolean']]);
+        $data = $request->validate(['key' => ['required', 'string', 'max:40'], 'enabled' => ['required', 'boolean'], 'config' => ['nullable', 'array']]);
 
         $modules = $site->modules ?: ['booking' => true];
-        $modules[$data['key']] = $data['enabled'];
+        $current = $site->module($data['key']);
+        $settings = [];
+        foreach ((array) ($data['config'] ?? []) as $k => $v) {
+            $rule = self::MODULE_SETTINGS[$data['key']][$k] ?? null;
+            if ($rule === 'bool') {
+                $settings[$k] = (bool) $v;
+            } elseif (is_int($rule)) {
+                $settings[$k] = mb_substr(strip_tags((string) $v), 0, $rule);
+            }
+        }
+        // Booléen simple tant qu'aucun réglage n'est stocké ; objet { enabled, … } sinon
+        $hasSettings = $settings || count(array_diff_key($current, ['enabled' => 1])) > 0;
+        $modules[$data['key']] = $hasSettings ? array_merge($current, $settings, ['enabled' => $data['enabled']]) : $data['enabled'];
         $site->update(['modules' => $modules]);
         $pub = ! empty($site->site_data['content']) ? $renderer->publish($site) : ['queued' => false];
 
-        return response()->json(['modules' => $modules, 'version' => now()->timestamp, 'queued' => $pub['queued']]);
+        return response()->json(['modules' => $modules, 'module_config' => $this->moduleConfig($site), 'version' => now()->timestamp, 'queued' => $pub['queued']]);
+    }
+
+    /** Réglages des modules exposés au Studio, complétés par leurs défauts. */
+    private function moduleConfig(Site $site): array
+    {
+        return ['bot' => array_replace(\App\Services\Modules\BotAnswer::defaults(), $site->module('bot'))];
     }
 
     /** Régénère intégralement le site (repart de la fiche Google). */
@@ -332,6 +355,7 @@ class SiteEditorController extends Controller
             'theme'    => $d['theme'] ?? ($cfg['theme'] ?? 'light'),
             'hero_style' => $d['hero_style'] ?? ($cfg['hero'] ?? 'editorial'),
             'modules'  => $site->modules ?: ['booking' => true],
+            'module_config' => $this->moduleConfig($site),
             'module_catalog' => collect(config('modules'))->map(fn ($m, $k) => ['key' => $k, 'label' => $m['name'] ?? $k])->values()->all(),
             'defaults' => ['cta' => $cfg['cta'], 'label' => $cfg['label'], 'color' => $cfg['color'], 'font' => $cfg['font'] ?? 'Space Grotesk', 'theme' => $cfg['theme'] ?? 'light', 'hero' => $cfg['hero'] ?? 'editorial'],
             'live_url' => 'https://'.$site->slug.'.joow.fr',

@@ -256,10 +256,20 @@ const setFont = (f) => { st.value.font = f; saveStyle({ font: f }); };
 const setTheme = (t) => { st.value.theme = t; saveStyle({ theme: t }); };
 const setHeroStyle = (h) => { st.value.hero_style = h; saveStyle({ hero_style: h }); };
 const QUICK_MODULES = [['booking', 'Formulaire de demande'], ['whatsapp', 'Bulle WhatsApp'], ['bot', 'Assistant IA 24h/24'], ['reviews', 'Avis Google'], ['legal', 'Mentions légales RGPD']];
+// Un module peut être un booléen (historique) ou un objet { enabled, …réglages }
+const moduleOn = (key) => { const v = st.value?.modules?.[key]; if (key === 'reviews') return v !== false && !(v && typeof v === 'object' && v.enabled === false); return typeof v === 'object' && v !== null ? !!v.enabled : !!v; };
 const toggleModule = async (key = 'booking') => {
-    const enabled = !st.value.modules[key]; st.value.modules[key] = enabled; status.value = 'saving';
-    try { const d = await postJson(route('sites.editor.module', slug), { key, enabled }); status.value = d.queued ? 'queued' : 'saved'; reload(d.version); }
-    catch { st.value.modules[key] = !enabled; status.value = 'error'; }
+    const was = moduleOn(key); const enabled = !was; const prev = st.value.modules[key];
+    st.value.modules[key] = (prev && typeof prev === 'object') ? { ...prev, enabled } : enabled; status.value = 'saving';
+    try { const d = await postJson(route('sites.editor.module', slug), { key, enabled }); st.value.modules = d.modules; if (d.module_config) st.value.module_config = d.module_config; status.value = d.queued ? 'queued' : 'saved'; reload(d.version); }
+    catch { st.value.modules[key] = prev; status.value = 'error'; }
+};
+// Réglages de l'assistant IA (fusionnés avec les défauts côté serveur)
+const bot = computed(() => st.value?.module_config?.bot || {});
+const setBot = async (field, value) => {
+    status.value = 'saving';
+    try { const d = await postJson(route('sites.editor.module', slug), { key: 'bot', enabled: true, config: { [field]: value } }); st.value.modules = d.modules; st.value.module_config = d.module_config; status.value = d.queued ? 'queued' : 'saved'; if (['name', 'welcome'].includes(field)) reload(d.version); }
+    catch { status.value = 'error'; }
 };
 const setHours = (txt) => edit('business.opening_hours', txt.split('\n').map((l) => l.trim()).filter(Boolean), { reload: true });
 
@@ -354,7 +364,10 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
     <div class="flex h-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
         <!-- ═══ BARRE SUPÉRIEURE ═══ -->
         <header class="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-ink-900/80 px-4 backdrop-blur">
-            <Link :href="authUser ? route('dashboard') : route('home')" class="flex items-center gap-2" :title="authUser ? 'Mes sites' : 'Accueil Joow'"><BrandLogo variant="mark" class="h-7 w-7" /></Link>
+            <Link :href="authUser ? route('dashboard') : route('home')" class="group flex shrink-0 items-center gap-2 rounded-xl py-1 pr-2 transition hover:bg-white/[0.06]" :title="authUser ? 'Retour à mes sites' : 'Retour à l\'accueil Joow'">
+                <BrandLogo variant="mark" class="h-7 w-7" />
+                <span class="hidden text-xs font-semibold text-slate-400 group-hover:text-white sm:inline">← {{ authUser ? 'Mes sites' : 'Accueil' }}</span>
+            </Link>
             <div class="hidden min-w-0 items-center gap-2 md:flex">
                 <span class="truncate font-display text-sm font-bold text-white">{{ site.name }}</span>
                 <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" :class="paid ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'">{{ paid ? 'En ligne' : 'Aperçu gratuit' }}</span>
@@ -404,7 +417,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
             <!-- ─── PANNEAU ─── -->
             <aside class="flex min-h-0 flex-col border-r border-white/[0.06] bg-ink-900/40">
                 <div class="flex gap-1 border-b border-white/[0.06] p-2 text-sm font-semibold">
-                    <button v-for="t in [['ia','✨ IA'],['contenu','✏️ Contenu'],['pages','📄 Pages'],['style','🎨 Style']]" :key="t[0]" @click="tab=t[0]" class="flex-1 rounded-lg px-2 py-2 transition" :class="tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'">{{ t[1] }}</button>
+                    <button v-for="t in [['ia','✨ IA'],['contenu','✏️ Contenu'],['pages','📄 Pages'],['style','🎨 Style'],['modules','⚙️ Modules']]" :key="t[0]" @click="tab=t[0]" class="flex-1 rounded-lg px-1.5 py-2 transition" :class="tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'">{{ t[1] }}</button>
                 </div>
 
                 <div v-if="loading" class="p-6 text-sm text-slate-400">Chargement…</div>
@@ -531,7 +544,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
 
                             <template v-else-if="s.id==='booking'">
                                 <label class="flex items-center justify-between text-sm text-slate-300">Module activé
-                                    <button type="button" @click="toggleModule('booking')" :class="st.modules.booking ? 'bg-brand-500' : 'bg-white/10'" class="relative h-6 w-11 rounded-full transition"><span :class="st.modules.booking ? 'translate-x-5' : 'translate-x-0.5'" class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition"></span></button>
+                                    <button type="button" @click="toggleModule('booking')" :class="moduleOn('booking') ? 'bg-brand-500' : 'bg-white/10'" class="relative h-6 w-11 rounded-full transition"><span :class="moduleOn('booking') ? 'translate-x-5' : 'translate-x-0.5'" class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition"></span></button>
                                 </label>
                                 <label class="lbl">Titre<input class="fld" :value="st.booking?.title || ''" placeholder="Automatique" @change="edit('booking.title',$event.target.value)" /></label>
                                 <label class="lbl">Sous-titre<input class="fld" :value="st.booking?.sub || ''" placeholder="Automatique" @change="edit('booking.sub',$event.target.value)" /></label>
@@ -757,14 +770,39 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                             <button v-for="f in fonts" :key="f" @click="setFont(f)" class="rounded-xl border px-3 py-2.5 text-left text-sm transition" :class="(st.font||st.defaults?.font||'Space Grotesk')===f ? 'border-brand-400 bg-brand-500/10 text-white' : 'border-white/10 text-slate-300 hover:border-white/25'" :style="{ fontFamily: `'${f}', sans-serif` }">{{ f }}</button>
                         </div>
                     </div>
+                </div>
+
+                <!-- ══ MODULES ══ -->
+                <div v-else-if="st && tab==='modules'" class="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
                     <div>
-                        <p class="font-display font-bold text-white">Modules rapides</p>
+                        <p class="font-display font-bold text-white">Modules du site</p>
+                        <p class="mt-1 text-xs text-slate-500">Activez ce qui vous est utile : tout est inclus, sans supplément.</p>
                         <div class="mt-3 space-y-2">
-                            <label v-for="m in QUICK_MODULES" :key="m[0]" class="flex items-center justify-between rounded-xl border border-white/[0.08] px-3 py-2 text-sm text-slate-300">{{ m[1] }}
-                                <button type="button" @click="toggleModule(m[0])" :class="(m[0]==='reviews' ? st.modules[m[0]]!==false : !!st.modules[m[0]]) ? 'bg-brand-500' : 'bg-white/10'" class="relative h-6 w-11 rounded-full transition"><span :class="(m[0]==='reviews' ? st.modules[m[0]]!==false : !!st.modules[m[0]]) ? 'translate-x-5' : 'translate-x-0.5'" class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition"></span></button>
-                            </label>
+                            <div v-for="m in QUICK_MODULES" :key="m[0]" class="rounded-xl border border-white/[0.08]">
+                                <label class="flex items-center justify-between px-3 py-2 text-sm text-slate-300">{{ m[1] }}
+                                    <button type="button" @click="toggleModule(m[0])" :class="moduleOn(m[0]) ? 'bg-brand-500' : 'bg-white/10'" class="relative h-6 w-11 rounded-full transition"><span :class="moduleOn(m[0]) ? 'translate-x-5' : 'translate-x-0.5'" class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition"></span></button>
+                                </label>
+                                <!-- Réglages de l'assistant IA -->
+                                <div v-if="m[0]==='bot' && moduleOn('bot')" class="space-y-3 border-t border-white/[0.06] bg-white/[0.02] px-3 pb-3 pt-2">
+                                    <p class="text-[11px] text-slate-500">L'assistant connaît déjà tout votre site : textes, services, horaires, FAQ, carte, chambres, avis, pages. Ajoutez ici ce qu'il ne peut pas deviner.</p>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="lbl">Nom<input class="fld" :value="bot.name" @change="setBot('name',$event.target.value)" /></label>
+                                        <label class="lbl">Ton<select class="fld" :value="bot.tone" @change="setBot('tone',$event.target.value)"><option value="chaleureux">Chaleureux</option><option value="professionnel">Professionnel</option><option value="décontracté">Décontracté</option><option value="premium">Premium</option></select></label>
+                                    </div>
+                                    <label class="lbl">Message d'accueil<input class="fld" :value="bot.welcome" @change="setBot('welcome',$event.target.value)" /></label>
+                                    <label class="lbl">Infos pratiques (parking, accès, animaux, moyens de paiement, allergènes…)<textarea class="fld" rows="3" :value="bot.practical" placeholder="Ex : parking gratuit derrière le bâtiment · chiens acceptés en terrasse · CB et tickets resto" @change="setBot('practical',$event.target.value)"></textarea></label>
+                                    <label class="lbl">Questions / réponses à connaître<textarea class="fld" rows="3" :value="bot.faq" placeholder="Q : Faites-vous des menus de groupe ? R : Oui, à partir de 10 personnes, sur demande." @change="setBot('faq',$event.target.value)"></textarea></label>
+                                    <label class="lbl">Consignes (ce qu'il doit faire ou éviter)<textarea class="fld" rows="2" :value="bot.instructions" placeholder="Ex : toujours proposer la réservation en ligne · ne jamais annoncer de promotion · tutoyer" @change="setBot('instructions',$event.target.value)"></textarea></label>
+                                    <label class="flex items-center gap-2 text-xs text-slate-300"><input type="checkbox" :checked="bot.lead_capture!==false" class="h-4 w-4 rounded border-white/20 bg-white/5" @change="setBot('lead_capture',$event.target.checked)" /> Proposer de laisser ses coordonnées aux visiteurs intéressés</label>
+                                </div>
+                            </div>
                         </div>
-                        <p class="mt-2 text-xs text-slate-500">Réservation de table, chambres, carte, paiement… se configurent dans <Link v-if="authUser" :href="route('modules.index')" class="text-brand-400">Modules</Link><span v-else>l'espace Modules après la mise en ligne</span>.</p>
+                    </div>
+                    <div class="rounded-xl border border-white/[0.08] p-3 text-xs text-slate-400">
+                        <p class="font-semibold text-white">Réglages avancés</p>
+                        <p class="mt-1">Réservation de table et créneaux, chambres et tarifs, carte, paiement en ligne, WhatsApp, mentions légales, statistiques.</p>
+                        <Link v-if="authUser" :href="route('modules.index')" class="btn-brand mt-3 !px-4 !py-2 text-xs">Ouvrir l'espace Modules →</Link>
+                        <p v-else class="mt-2 text-amber-200/90">Disponibles dans votre espace après la mise en ligne.</p>
                     </div>
                 </div>
             </aside>

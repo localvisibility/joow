@@ -1123,6 +1123,15 @@ if(W){
 .joow-msg{max-width:85%;padding:.55rem .8rem;border-radius:1rem;line-height:1.35}
 .joow-msg.ai{align-self:flex-start;background:#f1f5f9;color:#0f172a;border-bottom-left-radius:.25rem}
 .joow-msg.user{align-self:flex-end;background:var(--grad);color:#fff;border-bottom-right-radius:.25rem}
+/* Le panneau reste clair quel que soit le thème du site : couleurs forcées (évite le texte blanc sur fond blanc) */
+.joow-panel{color:#0f172a}
+#joow-bot-input{color:#0f172a !important;background:#fff !important;-webkit-text-fill-color:#0f172a;caret-color:#0f172a}
+#joow-bot-input::placeholder{color:#94a3b8;-webkit-text-fill-color:#94a3b8;opacity:1}
+.joow-msg.ai a{color:var(--c);font-weight:600;text-decoration:underline}
+.joow-typing{display:inline-flex;gap:4px;align-items:center;height:1em}
+.joow-typing i{display:block;width:6px;height:6px;border-radius:50%;background:#94a3b8;animation:joowBlink 1.2s infinite ease-in-out}
+.joow-typing i:nth-child(2){animation-delay:.2s}.joow-typing i:nth-child(3){animation-delay:.4s}
+@keyframes joowBlink{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
 dialog#joow-legal{max-width:760px;width:92vw;border:0;border-radius:1.5rem;padding:0}
 dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)}
 #joow-legal .legal{padding:2rem;max-height:80vh;overflow-y:auto;color:#334155;font-size:.95rem;line-height:1.6}
@@ -1236,11 +1245,16 @@ dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)
   if(fab){
     const panel=document.getElementById('joow-bot-panel'),msgs=document.getElementById('joow-bot-msgs'),form=document.getElementById('joow-bot-form'),input=document.getElementById('joow-bot-input');
     const hist=[];const add=(role,text)=>{const d=document.createElement('div');d.className='joow-msg '+role;d.textContent=text;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d;};
+    // Rendu sûr : texte brut, mais les liens [[#ancre|Libellé]], [[tel:…|Libellé]] et [[https://…|Libellé]] deviennent cliquables
+    const render=(el,text)=>{el.textContent='';const re=/\[\[(#[\w-]+|tel:[\d+ ]+|https?:\/\/[^\s|\]]+)\|([^\]]+)\]\]/g;let i=0,m;
+      while((m=re.exec(text))){el.appendChild(document.createTextNode(text.slice(i,m.index)));const a=document.createElement('a');a.href=m[1].replace(/\s+/g,'');a.textContent=m[2];if(m[1].startsWith('#'))a.onclick=()=>{panel.classList.remove('open');};else if(m[1].startsWith('http')){a.target='_blank';a.rel='noopener';}el.appendChild(a);i=m.index+m[0].length;}
+      el.appendChild(document.createTextNode(text.slice(i)));};
     fab.onclick=()=>{panel.classList.toggle('open');if(panel.classList.contains('open'))input.focus();};
     form.addEventListener('submit',async ev=>{ev.preventDefault();const q=input.value.trim();if(!q)return;input.value='';add('user',q);hist.push({role:'user',text:q});
-      const w=add('ai','…');
-      try{const r=await fetch(API+'/bot',{method:'POST',headers:J,body:JSON.stringify({message:q,history:hist.slice(-8)})});const j=await r.json();w.textContent=j.reply||'…';hist.push({role:'ai',text:w.textContent});}
+      const w=add('ai','');w.innerHTML='<span class="joow-typing"><i></i><i></i><i></i></span>';
+      try{const r=await fetch(API+'/bot',{method:'POST',headers:J,body:JSON.stringify({message:q,history:hist.slice(-8),page:location.pathname})});const j=await r.json();const t=j.reply||'…';render(w,t);hist.push({role:'ai',text:t.replace(/\[\[[^|\]]+\|([^\]]+)\]\]/g,'$1')});}
       catch(e){w.textContent='Petit souci technique, réessayez dans un instant.';}
+      msgs.scrollTop=msgs.scrollHeight;
     });
   }
 })();

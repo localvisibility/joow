@@ -168,10 +168,11 @@ class SiteApiController extends Controller
             'history' => ['nullable', 'array', 'max:10'],
             'history.*.role' => ['required', 'in:user,ai'],
             'history.*.text' => ['required', 'string', 'max:800'],
+            'page' => ['nullable', 'string', 'max:200'],
         ]);
         SiteStat::bump($slug, 'bot_chats');
 
-        return response()->json(['reply' => $bot->answer($site, $data['message'], $data['history'] ?? [])]);
+        return response()->json(['reply' => $bot->answer($site, $data['message'], $data['history'] ?? [], $data['page'] ?? '')]);
     }
 
     /** Balise de mesure d'audience (anonyme). */
