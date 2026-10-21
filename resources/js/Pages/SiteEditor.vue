@@ -924,9 +924,9 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                 <span class="absolute right-3 top-3 rounded-full bg-brand-gradient px-2.5 py-0.5 text-[10px] font-bold text-white">Recommandé</span>
                                 <p class="font-display text-lg font-bold text-white">Pro</p>
                                 <p class="mt-1 font-display text-3xl font-bold text-white">{{ plans.pro.price }} €<span class="text-sm font-medium text-slate-400"> HT/mois</span></p>
-                                <p class="mt-1 text-xs font-semibold text-emerald-300">{{ plans.pro.trial }} jours d'essai gratuit · sans engagement</p>
+                                <p class="mt-1 text-xs font-semibold text-emerald-300">{{ plans.pro.trial > 0 ? plans.pro.trial + ' jours d\'essai gratuit · sans engagement' : 'Sans engagement · résiliable à tout moment' }}</p>
                                 <ul class="mt-3 space-y-1 text-xs text-slate-300"><li>✓ Domaine .fr / .com + hébergement + SSL</li><li>✓ Tous les modules · Studio + IA illimités</li><li>✓ Emails & SMS · statistiques · SEO</li></ul>
-                                <button @click="startCheckout('pro')" :disabled="!plans.pro.ready" class="btn-brand mt-4 w-full text-sm disabled:opacity-50">{{ plans.pro.ready ? 'Commencer l\'essai gratuit →' : 'Bientôt disponible' }}</button>
+                                <button @click="startCheckout('pro')" :disabled="!plans.pro.ready" class="btn-brand mt-4 w-full text-sm disabled:opacity-50">{{ !plans.pro.ready ? 'Bientôt disponible' : (plans.pro.trial > 0 ? 'Commencer l\'essai gratuit →' : 'Souscrire et mettre en ligne →') }}</button>
                             </div>
                             <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
                                 <p class="font-display text-lg font-bold text-white">Liberté</p>
@@ -936,7 +936,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                 <button @click="startCheckout('liberte')" :disabled="!plans.liberte.ready" class="mt-4 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/5 disabled:opacity-50">{{ plans.liberte.ready ? 'Paiement unique →' : 'Bientôt disponible' }}</button>
                             </div>
                         </div>
-                        <p class="mt-3 text-center text-[11px] text-slate-500">🔒 Paiement sécurisé Stripe · vous ne payez rien avant la fin de l'essai · résiliable en un clic</p>
+                        <p class="mt-3 text-center text-[11px] text-slate-500">🔒 Paiement sécurisé Stripe · {{ plans.pro.trial > 0 ? 'vous ne payez rien avant la fin de l\'essai' : 'facture et accès envoyés par email' }} · résiliable en un clic</p>
                     </template>
                 </div>
             </div>

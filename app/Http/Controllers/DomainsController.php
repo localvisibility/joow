@@ -201,8 +201,8 @@ class DomainsController extends Controller
                 return $sub->trial_ends_at;
             }
             // Pas encore d'abonnement synchronisé : on considère l'essai en cours pendant la durée configurée
-            if (! $sub && $site->paid_at && $site->paid_at->gt(now()->subDays((int) config('services.stripe.trial_days', 7)))) {
-                return $site->paid_at->copy()->addDays((int) config('services.stripe.trial_days', 7));
+            if (! $sub && $site->paid_at && $site->paid_at->gt(now()->subDays((int) config('services.stripe.trial_days', 0)))) {
+                return $site->paid_at->copy()->addDays((int) config('services.stripe.trial_days', 0));
             }
         } catch (\Throwable) {
             return null;

@@ -1,5 +1,5 @@
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
 
@@ -12,6 +12,7 @@ const form = useForm({ query: '', email: '' });
 const q = ref('');
 const results = ref([]);
 const open = ref(false);
+const trialDays = usePage().props.trial_days || 0;
 const selected = ref(null);
 const searching = ref(false);
 let debounce = null;
@@ -158,7 +159,7 @@ const testimonials = [
 ];
 
 const faqs = [
-    { q: 'Combien ça coûte ?', a: 'La création et l\'aperçu sont 100 % gratuits. Vous ne payez que si vous publiez : formule Pro à 39 € HT/mois (7 jours d\'essai gratuit, sans engagement) ou formule Liberté à 349 € HT en paiement unique, site à vie.' },
+    { q: 'Combien ça coûte ?', a: 'La création et l\'aperçu sont 100 % gratuits. Vous ne payez que si vous publiez : formule Pro à 39 € HT/mois (sans engagement, résiliable à tout moment) ou formule Liberté à 349 € HT en paiement unique, site à vie.' },
     { q: 'Les modules (réservation, paiement, assistant IA…) sont-ils inclus ?', a: 'Oui. Tous les modules sont inclus dans les deux formules et s\'activent en un clic depuis votre espace. Les paiements en ligne passent par Stripe : l\'argent arrive directement sur votre compte.' },
     { q: 'Ai-je besoin de compétences techniques ?', a: 'Aucune. Vous cherchez votre établissement, l\'IA fait le reste. Ensuite, vous cliquez sur un texte ou une image pour le modifier, ou vous demandez à l\'assistant : « rends le ton plus chaleureux ».' },
     { q: 'D\'où viennent les textes et les photos ?', a: 'De votre fiche Google (avis, photos, horaires), enrichis par notre IA qui rédige des contenus adaptés à votre métier. Vous pouvez tout remplacer par vos propres photos et textes.' },
@@ -658,7 +659,7 @@ onUnmounted(() => {
                         <span class="chip bg-brand-gradient text-white">Recommandé</span>
                         <p class="mt-4 font-display text-xl font-bold text-white">Pro</p>
                         <p class="mt-2 font-display text-5xl font-bold text-white">39 €<span class="text-base font-medium text-slate-400"> HT / mois</span></p>
-                        <p class="mt-2 text-sm font-semibold text-emerald-300">7 jours d'essai gratuit · sans engagement</p>
+                        <p class="mt-2 text-sm font-semibold text-emerald-300">{{ trialDays > 0 ? trialDays + ' jours d\'essai gratuit · sans engagement' : 'Aperçu et Studio gratuits · vous payez à la mise en ligne' }}</p>
                         <ul class="mt-6 space-y-2.5 text-sm text-slate-300">
                             <li class="flex gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .fr / .com + hébergement + SSL</li>
                             <li class="flex gap-2"><span class="text-emerald-400">✓</span> Tous les modules : réservation, paiement, assistant IA, WhatsApp…</li>

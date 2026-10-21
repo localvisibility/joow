@@ -1,17 +1,18 @@
 <script setup>
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
 
 const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false } });
 
+const trialDays = usePage().props.trial_days || 0;
 const checkout = useForm({ email: props.email || '', plan: 'pro' });
 const emailInput = ref(null);
 const shake = ref(false);
 const emailValid = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v || '');
 // Email manquant ou invalide : on amène l'utilisateur dessus (défilement, focus, secousse) avec un message explicite.
 const askEmail = (plan) => {
-    checkout.setError('email', checkout.email ? 'Cet email ne semble pas valide. Vérifiez-le pour recevoir vos accès.' : `Entrez d'abord votre email ci-dessus : c'est là que nous envoyons vos accès${plan === 'pro' ? ' et le lien de votre essai gratuit' : ''}.`);
+    checkout.setError('email', checkout.email ? 'Cet email ne semble pas valide. Vérifiez-le pour recevoir vos accès.' : `Entrez d'abord votre email ci-dessus : c'est là que nous envoyons vos accès${plan === 'pro' ? ' et votre facture' : ''}.`);
     shake.value = false; requestAnimationFrame(() => { shake.value = true; });
     emailInput.value?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => emailInput.value?.focus({ preventScroll: true }), 350);
@@ -141,7 +142,7 @@ onUnmounted(() => timer && clearInterval(timer));
                         <h4 class="font-display text-lg font-bold text-white">Pro</h4>
                         <p class="mt-1 text-xs text-slate-400">Sans engagement · .joow.fr + domaine .com/.fr</p>
                         <p class="mt-4 font-display text-4xl font-bold text-white">39€<span class="text-base font-medium text-slate-400"> HT/mois</span></p>
-                        <p class="mt-1 text-xs font-semibold text-emerald-300">🎉 7 jours d'essai gratuit</p>
+                        <p class="mt-1 text-xs font-semibold text-emerald-300">{{ trialDays > 0 ? '🎉 ' + trialDays + ' jours d\'essai gratuit' : 'Mise en ligne immédiate · sans engagement' }}</p>
                         <ul class="mt-4 space-y-1.5 text-sm text-slate-300">
                             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .com / .fr inclus</li>
                             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur IA & modifications illimitées</li>
@@ -149,9 +150,9 @@ onUnmounted(() => timer && clearInterval(timer));
                             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Support prioritaire 7j/7</li>
                         </ul>
                         <button @click="buy('pro')" class="btn-brand mt-6 w-full" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
-                            {{ checkout.processing && checkout.plan==='pro' ? '…' : 'Essai gratuit 7 jours' }}
+                            {{ checkout.processing && checkout.plan==='pro' ? '…' : (trialDays > 0 ? 'Essai gratuit ' + trialDays + ' jours' : 'Souscrire · 39 € HT/mois') }}
                         </button>
-                        <p class="mt-2 text-center text-xs text-slate-500">0€ aujourd'hui · résiliez quand vous voulez</p>
+                        <p class="mt-2 text-center text-xs text-slate-500">{{ trialDays > 0 ? '0 € aujourd\'hui · résiliez quand vous voulez' : 'Résiliable à tout moment · site en ligne dans la minute' }}</p>
                     </div>
 
                     <!-- Liberté -->

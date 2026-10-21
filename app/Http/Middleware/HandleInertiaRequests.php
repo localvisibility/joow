@@ -34,6 +34,8 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            // Offre : 0 = paiement à la mise en ligne, N = N jours d'essai gratuit avant le 1er prélèvement
+            'trial_days' => (int) config('services.stripe.trial_days', 0),
         ];
     }
 }

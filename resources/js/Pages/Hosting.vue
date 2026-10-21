@@ -1,9 +1,10 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DomainPanel from '@/Components/DomainPanel.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
+const trialDays = usePage().props.trial_days || 0;
 const props = defineProps({
     sites: { type: Array, default: () => [] },
     userEmail: String,
@@ -80,7 +81,7 @@ const included = [
                     <h3 class="font-display text-xl font-bold text-white">Pro</h3>
                     <p class="mt-1 text-xs text-slate-400">Sans engagement · .joow.fr + domaine .com/.fr</p>
                     <p class="mt-5 font-display text-5xl font-bold text-white">39€<span class="text-lg font-medium text-slate-400"> HT/mois</span></p>
-                    <p class="mt-2 text-sm font-semibold text-emerald-300">🎉 7 jours d'essai gratuit</p>
+                    <p class="mt-2 text-sm font-semibold text-emerald-300">{{ trialDays > 0 ? '🎉 ' + trialDays + ' jours d\'essai gratuit' : 'Mise en ligne immédiate · sans engagement' }}</p>
                     <ul class="mt-5 space-y-2 text-sm text-slate-300">
                         <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Site web professionnel</li>
                         <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .com / .fr inclus</li>
@@ -89,9 +90,9 @@ const included = [
                         <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Support prioritaire 7j/7</li>
                     </ul>
                     <button @click="buy('pro')" class="btn-brand mt-7 w-full" :disabled="form.processing || !selected">
-                        {{ form.processing && form.plan==='pro' ? '…' : 'Essai gratuit 7 jours' }}
+                        {{ form.processing && form.plan==='pro' ? '…' : (trialDays > 0 ? 'Essai gratuit ' + trialDays + ' jours' : 'Souscrire · 39 € HT/mois') }}
                     </button>
-                    <p class="mt-2 text-center text-xs text-slate-500">0€ aujourd'hui · résiliez quand vous voulez</p>
+                    <p class="mt-2 text-center text-xs text-slate-500">{{ trialDays > 0 ? '0 € aujourd\'hui · résiliez quand vous voulez' : 'Résiliable à tout moment' }}</p>
                 </div>
 
                 <!-- Liberté -->
