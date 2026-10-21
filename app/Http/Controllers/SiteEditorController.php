@@ -45,7 +45,7 @@ class SiteEditorController extends Controller
                 'edit_link'   => route('sites.editor', $site->slug).'?t='.$site->editToken(),
             ],
             'plans' => [
-                'pro'     => ['price' => 39, 'trial' => (int) config('services.stripe.trial_days', 7), 'ready' => (bool) config('services.stripe.price_pro')],
+                'pro'     => ['price' => 39, 'trial' => (int) config('services.stripe.trial_days', 0), 'ready' => (bool) config('services.stripe.price_pro')],
                 'liberte' => ['price' => 349, 'ready' => (bool) config('services.stripe.price_liberte')],
             ],
         ]);

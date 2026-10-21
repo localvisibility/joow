@@ -62,7 +62,7 @@ class CheckoutController extends Controller
 
             $sub = $user->newSubscription('hosting', $price);
             if (($days = (int) config('services.stripe.trial_days')) > 0) {
-                $sub->trialDays($days);
+                $sub->trialUntil(now()->addDays($days)->endOfDay());
             }
 
             return $sub->checkout($urls)->redirect();

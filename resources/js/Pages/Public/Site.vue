@@ -110,7 +110,7 @@ onUnmounted(() => timer && clearInterval(timer));
             <!-- Choix de la formule -->
             <div class="mx-auto mt-10 max-w-3xl">
                 <div class="mb-5 text-center">
-                    <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">Aperçu gratuit · vous ne payez qu'en publiant</p>
+                    <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">Essai gratuit · vous ne payez qu'en mettant en ligne</p>
                     <h3 class="mt-3 font-display text-2xl font-bold text-white">Mettez votre site en ligne</h3>
                 </div>
 

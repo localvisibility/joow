@@ -400,7 +400,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
             </Link>
             <div class="hidden min-w-0 items-center gap-2 md:flex">
                 <span class="truncate font-display text-sm font-bold text-white">{{ site.name }}</span>
-                <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" :class="paid ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'">{{ paid ? (trial ? 'En ligne · essai' : 'En ligne') : 'Aperçu gratuit' }}</span>
+                <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" :class="paid ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'">{{ paid ? (trial ? 'En ligne · essai' : 'En ligne') : 'Essai gratuit' }}</span>
             </div>
 
             <!-- Onglets de pages -->
@@ -475,10 +475,10 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     </div>
                     <template v-if="st.credits && st.credits.balance <= 0">
                         <div class="m-3 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm">
-                            <p class="font-semibold text-amber-200">Vous avez utilisé vos {{ st.credits.quota }} crédits IA.</p>
+                            <p class="font-semibold text-amber-200">Vous avez utilisé vos {{ st.credits.quota }} crédits IA{{ paid ? '' : ' d\'essai' }}.</p>
                             <p class="mt-1 text-slate-300">Les modifications manuelles restent illimitées (onglet Contenu). Pour continuer avec l'IA :</p>
                             <div class="mt-3 flex flex-wrap gap-2">
-                                <button v-if="!paid" @click="modal='publish'" class="btn-brand !px-4 !py-2 text-xs">🚀 Mettre en ligne · 100 crédits inclus</button>
+                                <button v-if="!paid" @click="modal='publish'" class="btn-brand !px-4 !py-2 text-xs">{{ plans.pro.trial > 0 ? '🚀 Mettre en ligne · 100 crédits inclus' : '✦ Souscrire · 100 crédits IA inclus' }}</button>
                                 <button v-else-if="trial" @click="subscribeNow" :disabled="subscribing" class="btn-brand !px-4 !py-2 text-xs disabled:opacity-50">{{ subscribing ? '…' : `✦ Souscrire maintenant · ${trial.quota} crédits inclus` }}</button>
                                 <button @click="modal='credits'" class="rounded-xl border border-white/15 px-4 py-2 text-xs font-semibold text-white hover:bg-white/5">{{ paid ? 'Recharger mes crédits' : 'Voir les options' }}</button>
                             </div>
@@ -909,7 +909,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                 <p v-if="st.credits.plan==='pro'">Formule Pro : {{ st.credits.quota }} crédits / mois<span v-if="st.credits.reset_at"> · renouvelés le {{ st.credits.reset_at }}</span></p>
                                 <p v-else-if="st.credits.plan==='liberte'">Formule Liberté : {{ st.credits.quota }} crédits offerts</p>
                                 <p v-else-if="trial">Essai gratuit : vos crédits d'aperçu, puis {{ trial.quota }} / mois dès la souscription</p>
-                                <p v-else>Aperçu gratuit : {{ st.credits.quota }} crédits offerts</p>
+                                <p v-else>Essai gratuit : {{ st.credits.quota }} crédits offerts</p>
                                 <p v-if="st.credits.wallet">dont {{ st.credits.wallet }} achetés (sans expiration)</p>
                             </div>
                         </div>
@@ -923,9 +923,9 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                         </template>
                         <template v-else-if="!paid">
                             <div class="mt-4 rounded-2xl border border-brand-500/40 bg-brand-500/[0.08] p-5">
-                                <p class="font-semibold text-white">Mettez votre site en ligne : 100 crédits inclus</p>
-                                <p class="mt-1 text-sm text-slate-300">Formule Pro : 100 crédits renouvelés chaque mois. Formule Liberté : 100 crédits offerts, puis recharge à volonté.</p>
-                                <button @click="modal='publish'" class="btn-brand mt-3 text-sm">🚀 Mettre en ligne</button>
+                                <p class="font-semibold text-white">{{ plans.pro.trial > 0 ? 'Mettez votre site en ligne : 100 crédits inclus' : 'Souscrivez pour continuer avec l\'IA : 100 crédits inclus' }}</p>
+                                <p class="mt-1 text-sm text-slate-300">Formule Pro : 100 crédits renouvelés chaque mois, site en ligne immédiatement. Formule Liberté : 100 crédits offerts, puis recharge à volonté.</p>
+                                <button @click="modal='publish'" class="btn-brand mt-3 text-sm">{{ plans.pro.trial > 0 ? '🚀 Mettre en ligne' : '✦ Souscrire et mettre en ligne' }}</button>
                             </div>
                         </template>
                         <template v-else>

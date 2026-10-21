@@ -250,7 +250,7 @@ onUnmounted(() => {
                     <div class="text-center lg:text-left">
                         <p class="reveal inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold text-brand-400 backdrop-blur">
                             <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span></span>
-                            IA + votre fiche Google · aperçu gratuit
+                            IA + votre fiche Google · essai gratuit
                         </p>
                         <h1 class="reveal mt-5 font-display text-5xl font-bold leading-[1.02] text-white sm:text-6xl xl:text-7xl">
                             Le site pro<br>de votre métier,<br><span class="text-shimmer">en 30 secondes.</span>
@@ -308,7 +308,7 @@ onUnmounted(() => {
                                 </span>
                                 <strong class="text-white">{{ displaySites.toLocaleString('fr-FR') }}+</strong> sites créés
                             </span>
-                            <span v-else class="flex items-center gap-1.5"><span class="text-emerald-400">✓</span> Aperçu gratuit, sans carte bancaire</span>
+                            <span v-else class="flex items-center gap-1.5"><span class="text-emerald-400">✓</span> Essai gratuit, sans carte bancaire</span>
                             <span class="flex items-center gap-1.5"><span class="text-amber-400">★★★★★</span> <strong class="text-white">{{ stats.rating }}</strong>/5 <span class="text-slate-500">note moyenne des établissements</span></span>
                             <span class="flex items-center gap-1.5"><span class="text-brand-400">✦</span> {{ stats.sectors || 17 }} métiers couverts</span>
                         </div>
@@ -709,7 +709,7 @@ onUnmounted(() => {
                         <h2 class="font-display text-3xl font-bold text-white sm:text-5xl">Votre site vous attend.</h2>
                         <p class="mx-auto mt-4 max-w-lg text-lg text-slate-300">Cherchez votre établissement et voyez le résultat en 30 secondes. C'est gratuit, sans carte bancaire.</p>
                         <button @click="scrollToSearch" class="btn-brand mt-8 !px-8 !py-4 text-base">Créer mon site maintenant →</button>
-                        <p class="mt-4 text-xs text-slate-400"><span v-if="stats.sites >= 100">{{ displaySites.toLocaleString('fr-FR') }}+ sites créés · </span>Aperçu gratuit · résiliable en un clic</p>
+                        <p class="mt-4 text-xs text-slate-400"><span v-if="stats.sites >= 100">{{ displaySites.toLocaleString('fr-FR') }}+ sites créés · </span>Essai gratuit · résiliable en un clic</p>
                     </div>
                 </div>
             </section>
