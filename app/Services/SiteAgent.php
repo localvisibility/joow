@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Models\Site;
+use App\Services\Gemini;
 use App\Services\Pages\PageSchema;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -72,18 +72,15 @@ class SiteAgent
         // Deux tentatives : le modèle renvoie parfois un JSON tronqué ou vide (on journalise la cause)
         for ($attempt = 1; $attempt <= 2 && ! is_array($data); $attempt++) {
             try {
-                $res = Http::timeout(120)->post(
-                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$this->key,
-                    [
-                        'contents' => [['parts' => [['text' => $prompt]]]],
-                        'generationConfig' => ['temperature' => $attempt === 1 ? 0.55 : 0.3, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 8192, 'thinkingConfig' => ['thinkingBudget' => 0]],
-                    ]
-                );
-                $json = $res->json();
-                $text = (string) data_get($json, 'candidates.0.content.parts.0.text');
+                $res = Gemini::generate([
+                    'contents' => [['parts' => [['text' => $prompt]]]],
+                    'generationConfig' => ['temperature' => $attempt === 1 ? 0.55 : 0.3, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 8192, 'thinkingConfig' => ['thinkingBudget' => 0]],
+                ], 120, 'SiteAgent');
+                $json = $res?->json() ?? [];
+                $text = Gemini::text($res);
                 $data = $this->decode($text);
                 if (! is_array($data)) {
-                    Log::warning("SiteAgent : réponse inexploitable (essai $attempt) HTTP {$res->status()} finish=".(data_get($json, 'candidates.0.finishReason') ?? data_get($json, 'promptFeedback.blockReason') ?? data_get($json, 'error.message') ?? '?').' texte='.Str::limit($text, 200));
+                    Log::warning("SiteAgent : réponse inexploitable (essai $attempt) HTTP ".($res?->status() ?? '-').' finish='.(data_get($json, 'candidates.0.finishReason') ?? data_get($json, 'promptFeedback.blockReason') ?? data_get($json, 'error.message') ?? '?').' texte='.Str::limit($text, 200));
                 }
             } catch (\Throwable $e) {
                 Log::warning("SiteAgent : exception (essai $attempt) ".$e->getMessage());
@@ -92,7 +89,7 @@ class SiteAgent
         }
 
         if (! is_array($data)) {
-            return ['ops' => [], 'applied' => [], 'reply' => "Je n'ai pas réussi à traiter cette demande (l'IA n'a pas répondu correctement). Réessayez dans un instant, ou formulez-la autrement, par exemple : « ajoute un bloc module menu dans la page La Carte ».", 'site_data' => $siteData, 'modules' => $modules];
+            return ['ops' => [], 'applied' => [], 'reply' => "Je n'ai pas réussi à traiter cette demande (le service d'IA est momentanément saturé). Réessayez dans un instant, ou formulez-la autrement, par exemple : « ajoute un bloc module menu dans la page La Carte ».", 'site_data' => $siteData, 'modules' => $modules];
         }
 
         $ops = is_array($data['ops'] ?? null) ? array_values(array_filter($data['ops'], 'is_array')) : [];

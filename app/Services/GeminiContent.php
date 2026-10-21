@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
 
 /**
  * Génère le contenu éditorial d'un site à partir de la fiche établissement.
@@ -65,15 +64,12 @@ Adapte le vocabulaire au secteur (ex: un restaurant parle de carte/réservation,
 TXT;
 
         try {
-            $res = Http::timeout(45)->post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$this->key,
-                [
-                    'contents' => [['parts' => [['text' => $prompt]]]],
-                    'generationConfig' => ['temperature' => 0.7, 'responseMimeType' => 'application/json'],
-                ]
-            );
+            $res = Gemini::generate([
+                'contents' => [['parts' => [['text' => $prompt]]]],
+                'generationConfig' => ['temperature' => 0.7, 'responseMimeType' => 'application/json'],
+            ], 60, 'GeminiContent');
 
-            $text = data_get($res->json(), 'candidates.0.content.parts.0.text');
+            $text = Gemini::text($res);
             $data = $text ? json_decode($text, true) : null;
 
             return is_array($data) ? array_merge($fallback, array_filter($data)) : $fallback;

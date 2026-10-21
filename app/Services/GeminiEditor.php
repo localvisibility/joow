@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
 
 /**
  * Éditeur IA "conversationnel" : applique une instruction en langage naturel
@@ -55,15 +54,12 @@ Réponds UNIQUEMENT avec un JSON valide de la forme :
 TXT;
 
         try {
-            $res = Http::timeout(45)->post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$this->key,
-                [
-                    'contents' => [['parts' => [['text' => $prompt]]]],
-                    'generationConfig' => ['temperature' => 0.5, 'responseMimeType' => 'application/json'],
-                ]
-            );
+            $res = Gemini::generate([
+                'contents' => [['parts' => [['text' => $prompt]]]],
+                'generationConfig' => ['temperature' => 0.5, 'responseMimeType' => 'application/json'],
+            ], 60, 'GeminiEditor');
 
-            $text = data_get($res->json(), 'candidates.0.content.parts.0.text');
+            $text = Gemini::text($res);
             $data = $text ? json_decode($text, true) : null;
 
             if (! is_array($data) || ! isset($data['content']) || ! is_array($data['content'])) {

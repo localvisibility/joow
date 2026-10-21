@@ -3,8 +3,8 @@
 namespace App\Services\Modules;
 
 use App\Models\Site;
+use App\Services\Gemini;
 use App\Services\Pages\PageSchema;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -72,23 +72,15 @@ Assistant :
 TXT;
 
         try {
-            $res = Http::timeout(30)->post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$key,
-                // thinkingBudget 0 : réponse directe (les tokens de réflexion comptaient dans la limite et tronquaient la réponse)
-                ['contents' => [['parts' => [['text' => $prompt]]]], 'generationConfig' => ['temperature' => 0.35, 'maxOutputTokens' => 1024, 'thinkingConfig' => ['thinkingBudget' => 0]]]
-            );
-            if ($res->failed()) {
-                Log::warning('Bot Gemini : HTTP '.$res->status().' '.Str::limit($res->body(), 300));
-            }
-            $text = trim((string) data_get($res->json(), 'candidates.0.content.parts.0.text'));
+            // thinkingBudget 0 : réponse directe (les tokens de réflexion comptaient dans la limite et tronquaient la réponse)
+            $body = ['contents' => [['parts' => [['text' => $prompt]]]], 'generationConfig' => ['temperature' => 0.35, 'maxOutputTokens' => 1024, 'thinkingConfig' => ['thinkingBudget' => 0]]];
+            $res = Gemini::generate($body, 30, 'Bot');
+            $text = Gemini::text($res);
             if ($text === '') {
                 // Réponse vide occasionnelle du modèle : on journalise la raison et on retente une fois
-                Log::info('Bot Gemini : réponse vide ('.(data_get($res->json(), 'candidates.0.finishReason') ?? data_get($res->json(), 'promptFeedback.blockReason') ?? '?').'), nouvel essai');
-                $res = Http::timeout(30)->post(
-                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$key,
-                    ['contents' => [['parts' => [['text' => $prompt]]]], 'generationConfig' => ['temperature' => 0.5, 'maxOutputTokens' => 1024, 'thinkingConfig' => ['thinkingBudget' => 0]]]
-                );
-                $text = trim((string) data_get($res->json(), 'candidates.0.content.parts.0.text'));
+                Log::info('Bot Gemini : réponse vide ('.($res ? (data_get($res->json(), 'candidates.0.finishReason') ?? data_get($res->json(), 'promptFeedback.blockReason') ?? '?') : 'aucune réponse').'), nouvel essai');
+                $body['generationConfig']['temperature'] = 0.5;
+                $text = Gemini::text(Gemini::generate($body, 30, 'Bot'));
             }
 
             return $text ?: "Je n'ai pas bien compris. Pouvez-vous reformuler ?";
