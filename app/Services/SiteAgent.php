@@ -6,6 +6,7 @@ use App\Models\Site;
 use App\Services\Pages\PageSchema;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -33,6 +34,29 @@ class SiteAgent
      * @param  array  $history  Derniers échanges [{role: user|ai, text}]
      * @return array{ops: array, reply: string, applied: array, site_data: array, modules: array}
      */
+    /** JSON du modèle → tableau, en tolérant les barrières ``` et du texte autour. */
+    private function decode(string $text): ?array
+    {
+        $text = trim($text);
+        if ($text === '') {
+            return null;
+        }
+        $data = json_decode($text, true);
+        if (is_array($data)) {
+            return $data;
+        }
+        $clean = preg_replace('/^```(?:json)?\s*|\s*```$/m', '', $text);
+        $data = json_decode(trim($clean), true);
+        if (is_array($data)) {
+            return $data;
+        }
+        if (($a = strpos($clean, '{')) !== false && ($b = strrpos($clean, '}')) !== false && $b > $a) {
+            $data = json_decode(substr($clean, $a, $b - $a + 1), true);
+        }
+
+        return is_array($data) ? $data : null;
+    }
+
     public function run(Site $site, string $instruction, array $history = []): array
     {
         $siteData = $site->site_data ?? [];
@@ -44,22 +68,31 @@ class SiteAgent
 
         $prompt = $this->prompt($site, $siteData, $modules, $instruction, $history);
 
-        try {
-            $res = Http::timeout(120)->post(
-                'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$this->key,
-                [
-                    'contents' => [['parts' => [['text' => $prompt]]]],
-                    'generationConfig' => ['temperature' => 0.55, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 8192, 'thinkingConfig' => ['thinkingBudget' => 0]],
-                ]
-            );
-            $text = data_get($res->json(), 'candidates.0.content.parts.0.text');
-            $data = $text ? json_decode($text, true) : null;
-        } catch (\Throwable $e) {
-            $data = null;
+        $data = null;
+        // Deux tentatives : le modèle renvoie parfois un JSON tronqué ou vide (on journalise la cause)
+        for ($attempt = 1; $attempt <= 2 && ! is_array($data); $attempt++) {
+            try {
+                $res = Http::timeout(120)->post(
+                    'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key='.$this->key,
+                    [
+                        'contents' => [['parts' => [['text' => $prompt]]]],
+                        'generationConfig' => ['temperature' => $attempt === 1 ? 0.55 : 0.3, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 8192, 'thinkingConfig' => ['thinkingBudget' => 0]],
+                    ]
+                );
+                $json = $res->json();
+                $text = (string) data_get($json, 'candidates.0.content.parts.0.text');
+                $data = $this->decode($text);
+                if (! is_array($data)) {
+                    Log::warning("SiteAgent : réponse inexploitable (essai $attempt) HTTP {$res->status()} finish=".(data_get($json, 'candidates.0.finishReason') ?? data_get($json, 'promptFeedback.blockReason') ?? data_get($json, 'error.message') ?? '?').' texte='.Str::limit($text, 200));
+                }
+            } catch (\Throwable $e) {
+                Log::warning("SiteAgent : exception (essai $attempt) ".$e->getMessage());
+                $data = null;
+            }
         }
 
         if (! is_array($data)) {
-            return ['ops' => [], 'applied' => [], 'reply' => "Je n'ai pas réussi à traiter cette demande. Pouvez-vous la reformuler ?", 'site_data' => $siteData, 'modules' => $modules];
+            return ['ops' => [], 'applied' => [], 'reply' => "Je n'ai pas réussi à traiter cette demande (l'IA n'a pas répondu correctement). Réessayez dans un instant, ou formulez-la autrement, par exemple : « ajoute un bloc module menu dans la page La Carte ».", 'site_data' => $siteData, 'modules' => $modules];
         }
 
         $ops = is_array($data['ops'] ?? null) ? array_values(array_filter($data['ops'], 'is_array')) : [];
