@@ -45,7 +45,7 @@ class SiteEditorController extends Controller
                 'edit_link'   => route('sites.editor', $site->slug).'?t='.$site->editToken(),
             ],
             'plans' => [
-                'pro'     => ['price' => 39, 'trial' => (int) config('services.stripe.trial_days', 0), 'ready' => (bool) config('services.stripe.price_pro')],
+                'pro'     => ['price' => 39, 'trial' => (int) config('services.stripe.trial_days', 7), 'ready' => (bool) config('services.stripe.price_pro')],
                 'liberte' => ['price' => 349, 'ready' => (bool) config('services.stripe.price_liberte')],
             ],
         ]);
@@ -237,6 +237,24 @@ class SiteEditorController extends Controller
     }
 
     /** Annule un tour de l'agent IA (restaure l'instantané). */
+    /** Souscrire sans attendre la fin de l'essai : 1er mois prélevé maintenant, crédits Pro débloqués. */
+    public function startSubscription(Request $request, string $slug, \App\Services\Subscription $subscription)
+    {
+        $site = $this->ownedSite($request, $slug);
+        abort_unless(in_array($site->status, ['paid', 'published'], true) && $site->hosting_plan === 'pro' && $site->user, 422, 'Cette action concerne un site en ligne avec la formule Pro.');
+        abort_unless($subscription->isTrialing($site), 422, 'Votre abonnement est déjà actif.');
+
+        try {
+            $r = $subscription->startNow($site);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error("Souscription anticipée ($slug) : ".$e->getMessage());
+
+            return response()->json(['error' => 'Impossible de démarrer l\'abonnement maintenant. Réessayez ou contactez-nous.'], 502);
+        }
+
+        return response()->json(['ok' => true, 'invoice_paid' => $r['paid'], 'pay_url' => $r['pay_url'], 'state' => $this->stateOf($site->fresh())]);
+    }
+
     public function revert(Request $request, string $slug, SiteRenderer $renderer)
     {
         $site = $this->ownedSite($request, $slug);
@@ -362,6 +380,7 @@ class SiteEditorController extends Controller
             'paid'     => in_array($site->status, ['paid', 'published'], true),
             'owner_email' => $site->owner_email,
             'credits'  => tap(app(\App\Services\AiCredits::class), fn ($c) => $c->refresh($site))->state($site),
+            'subscription' => app(\App\Services\Subscription::class)->state($site),
             'version'  => optional($site->updated_at)->timestamp ?? now()->timestamp,
         ];
     }

@@ -51,7 +51,7 @@ class AiCredits
         if ($site->hosting_plan !== 'pro' || ! in_array($site->status, ['paid', 'published'], true)) {
             return;
         }
-        if (in_array($site->subscription_status, ['canceled', 'cancelled', 'past_due', 'unpaid'], true)) {
+        if (in_array($site->subscription_status, ['trialing', 'canceled', 'cancelled', 'past_due', 'unpaid'], true)) {
             return;
         }
         if ($site->ai_credits_reset_at && $site->ai_credits_reset_at->isFuture()) {
@@ -114,10 +114,23 @@ class AiCredits
             'wallet'   => max(0, (int) $site->ai_credits_wallet),
             'used'     => (int) $site->ai_credits_used,
             'reset_at' => optional($site->ai_credits_reset_at)->toDateString(),
-            'plan'     => in_array($site->status, ['paid', 'published'], true) ? ($site->hosting_plan ?: 'pro') : 'free',
-            'quota'    => $this->quota(in_array($site->status, ['paid', 'published'], true) ? ($site->hosting_plan ?: 'pro') : 'free'),
+            'plan'     => $this->planOf($site),
+            'quota'    => $this->quota($this->planOf($site)),
             'packs'    => $this->packs(),
         ];
+    }
+
+    /** Formule effective pour les crédits : l'essai Pro compte comme « free » tant qu'il n'est pas payé. */
+    private function planOf(Site $site): string
+    {
+        if (! in_array($site->status, ['paid', 'published'], true)) {
+            return 'free';
+        }
+        if (($site->hosting_plan ?: 'pro') === 'pro' && $site->subscription_status === 'trialing') {
+            return 'free';
+        }
+
+        return $site->hosting_plan ?: 'pro';
     }
 
     private function log(Site $site, int $delta, string $reason, array $meta = [], ?string $externalId = null): void

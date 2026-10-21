@@ -127,38 +127,21 @@ class DomainsController extends Controller
      * Le client ne veut pas attendre la fin de l'essai : on termine l'essai maintenant,
      * Stripe facture le premier mois immédiatement, et le domaine inclus se débloque.
      */
-    public function startSubscription(Request $request, string $slug, DomainManager $dm, HostingerClient $hostinger)
+    public function startSubscription(Request $request, string $slug, DomainManager $dm, HostingerClient $hostinger, \App\Services\Subscription $subscription)
     {
         $site = $this->site($request, $slug);
         $this->requirePaid($site);
         abort_unless($site->hosting_plan === 'pro' && $site->user, 422, 'Cette action concerne la formule Pro en période d\'essai.');
 
-        $sub = $site->user->subscription('hosting');
-        abort_unless($sub, 422, 'Abonnement introuvable pour le moment. Réessayez dans quelques minutes.');
-
-        $paid = true;
-        $payUrl = null;
         try {
-            if ($sub->onTrial()) {
-                $sub->endTrial(); // trial_end = now → facture du 1er mois émise et prélevée immédiatement
-            }
-            $stripeSub = $sub->asStripeSubscription(['latest_invoice']);
-            $inv = $stripeSub->latest_invoice ?? null;
-            if (is_object($inv) && ($inv->status ?? 'paid') !== 'paid') {
-                $paid = false;
-                $payUrl = $inv->hosted_invoice_url ?? null; // 3-D Secure ou carte refusée : le client finalise sur Stripe
-            }
+            $r = $subscription->startNow($site);
         } catch (\Throwable $e) {
             Log::error("Fin d'essai anticipée ($slug) : ".$e->getMessage());
 
             return response()->json(['error' => 'Impossible de démarrer l\'abonnement maintenant. Réessayez ou contactez-nous.'], 502);
         }
 
-        if ($paid) {
-            $site->forceFill(['subscription_status' => 'active'])->save();
-        }
-
-        return response()->json($this->payload($site->fresh(), $dm, $hostinger) + ['started' => true, 'invoice_paid' => $paid, 'pay_url' => $payUrl]);
+        return response()->json($this->payload($site->fresh(), $dm, $hostinger) + ['started' => true, 'invoice_paid' => $r['paid'], 'pay_url' => $r['pay_url']]);
     }
 
     // ───────────────────────────── helpers ─────────────────────────────
@@ -189,26 +172,9 @@ class DomainsController extends Controller
             && ! DomainRequest::where('site_slug', $site->slug)->where('type', 'order')->whereIn('status', ['in_progress', 'active'])->exists();
     }
 
-    /** Fin de l'essai gratuit si l'abonnement Pro est encore en période d'essai, sinon null. */
     private function trialEndsAt(Site $site): ?\Carbon\Carbon
     {
-        if ($site->hosting_plan !== 'pro' || ! $site->user) {
-            return null;
-        }
-        try {
-            $sub = $site->user->subscription('hosting');
-            if ($sub && $sub->onTrial()) {
-                return $sub->trial_ends_at;
-            }
-            // Pas encore d'abonnement synchronisé : on considère l'essai en cours pendant la durée configurée
-            if (! $sub && $site->paid_at && $site->paid_at->gt(now()->subDays((int) config('services.stripe.trial_days', 0)))) {
-                return $site->paid_at->copy()->addDays((int) config('services.stripe.trial_days', 0));
-            }
-        } catch (\Throwable) {
-            return null;
-        }
-
-        return null;
+        return app(\App\Services\Subscription::class)->trialEndsAt($site);
     }
 
     private function requirePaid(Site $site): void

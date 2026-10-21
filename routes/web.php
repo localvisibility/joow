@@ -110,6 +110,7 @@ Route::prefix('/sites/{slug}/editeur')->name('sites.editor')->group(function () 
     Route::post('/sections', [SiteEditorController::class, 'sections'])->name('.sections');
     Route::post('/style', [SiteEditorController::class, 'style'])->name('.style');
     Route::post('/publish', [SiteEditorController::class, 'publish'])->middleware('throttle:20,1')->name('.publish');
+    Route::post('/abonnement', [SiteEditorController::class, 'startSubscription'])->middleware('throttle:5,1')->name('.subscribe');
     Route::post('/chat', [SiteEditorController::class, 'chat'])->middleware('throttle:20,1')->name('.chat');
     Route::post('/revert', [SiteEditorController::class, 'revert'])->middleware('throttle:30,1')->name('.revert');
     Route::post('/claim', [SiteEditorController::class, 'claim'])->middleware('throttle:10,1')->name('.claim');

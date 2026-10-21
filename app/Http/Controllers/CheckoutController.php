@@ -88,16 +88,21 @@ class CheckoutController extends Controller
         $plan = $request->query('plan') === 'liberte' ? 'liberte' : 'pro';
 
         if ($paid && $site->status !== 'paid') {
+            // Pro avec essai : statut « trialing » jusqu'au 1er paiement (anticipé ou à l'échéance)
+            $trialing = $plan === 'pro' && \App\Services\Subscription::trialDays() > 0;
             $site->update([
                 'status'              => 'paid',
                 'paid_at'             => now(),
                 'published_at'        => now(),
                 'hosting_plan'        => $plan,
-                'subscription_status' => $plan === 'liberte' ? 'lifetime' : 'active',
+                'subscription_status' => $plan === 'liberte' ? 'lifetime' : ($trialing ? 'trialing' : 'active'),
                 'purchase_type'       => $plan === 'liberte' ? 'one_time' : 'subscription',
             ]);
-            // Crédits IA de la formule (Pro : 100 / mois renouvelés ; Liberté : 100 offerts)
-            app(\App\Services\AiCredits::class)->onPaid($site->fresh(), $plan);
+            // Crédits IA de la formule (Pro : 100 / mois dès le 1er paiement ; Liberté : 100 offerts).
+            // Pendant l'essai, le client garde ses crédits d'aperçu et peut souscrire à tout moment.
+            if (! $trialing) {
+                app(\App\Services\AiCredits::class)->onPaid($site->fresh(), $plan);
+            }
             if ($site->user) {
                 Auth::login($site->user);
             }

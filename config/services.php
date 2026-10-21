@@ -71,7 +71,7 @@ return [
         'platform_fee_percent' => (float) env('STRIPE_PLATFORM_FEE_PERCENT', 0),
         // Formule Pro : abonnement mensuel (39€ HT/mois) avec essai gratuit.
         'price_pro'     => env('STRIPE_PRICE_PRO', env('STRIPE_PRICE_HOSTING')),
-        'trial_days'    => (int) env('STRIPE_TRIAL_DAYS', 0), // 0 = on paie à la mise en ligne (l'aperçu et le Studio sont déjà gratuits)
+        'trial_days'    => (int) env('STRIPE_TRIAL_DAYS', 7), // jours d'essai Pro à la mise en ligne (0 = paiement immédiat)
         // Formule Liberté : paiement unique (349€ HT, site à vie).
         'price_liberte' => env('STRIPE_PRICE_LIBERTE'),
         // Ancien price récurrent (compatibilité).

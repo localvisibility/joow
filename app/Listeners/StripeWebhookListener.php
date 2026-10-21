@@ -30,6 +30,12 @@ class StripeWebhookListener
                 $this->sessionCompleted($obj, $meta);
             } elseif ($type === 'checkout.session.expired') {
                 $this->sessionExpired($obj, $meta);
+            } elseif ($type === 'invoice.payment_succeeded') {
+                $this->invoicePaid($obj);
+            } elseif ($type === 'invoice.payment_failed') {
+                $this->subscriptionSites($obj['customer'] ?? null)->each(fn (Site $s) => $s->subscription_status !== 'lifetime' && $s->forceFill(['subscription_status' => 'past_due'])->save());
+            } elseif ($type === 'customer.subscription.deleted') {
+                $this->subscriptionSites($obj['customer'] ?? null)->each(fn (Site $s) => $s->forceFill(['subscription_status' => 'canceled'])->save());
             }
         } catch (\Throwable $e) {
             Log::warning("Webhook $type : ".$e->getMessage());
@@ -67,6 +73,28 @@ class StripeWebhookListener
                 }
             }
         }
+    }
+
+    /** Facture d'abonnement payée (fin d'essai, renouvellement mensuel) : abonnement actif + crédits Pro. */
+    private function invoicePaid(array $inv): void
+    {
+        if (empty($inv['subscription']) || (int) ($inv['amount_paid'] ?? 0) <= 0) {
+            return; // facture à 0 € (début d'essai) ou paiement unique : rien à activer
+        }
+        $this->subscriptionSites($inv['customer'] ?? null)->each(function (Site $site) {
+            app(\App\Services\Subscription::class)->activate($site, 'invoice_paid');
+        });
+    }
+
+    /** Sites Pro rattachés au client Stripe. */
+    private function subscriptionSites(?string $customerId)
+    {
+        if (! $customerId) {
+            return collect();
+        }
+        $user = \App\Models\User::where('stripe_id', $customerId)->first();
+
+        return $user ? Site::where('user_id', $user->id)->where('hosting_plan', 'pro')->whereIn('status', ['paid', 'published'])->get() : collect();
     }
 
     private function sessionExpired(array $s, array $meta): void

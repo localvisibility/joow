@@ -314,6 +314,21 @@ const startCheckout = (plan) => {
     add('_token', csrf()); add('email', checkout.value.email); add('plan', plan);
     document.body.appendChild(f); f.submit();
 };
+// Essai Pro en cours : souscrire sans attendre (1er mois prélevé, crédits Pro débloqués)
+const trial = computed(() => st.value?.subscription?.trialing ? st.value.subscription : null);
+const subscribing = ref(false);
+const subscribeNow = async () => {
+    if (!trial.value || subscribing.value) return;
+    if (!confirm(`Souscrire maintenant : le premier mois (${trial.value.price} € HT) est prélevé aujourd'hui sur la carte enregistrée, et vos ${trial.value.quota} crédits IA mensuels sont débloqués immédiatement. Continuer ?`)) return;
+    subscribing.value = true;
+    try {
+        const d = await postJson(route('sites.editor.subscribe', slug), {});
+        if (d.state) { const chat = st.value?.chat; st.value = d.state; if (!d.state.chat && chat) st.value.chat = chat; }
+        if (d.invoice_paid) { messages.value.push({ role: 'ai', text: `Abonnement Pro activé ✅ Vous disposez maintenant de ${st.value?.credits?.balance ?? ''} crédits IA, renouvelés chaque mois.`, applied: [] }); scrollChat(); }
+        else if (d.pay_url) { alert('Votre banque demande une confirmation : finalisez le paiement dans l\'onglet qui s\'ouvre, vos crédits seront crédités juste après.'); window.open(d.pay_url, '_blank'); }
+    } catch (e) { alert(e?.error || e?.message || 'Impossible de démarrer l\'abonnement maintenant.'); }
+    finally { subscribing.value = false; }
+};
 const buyCredits = (pk) => {
     const f = document.createElement('form'); f.method = 'POST'; f.action = route('credits.checkout', slug);
     const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); };
@@ -385,7 +400,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
             </Link>
             <div class="hidden min-w-0 items-center gap-2 md:flex">
                 <span class="truncate font-display text-sm font-bold text-white">{{ site.name }}</span>
-                <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" :class="paid ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'">{{ paid ? 'En ligne' : 'Aperçu gratuit' }}</span>
+                <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" :class="paid ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'">{{ paid ? (trial ? 'En ligne · essai' : 'En ligne') : 'Aperçu gratuit' }}</span>
             </div>
 
             <!-- Onglets de pages -->
@@ -464,11 +479,16 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                             <p class="mt-1 text-slate-300">Les modifications manuelles restent illimitées (onglet Contenu). Pour continuer avec l'IA :</p>
                             <div class="mt-3 flex flex-wrap gap-2">
                                 <button v-if="!paid" @click="modal='publish'" class="btn-brand !px-4 !py-2 text-xs">🚀 Mettre en ligne · 100 crédits inclus</button>
+                                <button v-else-if="trial" @click="subscribeNow" :disabled="subscribing" class="btn-brand !px-4 !py-2 text-xs disabled:opacity-50">{{ subscribing ? '…' : `✦ Souscrire maintenant · ${trial.quota} crédits inclus` }}</button>
                                 <button @click="modal='credits'" class="rounded-xl border border-white/15 px-4 py-2 text-xs font-semibold text-white hover:bg-white/5">{{ paid ? 'Recharger mes crédits' : 'Voir les options' }}</button>
                             </div>
                         </div>
                     </template>
                     <template v-else>
+                        <div v-if="trial" class="mx-3 mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-emerald-400/25 bg-emerald-500/[0.08] px-3 py-2 text-xs">
+                            <span class="text-slate-200"><span class="font-semibold text-emerald-300">Essai gratuit</span> · {{ trial.trial_days_left }} jour{{ trial.trial_days_left > 1 ? 's' : '' }} restant{{ trial.trial_days_left > 1 ? 's' : '' }} · {{ trial.quota }} crédits IA / mois dès votre souscription</span>
+                            <button @click="subscribeNow" :disabled="subscribing" class="rounded-lg bg-brand-gradient px-3 py-1.5 font-semibold text-white disabled:opacity-50">{{ subscribing ? '…' : 'Souscrire maintenant' }}</button>
+                        </div>
                         <div class="flex flex-wrap gap-1.5 px-4 pb-2"><button v-for="s in suggestions" :key="s" @click="send(s)" :disabled="sending" class="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-brand-400/60 hover:text-white disabled:opacity-40">{{ s }}</button></div>
                         <form @submit.prevent="send()" class="border-t border-white/[0.06] p-3">
                             <div class="flex items-end gap-2">
@@ -888,12 +908,20 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                             <div class="text-right text-xs text-slate-400">
                                 <p v-if="st.credits.plan==='pro'">Formule Pro : {{ st.credits.quota }} crédits / mois<span v-if="st.credits.reset_at"> · renouvelés le {{ st.credits.reset_at }}</span></p>
                                 <p v-else-if="st.credits.plan==='liberte'">Formule Liberté : {{ st.credits.quota }} crédits offerts</p>
+                                <p v-else-if="trial">Essai gratuit : vos crédits d'aperçu, puis {{ trial.quota }} / mois dès la souscription</p>
                                 <p v-else>Aperçu gratuit : {{ st.credits.quota }} crédits offerts</p>
                                 <p v-if="st.credits.wallet">dont {{ st.credits.wallet }} achetés (sans expiration)</p>
                             </div>
                         </div>
                         <p class="mt-4 text-sm text-slate-400">1 crédit par action de l'assistant, 2 pour la création d'une page. Les questions sans modification et toutes les modifications manuelles sont gratuites. Annuler une action rend le crédit.</p>
-                        <template v-if="!paid">
+                        <template v-if="trial">
+                            <div class="mt-4 rounded-2xl border border-emerald-400/40 bg-emerald-500/[0.08] p-5">
+                                <p class="font-semibold text-white">Essai gratuit en cours · encore {{ trial.trial_days_left }} jour{{ trial.trial_days_left > 1 ? 's' : '' }}</p>
+                                <p class="mt-1 text-sm text-slate-300">À la fin de l'essai (le {{ trial.trial_ends_at }}), votre abonnement Pro démarre et vous recevez {{ trial.quota }} crédits IA par mois. Besoin de l'IA tout de suite ? Souscrivez dès maintenant : le premier mois est prélevé aujourd'hui et les {{ trial.quota }} crédits sont débloqués immédiatement.</p>
+                                <button @click="subscribeNow" :disabled="subscribing" class="btn-brand mt-3 text-sm disabled:opacity-50">{{ subscribing ? '…' : `✦ Souscrire maintenant · ${trial.price} € HT` }}</button>
+                            </div>
+                        </template>
+                        <template v-else-if="!paid">
                             <div class="mt-4 rounded-2xl border border-brand-500/40 bg-brand-500/[0.08] p-5">
                                 <p class="font-semibold text-white">Mettez votre site en ligne : 100 crédits inclus</p>
                                 <p class="mt-1 text-sm text-slate-300">Formule Pro : 100 crédits renouvelés chaque mois. Formule Liberté : 100 crédits offerts, puis recharge à volonté.</p>
