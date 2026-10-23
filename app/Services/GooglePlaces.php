@@ -57,6 +57,7 @@ class GooglePlaces
             'languageCode'        => 'fr',
             'regionCode'          => 'FR',
             'includedRegionCodes' => ['fr'],
+            'includedPrimaryTypes' => ['establishment'],
         ]);
         $this->logFailure('autocomplete', $res);
 
@@ -144,6 +145,14 @@ class GooglePlaces
 
         $r = $res->successful() ? $res->json() : null;
         if (! $r || empty($r['id'])) {
+            return null;
+        }
+        // Un lieu géographique (quartier, ville, rue, code postal) n'est pas un établissement : on refuse
+        $geo = ['locality', 'sublocality', 'sublocality_level_1', 'political', 'administrative_area_level_1', 'administrative_area_level_2', 'administrative_area_level_3', 'country', 'route', 'street_address', 'postal_code', 'neighborhood', 'premise', 'plus_code'];
+        $types = $r['types'] ?? [];
+        if ($types && ! array_diff($types, $geo)) {
+            \Illuminate\Support\Facades\Log::info('Places : lieu géographique ignoré ('.($r['displayName']['text'] ?? $placeId).')');
+
             return null;
         }
 
