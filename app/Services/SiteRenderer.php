@@ -98,6 +98,7 @@ class SiteRenderer
                 'theme' => $data['theme'] ?? ($cfg['theme'] ?? 'light'),
                 'hero'  => $data['hero_style'] ?? ($cfg['hero'] ?? 'editorial'),
                 'stock' => $cfg['stock'] ?? [],
+                'order' => $cfg['order'] ?? [],
             ],
         ])->render();
     }

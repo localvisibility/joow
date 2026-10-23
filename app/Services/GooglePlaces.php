@@ -137,7 +137,7 @@ class GooglePlaces
     {
         $res = $this->client(implode(',', [
             'id', 'displayName', 'formattedAddress', 'addressComponents', 'nationalPhoneNumber', 'internationalPhoneNumber',
-            'rating', 'userRatingCount', 'reviews', 'photos', 'types', 'location', 'googleMapsUri', 'websiteUri',
+            'rating', 'userRatingCount', 'reviews', 'photos', 'types', 'primaryType', 'primaryTypeDisplayName', 'location', 'googleMapsUri', 'websiteUri',
             'regularOpeningHours',
         ]))->get(self::BASE.'/places/'.rawurlencode($placeId), ['languageCode' => 'fr']);
         $this->logFailure('details', $res);
@@ -165,7 +165,8 @@ class GooglePlaces
             'maps_url'      => $r['googleMapsUri'] ?? null,
             'lat'           => $r['location']['latitude'] ?? null,
             'lng'           => $r['location']['longitude'] ?? null,
-            'types'         => $r['types'] ?? [],
+            'types'         => array_values(array_unique(array_merge(array_filter([$r['primaryType'] ?? null]), $r['types'] ?? []))),
+            'primary_type'  => $r['primaryTypeDisplayName']['text'] ?? ($r['primaryType'] ?? null),
             'opening_hours' => $r['regularOpeningHours']['weekdayDescriptions'] ?? [],
             'reviews'       => collect($r['reviews'] ?? [])->map(fn ($rv) => [
                 'author' => $rv['authorAttribution']['displayName'] ?? '',

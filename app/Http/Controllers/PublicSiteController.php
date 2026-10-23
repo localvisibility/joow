@@ -50,7 +50,7 @@ class PublicSiteController extends Controller
             return back()->withErrors(['query' => "Fiche introuvable. Colle un lien Google Maps ou « nom + ville »."]);
         }
 
-        $sector = $detector->detect($b['name'], $b['types'] ?? []);
+        $sector = $detector->detect($b['name'], $b['types'] ?? [], ['primary_type' => $b['primary_type'] ?? null, 'address' => $b['address'] ?? null, 'reviews' => $b['reviews'] ?? []]);
         $slug = Str::slug($b['name']).'-'.Str::lower(Str::random(4));
 
         $site = Site::create([

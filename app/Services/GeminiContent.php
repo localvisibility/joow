@@ -2,77 +2,98 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Str;
 
 /**
- * Génère le contenu éditorial d'un site à partir de la fiche établissement.
- * Renvoie un tableau structuré (hero, about, services, faq, badges).
+ * Génère le contenu éditorial d'un site à partir de la fiche établissement, du brief métier
+ * (config/sectors.php) et de la lecture des photos (PhotoCurator), pour des textes qui parlent
+ * de ce que le visiteur voit réellement.
  */
 class GeminiContent
 {
-    private string $key;
-
-    public function __construct()
-    {
-        $this->key = (string) config('services.gemini.key');
-    }
-
-    public function generate(array $business, string $sector, string $sectorLabel): array
+    public function generate(array $business, string $sector, string $sectorLabel, array $photoNotes = [], string $brief = ''): array
     {
         $fallback = $this->fallback($business, $sectorLabel);
-        if (! $this->key) {
+        if (! Gemini::enabled()) {
             return $fallback;
         }
 
-        $reviews = collect($business['reviews'] ?? [])->take(4)
-            ->map(fn ($r) => '- '.($r['text'] ?? ''))->implode("\n");
+        $reviews = collect($business['reviews'] ?? [])->filter(fn ($r) => strlen((string) ($r['text'] ?? '')) > 20)->take(6)
+            ->map(fn ($r) => '- ('.($r['rating'] ?? '?').'/5) '.Str::limit(trim((string) $r['text']), 320))->implode("\n") ?: '- (aucun avis textuel)';
+        $hours = implode(' ; ', (array) ($business['opening_hours'] ?? [])) ?: 'non renseignés';
+        $types = implode(', ', array_slice((array) ($business['types'] ?? []), 0, 8)) ?: '—';
+        $primary = $business['primary_type'] ?? ($business['types'][0] ?? $sectorLabel);
+        $city = $business['city'] ?? 'France';
+        $notes = $photoNotes['notes'] ?? '';
+        $photoBlock = $notes !== ''
+            ? "PHOTOS DU SITE (ce que le visiteur verra, décrites par analyse d'image) :\n{$notes}\nRôles : photo de fond du haut de page = ".($photoNotes['hero_desc'] ?? 'voir ci-dessus').' ; photo « à propos » = '.($photoNotes['about_desc'] ?? 'voir ci-dessus').' ; photo des services = '.($photoNotes['services_desc'] ?? 'voir ci-dessus').'.'
+            : "PHOTOS : aucune photo exploitable sur la fiche ; des visuels d'illustration du métier seront utilisés. N'évoque donc aucun détail visuel précis (couleur des murs, plat, véhicule…).";
+        $briefBlock = $brief !== '' ? "BRIEF MÉTIER (à respecter) :\n{$brief}\n" : '';
+        $brand = $business['name'];
 
         $prompt = <<<TXT
-Tu es rédacteur web pour des sites vitrines d'entreprises locales en France.
-Rédige le contenu du site de cet établissement, en français, ton professionnel et chaleureux, orienté conversion.
+Tu es directeur de création et rédacteur web senior. Tu écris le site vitrine de « {$brand} », {$sectorLabel} à {$city}, en français.
+Objectif : un site qui donne envie, crédible, spécifique à CET établissement (pas un texte générique réutilisable pour un concurrent), orienté vers l'action (réserver, appeler, demander un devis).
 
-Établissement : {$business['name']}
-Secteur : {$sectorLabel}
-Ville : {$business['city']}
-Note Google : {$business['rating']} ({$business['reviews_count']} avis)
-Extraits d'avis clients :
+FICHE GOOGLE
+- Nom : {$brand}
+- Type principal : {$primary} · types : {$types}
+- Adresse : {$business['address']}
+- Note : {$business['rating']}/5 ({$business['reviews_count']} avis)
+- Horaires : {$hours}
+- Avis clients (matière première : réutilise les mots des clients, les détails concrets, jamais de citation inventée) :
 {$reviews}
 
-Réponds UNIQUEMENT avec un JSON valide de cette forme exacte :
+{$photoBlock}
+
+{$briefBlock}
+RÈGLES D'ÉCRITURE
+- Cohérence texte/photo : les titres et paragraphes doivent évoquer ce que montrent les photos (lieu, ambiance, gestes, produits) quand des photos sont décrites. Ne décris rien qui n'apparaît ni dans les photos ni dans les avis.
+- Interdits : « Bienvenue », « qualité », « professionnel(le) », « votre partenaire », « n'hésitez pas », « au cœur de » répété, superlatifs vides, le nom seul en titre, les faux chiffres (années d'existence, nombre de clients) non appuyés par la fiche ou les avis. Les stats doivent provenir de données réelles (note Google, nombre d'avis, horaires, ville) ou être qualitatives (« Fait maison », « Sur rendez-vous »).
+- Prix : réalistes pour le métier et la ville, au format « dès 29 € », « 45 € », « Sur devis » ; jamais de prix pour les professions réglementées (santé, avocat, notaire) : « Sur demande » ou « Tarif conventionné » seulement si les avis l'indiquent.
+- Longueurs : hero_title ≤ 7 mots, hero_subtitle ≤ 20 mots, about 2 paragraphes de 2-3 phrases, services 6 (nom ≤ 5 mots, desc 1 phrase de bénéfice), faq 5 (réponses 2-3 phrases utiles), process 3 étapes.
+- Ton : celui du brief métier ; phrases courtes ; tutoiement interdit, vouvoiement.
+
+Réponds UNIQUEMENT avec ce JSON (toutes les clés, valeurs en français) :
 {
-  "hero_title": "accroche émotionnelle et spécifique (max 7 mots) : évoque une sensation, la spécialité ou le lieu. INTERDIT : 'Bienvenue', 'qualité', 'professionnel', 'votre partenaire', le nom de l'établissement seul",
-  "hero_subtitle": "sous-titre concret qui donne envie d'agir : ce qu'on y trouve, pour qui, où (max 18 mots)",
-  "tagline": "slogan court (max 6 mots)",
-  "about_p1": "1er paragraphe présentation, concret et rassurant (2-3 phrases)",
-  "about_p2": "2e paragraphe, sur l'engagement / la méthode (2-3 phrases)",
-  "badges": ["4 points forts très courts (2-3 mots)"],
-  "stats": [
-    {"v": "valeur courte et frappante (ex: '+10 ans', '48h', '4.8/5')", "l": "libellé court (2-3 mots)"}
-  ],
-  "services": [
-    {"name": "nom du service", "desc": "description courte orientée bénéfice (1 phrase)", "price": "indication tarifaire réaliste ou 'Sur devis'"}
-  ],
-  "faq": [
-    {"q": "question fréquente réelle du secteur", "a": "réponse claire (2-3 phrases)"}
-  ],
-  "process": [
-    {"title": "étape du parcours client (3-5 mots, commence par 'Vous' ou 'On')", "desc": "1 phrase rassurante"}
-  ],
-  "cta_text": "phrase d'appel à l'action chaleureuse (1 phrase)"
+  "hero_title": "accroche émotionnelle et spécifique",
+  "hero_subtitle": "ce qu'on y trouve, pour qui, où",
+  "tagline": "surtitre 2-5 mots (spécialité ou promesse)",
+  "about_tag": "surtitre de la section à propos (2-4 mots)",
+  "about_title": "titre à propos (≤ 8 mots), lié à la photo « à propos »",
+  "about_p1": "présentation concrète : qui, quoi, depuis quand si les avis le disent, ce qui fait la différence",
+  "about_p2": "méthode / engagement / expérience client, en lien avec les avis",
+  "badges": ["4 points forts de 2-3 mots, issus des avis ou du métier"],
+  "stats": [{"v": "valeur courte réelle ou qualitative", "l": "libellé 2-3 mots"}, {"v": "...", "l": "..."}, {"v": "...", "l": "..."}],
+  "services_tag": "surtitre services (2-3 mots)",
+  "services_title": "titre services (≤ 7 mots)",
+  "services_intro": "1 phrase d'introduction",
+  "services": [{"name": "...", "desc": "...", "price": "...", "photo": 0}],
+  "process_title": "titre du parcours (≤ 7 mots)",
+  "process": [{"title": "étape (3-5 mots, commence par Vous ou On)", "desc": "1 phrase rassurante"}],
+  "faq_title": "titre FAQ (≤ 6 mots)",
+  "faq": [{"q": "question réelle que se posent les clients", "a": "réponse claire"}],
+  "reviews_title": "titre de la section avis (≤ 7 mots)",
+  "gallery_title": "titre de la galerie (≤ 5 mots), lié aux photos",
+  "cta_band_title": "titre de la bande d'appel à l'action (≤ 8 mots, incitatif)",
+  "cta_text": "phrase d'appel à l'action chaleureuse",
+  "contact_title": "titre de la section contact (≤ 6 mots)"
 }
-Donne exactement 3 stats, 6 services, 5 questions FAQ et 3 étapes de parcours (process) pertinents et crédibles pour ce métier précis.
-Adapte le vocabulaire au secteur (ex: un restaurant parle de carte/réservation, un plombier d'urgence/dépannage).
+« photo » dans services = numéro de la photo (1 à N) qui illustre le mieux ce service, ou 0 si aucune ne convient.
 TXT;
 
         try {
             $res = Gemini::generate([
                 'contents' => [['parts' => [['text' => $prompt]]]],
-                'generationConfig' => ['temperature' => 0.7, 'responseMimeType' => 'application/json'],
-            ], 60, 'GeminiContent');
-
+                'generationConfig' => ['temperature' => 0.65, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 4096, 'thinkingConfig' => ['thinkingBudget' => 0]],
+            ], 75, 'GeminiContent');
             $text = Gemini::text($res);
             $data = $text ? json_decode($text, true) : null;
+            if (! is_array($data)) {
+                return $fallback;
+            }
 
-            return is_array($data) ? array_merge($fallback, array_filter($data)) : $fallback;
+            return array_merge($fallback, array_filter($data, fn ($v) => $v !== null && $v !== '' && $v !== []));
         } catch (\Throwable) {
             return $fallback;
         }
@@ -80,12 +101,13 @@ TXT;
 
     private function fallback(array $business, string $sectorLabel): array
     {
-        $city = $business['city'] ?? '';
+        $city = $business['city'] ?? 'votre ville';
+
         return [
             'hero_title'    => $business['name'],
             'hero_subtitle' => "{$sectorLabel} à {$city}",
             'tagline'       => "{$sectorLabel} · {$city}",
-            'about_p1'      => "{$business['name']} vous accompagne à {$city} avec professionnalisme et proximité.",
+            'about_p1'      => "{$business['name']} vous accueille à {$city} avec attention et proximité.",
             'about_p2'      => 'Un interlocuteur unique, des tarifs clairs et un suivi attentif à chaque étape.',
             'badges'        => ['Devis gratuit', 'Réponse rapide', 'Travail soigné', 'Proximité'],
             'stats'         => [],

@@ -42,7 +42,9 @@
 
     // Sections : visibilité + ordre (flex order)
     $secCfg = $c['sections'] ?? [];
-    $defaultOrder = ['services', 'process', 'menu', 'rooms', 'gallery', 'about', 'reviews', 'faq', 'booking', 'cta', 'contact'];
+    $allSections  = ['services', 'process', 'menu', 'rooms', 'gallery', 'about', 'reviews', 'faq', 'booking', 'cta', 'contact'];
+    // Ordre par défaut du métier (config/sectors.php › order), complété par les sections manquantes
+    $defaultOrder = array_values(array_unique(array_merge(array_values(array_intersect($design['order'] ?? [], $allSections)), $allSections)));
 
     // Icône par service (mots-clés) — repli sur l'icône du secteur
     $svcIcon = function (string $name) use ($icon): string {
@@ -115,10 +117,10 @@
     $apiBase = 'https://app.joow.fr'; // domaine fixe de l'app (réception des demandes)
 
     // Police d'affichage (Google Fonts)
-    $fontsAllowed = ['Space Grotesk', 'Playfair Display', 'DM Serif Display', 'Sora', 'Poppins', 'Montserrat', 'Cormorant Garamond'];
+    $fontsAllowed = ['Space Grotesk', 'Playfair Display', 'DM Serif Display', 'Sora', 'Poppins', 'Montserrat', 'Cormorant Garamond', 'Fraunces', 'Manrope', 'Outfit', 'Lora', 'Libre Baskerville', 'Bricolage Grotesque'];
     $sectorFont  = in_array($design['font'] ?? '', $fontsAllowed, true) ? $design['font'] : 'Space Grotesk';
     $displayFont = in_array($font, $fontsAllowed, true) ? $font : $sectorFont;
-    $serif = in_array($displayFont, ['Playfair Display', 'DM Serif Display', 'Cormorant Garamond'], true);
+    $serif = in_array($displayFont, ['Playfair Display', 'DM Serif Display', 'Cormorant Garamond', 'Fraunces', 'Lora', 'Libre Baskerville'], true);
     $fontParam = str_replace(' ', '+', $displayFont).':wght@'.($serif ? '400;500;600;700' : '500;600;700');
 
     // Stats par défaut si l'IA n'en fournit pas
@@ -220,6 +222,7 @@ main{display:flex;flex-direction:column}
 .svc-num{position:absolute;right:1.25rem;top:1rem;font-family:'{{ $displayFont }}',sans-serif;font-size:3rem;font-weight:700;color:#f1f5f9;line-height:1;transition:color .35s}
 .svc:hover .svc-num{color:color-mix(in srgb,var(--c) 18%,#f1f5f9)}
 .svc.feat{min-height:26rem;color:#fff;border:0;display:flex;flex-direction:column;justify-content:flex-end}
+.svc.has-img{padding-top:0}.svc-img{margin:0 -1.75rem 1.25rem;aspect-ratio:16/9;overflow:hidden;border-radius:1.5rem 1.5rem 0 0}.svc-img img{width:100%;height:100%;object-fit:cover;transition:transform .7s}.svc:hover .svc-img img{transform:scale(1.05)}.svc.has-img .svc-num{top:calc(56.25% * .75 + 1rem)}
 .svc.feat img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform 1.2s cubic-bezier(.22,1,.36,1)}
 .svc.feat:hover img{transform:scale(1.06)}
 .svc.feat .ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,8,14,.05) 0%,rgba(7,8,14,.55) 55%,rgba(7,8,14,.9) 100%)}
@@ -525,7 +528,8 @@ footer.bg-slate-900{background:#07070b!important}
         </div>
       </div>
       @else
-      <div class="reveal svc tilt group">
+      <div class="reveal svc tilt group {{ !empty($s['image']) ? 'has-img' : '' }}">
+        @if(!empty($s['image']))<div class="svc-img"><img src="{{ $s['image'] }}" alt="{{ $s['name'] ?? '' }}" loading="lazy" decoding="async" @if($editMode) data-edit-img="content.services.{{ $i }}.image" @endif></div>@endif
         <span class="svc-num">{{ sprintf('%02d', $i+1) }}</span>
         <div class="svc-ic mb-5"><i class="fa-solid {{ $svcIcon($s['name'] ?? '') }}"></i></div>
         <h3 class="font-display text-xl font-bold" data-edit="content.services.{{ $i }}.name">{{ $s['name'] ?? '' }}</h3>

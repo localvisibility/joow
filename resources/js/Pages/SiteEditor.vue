@@ -253,7 +253,7 @@ const upload = async (ev) => {
 
 /* ───────────── style ───────────── */
 const palette = ['#4f46e5', '#e11d48', '#0d9488', '#db2777', '#ea580c', '#2563eb', '#7c3aed', '#059669', '#0f172a', '#b45309'];
-const fonts = ['Space Grotesk', 'Playfair Display', 'DM Serif Display', 'Sora', 'Poppins', 'Montserrat', 'Cormorant Garamond'];
+const fonts = ['Space Grotesk', 'Sora', 'Manrope', 'Outfit', 'Bricolage Grotesque', 'Poppins', 'Montserrat', 'Playfair Display', 'DM Serif Display', 'Cormorant Garamond', 'Fraunces', 'Lora', 'Libre Baskerville'];
 const saveStyle = async (payload, rl = true) => {
     status.value = 'saving';
     try { const d = await postJson(route('sites.editor.style', slug), payload); status.value = d.queued ? 'queued' : 'saved'; if (rl) reload(d.version); } catch { status.value = 'error'; }

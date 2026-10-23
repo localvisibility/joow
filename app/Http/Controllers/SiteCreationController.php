@@ -31,7 +31,7 @@ class SiteCreationController extends Controller
             return back()->withErrors(['query' => "Aucune fiche trouvée. Essayez un lien Google Maps ou « nom + ville »."]);
         }
 
-        $business['sector'] = $detector->detect($business['name'], $business['types'] ?? []);
+        $business['sector'] = $detector->detect($business['name'], $business['types'] ?? [], ['primary_type' => $business['primary_type'] ?? null, 'address' => $business['address'] ?? null, 'reviews' => $business['reviews'] ?? []]);
 
         return Inertia::render('Sites/Create', ['business' => $business]);
     }
