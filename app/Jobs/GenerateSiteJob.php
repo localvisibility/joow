@@ -61,9 +61,15 @@ class GenerateSiteJob implements ShouldQueue
             $job?->update(['result' => ['step' => 'content']]);
             $content = $gemini->generate($b, $sector, $cfg['label'], $notes, (string) ($cfg['brief'] ?? ''));
             // Image par service : l'IA désigne la photo (1..N) qui illustre chaque prestation
+            $usedImgs = [];
             foreach ($content['services'] ?? [] as $i => $s) {
                 $pi = (int) ($s['photo'] ?? 0) - 1;
-                $content['services'][$i]['image'] = $cur['photos'][$pi]['url'] ?? null;
+                $url = $cur['photos'][$pi]['url'] ?? null;
+                // Une photo n'illustre qu'un seul service (sinon la même image se répète sur plusieurs cartes)
+                $content['services'][$i]['image'] = ($url && ! in_array($url, $usedImgs, true)) ? $url : null;
+                if ($content['services'][$i]['image']) {
+                    $usedImgs[] = $url;
+                }
                 unset($content['services'][$i]['photo']);
             }
 
