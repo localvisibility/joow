@@ -47,6 +47,7 @@ class GenerateSiteJob implements ShouldQueue
             $prev = $this->site->site_data ?? [];
 
             // 1) Lecture des photos par l'IA : rôles (hero, à propos, services, galerie) + descriptions
+            $t0 = microtime(true);
             $job?->update(['result' => ['step' => 'photos']]);
             $cur = $curator->curate($b['photos'] ?? [], $cfg['label'], $b['name']);
             $descOf = fn (?string $url) => $url ? (collect($cur['photos'])->firstWhere('url', $url)['description'] ?? '') : '';
@@ -58,6 +59,7 @@ class GenerateSiteJob implements ShouldQueue
             ];
 
             // 2) Rédaction, nourrie par le brief métier et la description des photos
+            $tPhotos = round(microtime(true) - $t0, 1);
             $job?->update(['result' => ['step' => 'content']]);
             $content = $gemini->generate($b, $sector, $cfg['label'], $notes, (string) ($cfg['brief'] ?? ''));
             // Image par service : l'IA désigne la photo (1..N) qui illustre chaque prestation
@@ -88,11 +90,14 @@ class GenerateSiteJob implements ShouldQueue
             ]);
             $this->site->update(['site_data' => $siteData, 'modules' => $modules]);
 
+            $tContent = round(microtime(true) - $t0 - $tPhotos, 1);
+            $job?->update(['result' => ['step' => 'render']]);
             $renderer = app(SiteRenderer::class);
             $html = $renderer->html($this->site->fresh());
             $renderer->write($this->site->slug, $html);
 
             // Généré et visible comme aperçu (statut 'preview') ; devient 'paid' après achat.
+            \Illuminate\Support\Facades\Log::info(sprintf('Génération %s : photos %.1fs · contenu %.1fs · total %.1fs', $this->site->slug, $tPhotos, $tContent, microtime(true) - $t0));
             $this->site->update([
                 'status'        => 'preview',
                 'html_content'  => $html,
@@ -104,7 +109,7 @@ class GenerateSiteJob implements ShouldQueue
             $job?->update([
                 'status' => 'completed',
                 'completed_at' => now(),
-                'result' => ['bytes' => strlen($html), 'url' => 'https://'.$this->site->slug.'.joow.fr'],
+                'result' => ['bytes' => strlen($html), 'url' => 'https://'.$this->site->slug.'.joow.fr', 'timing' => ['photos' => $tPhotos, 'content' => $tContent, 'total' => round(microtime(true) - $t0, 1)]],
             ]);
         } catch (\Throwable $e) {
             // Dernière tentative épuisée => statut 'failed' (évite un site 'preview' cassé).

@@ -29,11 +29,21 @@ class Gemini
      * @param  array  $body  contents + generationConfig
      * @return Response|null  dernière réponse (réussie ou non), null si aucune requête n'a abouti
      */
-    public static function generate(array $body, int $timeout = 60, string $context = 'gemini'): ?Response
+    public static function generate(array $body, int $timeout = 60, string $context = 'gemini', bool $fast = false): ?Response
     {
         $key = (string) config('services.gemini.key');
         $last = null;
-        foreach (self::candidates($key) as $i => $model) {
+        $models = self::candidates($key);
+        if ($fast) {
+            // Tâches simples (classification, lecture de photos) : les modèles « lite », plus rapides, d'abord
+            usort($models, fn ($a, $b) => (int) str_contains($b, 'lite') <=> (int) str_contains($a, 'lite'));
+        }
+        // Un modèle saturé il y a moins de 2 minutes est passé en fin de liste (on évite d'attendre son 503)
+        $models = array_merge(
+            array_values(array_filter($models, fn ($m) => ! Cache::has("joow:gemini:down:$m"))),
+            array_values(array_filter($models, fn ($m) => Cache::has("joow:gemini:down:$m")))
+        );
+        foreach ($models as $i => $model) {
             $res = self::call($key, $model, $body, $timeout, $context);
             // 400 « invalid argument » : certains modèles refusent thinkingConfig → on réessaie sans
             if ($res && $res->status() === 400 && isset($body['generationConfig']['thinkingConfig'])) {
@@ -54,7 +64,8 @@ class Gemini
             }
             Log::warning("$context : $model HTTP {$res->status()} ".str($res->json('error.message') ?? '')->limit(160));
             if (in_array($res->status(), [429, 500, 503], true)) {
-                usleep(600_000); // saturation / quota : courte pause avant le modèle suivant
+                Cache::put("joow:gemini:down:$model", true, now()->addMinutes(2));
+                usleep(300_000); // saturation / quota : courte pause avant le modèle suivant
             }
             if ($res->status() === 403 || $res->status() === 401) {
                 return $res; // clé invalide : inutile d'insister

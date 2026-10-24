@@ -100,7 +100,7 @@ TXT;
             $res = Gemini::generate([
                 'contents' => [['parts' => [['text' => $prompt]]]],
                 'generationConfig' => ['temperature' => 0.1, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 64, 'thinkingConfig' => ['thinkingBudget' => 0]],
-            ], 20, 'SectorDetector');
+            ], 20, 'SectorDetector', fast: true);
             $key = data_get(json_decode(Gemini::text($res), true), 'sector');
 
             return is_string($key) && in_array($key, $keys, true) ? $key : null;

@@ -32,11 +32,7 @@ class PhotoCurator
         // Téléchargement en basse définition (analyse), limité en taille et en temps
         $parts = [];
         $kept = [];
-        foreach ($photos as $i => $url) {
-            $bytes = $this->download($url);
-            if ($bytes === null) {
-                continue;
-            }
+        foreach ($this->downloadAll($photos) as $url => $bytes) {
             $kept[] = $url;
             $parts[] = ['text' => 'Photo #'.count($kept)];
             $parts[] = ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($bytes)]];
@@ -56,7 +52,7 @@ TXT];
         $res = Gemini::generate([
             'contents' => [['parts' => $parts]],
             'generationConfig' => ['temperature' => 0.2, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 2048, 'thinkingConfig' => ['thinkingBudget' => 0]],
-        ], 60, 'PhotoCurator');
+        ], 45, 'PhotoCurator', fast: true);
         $data = json_decode(Gemini::text($res), true);
         $rows = is_array($data['photos'] ?? null) ? $data['photos'] : [];
         if (! $rows) {
@@ -169,26 +165,34 @@ TXT];
         ];
     }
 
-    /** Télécharge une version réduite (≈ 800 px) : les URL Places acceptent maxWidthPx, Unsplash w=. */
-    private function download(string $url): ?string
+    /**
+     * Télécharge toutes les photos en parallèle, en version réduite (≈ 640 px, suffisant pour l'analyse) :
+     * les URL Places acceptent maxWidthPx, Unsplash w=. Renvoie [url => octets] dans l'ordre d'origine.
+     */
+    private function downloadAll(array $urls): array
     {
-        $small = preg_replace('/maxWidthPx=\d+/', 'maxWidthPx=800', $url);
-        $small = preg_replace('/([?&])w=\d+/', '$1w=800', $small);
+        $small = fn (string $u) => preg_replace('/([?&])w=\d+/', '$1w=640', preg_replace('/maxWidthPx=\d+/', 'maxWidthPx=640', $u));
         try {
-            $res = Http::timeout(12)->withOptions(['allow_redirects' => true])->get($small);
-            if (! $res->successful() || strlen($res->body()) < 2_000 || strlen($res->body()) > 4_000_000) {
-                return null;
-            }
-            $type = strtolower((string) $res->header('Content-Type'));
-            if ($type && ! str_contains($type, 'image/')) {
-                return null;
-            }
-
-            return $res->body();
+            $responses = Http::pool(fn ($pool) => array_map(fn ($u) => $pool->as($u)->timeout(12)->withOptions(['allow_redirects' => true])->get($small($u)), $urls));
         } catch (\Throwable $e) {
-            Log::info('PhotoCurator : téléchargement impossible '.$e->getMessage());
+            Log::info('PhotoCurator : téléchargement groupé impossible '.$e->getMessage());
 
-            return null;
+            return [];
         }
+        $out = [];
+        foreach ($urls as $u) {
+            $res = $responses[$u] ?? null;
+            if (! $res instanceof \Illuminate\Http\Client\Response || ! $res->successful()) {
+                continue;
+            }
+            $body = $res->body();
+            $type = strtolower((string) $res->header('Content-Type'));
+            if (strlen($body) < 2_000 || strlen($body) > 4_000_000 || ($type && ! str_contains($type, 'image/'))) {
+                continue;
+            }
+            $out[$u] = $body;
+        }
+
+        return $out;
     }
 }

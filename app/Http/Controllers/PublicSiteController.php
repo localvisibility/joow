@@ -103,9 +103,11 @@ class PublicSiteController extends Controller
     public function status(string $slug)
     {
         $site = Site::where('slug', $slug)->firstOrFail(['status', 'slug']);
+        $step = GenerationJob::where('site_slug', $slug)->latest('id')->value('result')['step'] ?? null;
 
         return response()->json([
             'status'   => $site->status,
+            'step'     => $step,
             'ready'    => in_array($site->status, ['preview', 'paid', 'published'], true),
             'failed'   => $site->status === 'failed',
             'live_url' => 'https://'.$site->slug.'.joow.fr',
