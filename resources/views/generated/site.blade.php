@@ -265,8 +265,11 @@ main{display:flex;flex-direction:column}
 .theme-dark .svc{background:#12121a;border-color:rgba(255,255,255,.08)}.theme-dark .svc-num{color:rgba(255,255,255,.06)}
 .theme-dark .rev{background:#12121a;border-color:rgba(255,255,255,.08)}
 /* ── Formulaire multi-étapes ── */
-.jw-progress{display:flex;gap:.5rem}
+#joow-wizard{min-width:0;max-width:100%}
+.jw-progress{display:flex;gap:.5rem;min-width:0}
 .jw-pstep{flex:1;display:flex;align-items:center;gap:.5rem;min-width:0;opacity:.45;transition:opacity .3s}
+/* Mobile : seul le titre de l'étape en cours est affiché, les autres ne gardent que leur numéro */
+@media(max-width:639px){.jw-pstep:not(.active){flex:0 0 auto}.jw-pstep:not(.active) .jw-ptitle{display:none}}
 .jw-pstep.active{opacity:1}
 .jw-pnum{display:grid;place-items:center;width:1.6rem;height:1.6rem;border-radius:9999px;font-size:.75rem;font-weight:800;background:#e2e8f0;color:#334155;flex-shrink:0;transition:.3s}
 .jw-pstep.active .jw-pnum{background:var(--grad);color:#fff;box-shadow:0 8px 20px -8px color-mix(in srgb,var(--c) 70%,transparent)}
