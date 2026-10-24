@@ -30,19 +30,13 @@ class GeminiContent
             : "PHOTOS : aucune photo exploitable sur la fiche ; des visuels d'illustration du métier seront utilisés. N'évoque donc aucun détail visuel précis (couleur des murs, plat, véhicule…).";
         $briefBlock = $brief !== '' ? "BRIEF MÉTIER (à respecter) :\n{$brief}\n" : '';
         $brand = $business['name'];
+        $sourceBlock = $this->sourceBlock($business, $sectorLabel, $primary, $types, $hours, $reviews);
 
         $prompt = <<<TXT
 Tu es directeur de création et rédacteur web senior. Tu écris le site vitrine de « {$brand} », {$sectorLabel} à {$city}, en français.
 Objectif : un site qui donne envie, crédible, spécifique à CET établissement (pas un texte générique réutilisable pour un concurrent), orienté vers l'action (réserver, appeler, demander un devis).
 
-FICHE GOOGLE
-- Nom : {$brand}
-- Type principal : {$primary} · types : {$types}
-- Adresse : {$business['address']}
-- Note : {$business['rating']}/5 ({$business['reviews_count']} avis)
-- Horaires : {$hours}
-- Avis clients (matière première : réutilise les mots des clients, les détails concrets, jamais de citation inventée) :
-{$reviews}
+{$sourceBlock}
 
 {$photoBlock}
 
@@ -61,9 +55,9 @@ Réponds UNIQUEMENT avec ce JSON (toutes les clés, valeurs en français) :
   "tagline": "surtitre 2-5 mots (spécialité ou promesse)",
   "about_tag": "surtitre de la section à propos (2-4 mots)",
   "about_title": "titre à propos (≤ 8 mots), lié à la photo « à propos »",
-  "about_p1": "présentation concrète : qui, quoi, depuis quand si les avis le disent, ce qui fait la différence",
-  "about_p2": "méthode / engagement / expérience client, en lien avec les avis",
-  "badges": ["4 points forts de 2-3 mots, issus des avis ou du métier"],
+  "about_p1": "présentation concrète : qui, quoi, depuis quand si les informations le disent, ce qui fait la différence",
+  "about_p2": "méthode / engagement / expérience client, en lien avec les avis ou les informations fournies",
+  "badges": ["4 points forts de 2-3 mots, issus des avis, des informations fournies ou du métier"],
   "stats": [{"v": "valeur courte réelle ou qualitative", "l": "libellé 2-3 mots"}, {"v": "...", "l": "..."}, {"v": "...", "l": "..."}],
   "services_tag": "surtitre services (2-3 mots)",
   "services_title": "titre services (≤ 7 mots)",
@@ -97,6 +91,35 @@ TXT;
         } catch (\Throwable) {
             return $fallback;
         }
+    }
+
+    /** Bloc « matière première » du prompt, selon l'origine des informations. */
+    private function sourceBlock(array $b, string $sectorLabel, string $primary, string $types, string $hours, string $reviews): string
+    {
+        $owner = (array) ($b['owner'] ?? []);
+        $ownerLines = array_filter([
+            ! empty($owner['description']) ? '- Présentation par le propriétaire : '.Str::limit($owner['description'], 600) : null,
+            ! empty($owner['services']) ? '- Prestations déclarées (à reprendre telles quelles, complète jusqu\'à 6 si pertinent) : '.implode(' ; ', array_slice($owner['services'], 0, 10)) : null,
+            ! empty($owner['strengths']) ? '- Points forts déclarés : '.implode(' ; ', array_slice($owner['strengths'], 0, 8)) : null,
+            ! empty($owner['since']) ? '- Activité depuis : '.$owner['since'] : null,
+            ! empty($owner['zone']) ? '- Zone d\'intervention : '.$owner['zone'] : null,
+            ! empty($owner['hours']) ? '- Horaires indiqués : '.$owner['hours'] : null,
+        ]);
+        $ownerBlock = $ownerLines ? "\nINFORMATIONS DONNÉES PAR LE PROPRIÉTAIRE (source de vérité, prioritaire) :\n".implode("\n", $ownerLines) : '';
+        $noReviews = "\n- Aucun avis ni note Google : n'invente AUCUN avis, aucune note, aucun nombre d'avis ; « stats » = faits qualitatifs ou issus des informations ci-dessus (ex : « Devis gratuit », « 7j/7 », année de création).";
+
+        if (($b['source'] ?? 'google') === 'questionnaire') {
+            return "ENTREPRISE (décrite par son propriétaire, pas de fiche Google)\n- Nom : {$b['name']}\n- Métier : ".($b['primary_type'] ?: $sectorLabel)."\n- Adresse / ville : {$b['address']}\n- Horaires : {$hours}{$noReviews}{$ownerBlock}";
+        }
+
+        if (($b['source'] ?? 'google') === 'refonte') {
+            $pages = collect($b['existing']['pages'] ?? [])->map(fn ($p) => '### '.($p['title'] ?? $p['url'] ?? 'Page')."\n".Str::limit(trim((string) ($p['text'] ?? '')), 1800))->take(8)->implode("\n\n");
+            $gl = ! empty($b['rating']) ? "- Note Google : {$b['rating']}/5 ({$b['reviews_count']} avis)\n- Avis clients (réutilise les mots des clients, jamais de citation inventée) :\n{$reviews}" : rtrim($noReviews, '.').'.';
+
+            return "REFONTE DU SITE EXISTANT ({$b['website']})\n- Nom : {$b['name']}\n- Métier : ".($b['primary_type'] ?: $sectorLabel)." · types : {$types}\n- Adresse : {$b['address']}\n- Horaires : {$hours}\n{$gl}{$ownerBlock}\n\nCONTENU ACTUEL DU SITE (matière première : conserve tous les faits — prestations, prix, noms, chiffres, histoire, zone — et réécris-les en mieux ; n'ajoute aucun fait absent) :\n{$pages}";
+        }
+
+        return "FICHE GOOGLE\n- Nom : {$b['name']}\n- Type principal : {$primary} · types : {$types}\n- Adresse : {$b['address']}\n- Note : {$b['rating']}/5 ({$b['reviews_count']} avis)\n- Horaires : {$hours}\n- Avis clients (matière première : réutilise les mots des clients, les détails concrets, jamais de citation inventée) :\n{$reviews}{$ownerBlock}";
     }
 
     private function fallback(array $business, string $sectorLabel): array

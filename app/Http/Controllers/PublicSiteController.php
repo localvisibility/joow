@@ -95,7 +95,7 @@ class PublicSiteController extends Controller
         $ttl = (int) config('services.preview_ttl_days', 7);
 
         return Inertia::render('Public/Site', [
-            'site' => $site->only(['slug', 'name', 'city', 'sector', 'status', 'rating', 'reviews_count', 'preview_url']),
+            'site' => $site->only(['slug', 'name', 'city', 'sector', 'status', 'rating', 'reviews_count', 'preview_url', 'source']),
             // Email saisi à la génération : pré-rempli dans le tunnel de paiement
             'email' => $site->owner_email ?: ($request->user()?->email),
             // Accès au Studio : créateur de la session, propriétaire connecté ou admin
@@ -104,6 +104,8 @@ class PublicSiteController extends Controller
             'has_email' => (bool) ($site->owner_email || $site->user_id),
             // Sans email, l'aperçu expire : nombre de jours restants
             'expires_in_days' => max(0, $ttl - (int) $site->created_at->diffInDays(now())),
+            // Refonte : adresse de l'ancien site pour le comparatif avant / après
+            'old_url' => $site->source === 'refonte' ? ($site->site_data['import']['url'] ?? null) : null,
         ]);
     }
 
@@ -115,7 +117,7 @@ class PublicSiteController extends Controller
         return response()->json([
             'status'   => $site->status,
             'step'     => $progress['step'] ?? null,
-            'progress' => \Illuminate\Support\Arr::only($progress, ['step', 'name', 'city', 'rating', 'reviews_count', 'sector', 'color', 'font', 'photos', 'photo_notes', 'hero', 'hero_title', 'tagline', 'services', 'timing']),
+            'progress' => \Illuminate\Support\Arr::only($progress, ['step', 'source', 'name', 'city', 'rating', 'reviews_count', 'sector', 'color', 'font', 'photos', 'photo_notes', 'hero', 'hero_title', 'tagline', 'services', 'pages', 'timing']),
             'ready'    => in_array($site->status, ['preview', 'paid', 'published'], true),
             'failed'   => $site->status === 'failed',
             'live_url' => 'https://'.$site->slug.'.joow.fr',

@@ -17,19 +17,31 @@ const selected = ref(null);
 const searching = ref(false);
 let debounce = null;
 
+// Adresse d'un site existant collée dans le champ → parcours « refonte »
+const URL_RE = /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i;
+const siteUrl = computed(() => { const v = q.value.trim(); return !selected.value && URL_RE.test(v) && !/\s/.test(v) ? v : ''; });
+const siteHost = computed(() => siteUrl.value.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0]);
+const redesign = useForm({ url: '', email: '' });
+const startRedesign = () => { redesign.url = siteUrl.value; redesign.email = form.email; redesign.post(route('redesign.start')); };
+// Aucun résultat après recherche : on propose le questionnaire
+const noResult = ref(false);
+const intakeUrl = computed(() => route('intake.create', { q: q.value.trim(), email: form.email || undefined }));
+
 watch(q, (val) => {
     if (selected.value && val === selected.value.main) return;
     selected.value = null;
     form.query = '';
+    noResult.value = false;
     clearTimeout(debounce);
-    if (val.trim().length < 3) { results.value = []; open.value = false; return; }
+    if (val.trim().length < 3 || URL_RE.test(val.trim())) { results.value = []; open.value = false; return; }
     searching.value = true;
     debounce = setTimeout(async () => {
         try {
             const r = await fetch(route('public.search', { q: val }), { headers: { Accept: 'application/json' } });
             const d = await r.json();
             results.value = d.results || [];
-            open.value = results.value.length > 0;
+            open.value = true;
+            noResult.value = results.value.length === 0;
         } catch (e) { results.value = []; }
         finally { searching.value = false; }
     }, 300);
@@ -274,12 +286,26 @@ onUnmounted(() => {
                                 <input id="search-input" v-model="q" type="text" autocomplete="off" class="field !rounded-2xl !border-white/20 !bg-white/[0.06] !py-4 pl-12 pr-32 text-base text-white" :placeholder="twStopped || focused ? 'Nom de votre établissement…' : ''" @focus="focused = true; stopTypewriter(); open = results.length > 0" @blur="focused = false" @input="stopTypewriter" />
                                 <button type="button" @click="q.trim().length >= 3 ? null : scrollToSearch()" class="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white sm:block">Rechercher</button>
                                 <div v-if="searching" class="absolute right-28 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-white/20 border-t-brand-500"></div>
-                                <div v-if="open" class="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 text-left shadow-2xl">
+                                <div v-if="open && !siteUrl" class="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 text-left shadow-2xl">
                                     <button v-for="r in results" :key="r.place_id" type="button" @click="pick(r)" class="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/5">
                                         <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5 text-slate-400"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path :d="icons.pin"/></svg></span>
                                         <span class="min-w-0"><span class="block truncate font-semibold text-white">{{ r.main }}</span><span class="block truncate text-xs text-slate-500">{{ r.secondary }}</span></span>
                                     </button>
+                                    <p v-if="noResult" class="px-4 pt-3 text-xs text-slate-400">Aucune fiche Google ne correspond à « {{ q }} ».</p>
+                                    <!-- Dernière ligne : pas de fiche Google → questionnaire -->
+                                    <Link :href="intakeUrl" class="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left transition hover:bg-white/5" :class="noResult ? 'bg-brand-500/10' : ''">
+                                        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-gradient text-sm text-white">✎</span>
+                                        <span class="min-w-0"><span class="block font-semibold text-white">Je n'ai pas de fiche Google</span><span class="block text-xs text-slate-400">Créer mon site en 5 questions · 1 minute</span></span>
+                                        <span class="ml-auto shrink-0 text-slate-400">→</span>
+                                    </Link>
                                 </div>
+                            </div>
+                            <!-- URL collée : refonte du site existant -->
+                            <div v-if="siteUrl" class="glass mt-3 rounded-2xl border-brand-500/30 p-4 text-left">
+                                <p class="flex items-center gap-2 text-sm font-semibold text-white"><span class="grid h-7 w-7 place-items-center rounded-lg bg-brand-gradient text-xs">↻</span> Refaire le site <span class="truncate text-brand-300">{{ siteHost }}</span></p>
+                                <p class="mt-1.5 text-xs text-slate-400">L'IA lit vos pages, garde vos textes, prix et photos, retrouve votre fiche Google et reconstruit un site moderne. Vous comparez avant / après.</p>
+                                <button type="button" @click="startRedesign" :disabled="redesign.processing" class="btn-brand mt-3 w-full !py-3 text-sm disabled:opacity-60">{{ redesign.processing ? 'Analyse…' : 'Analyser et refaire mon site →' }}</button>
+                                <p v-if="redesign.errors.url" class="mt-2 text-xs text-rose-300">{{ redesign.errors.url }}</p>
                             </div>
                             <div v-if="selected" class="glass flex items-center gap-3 rounded-2xl border-emerald-400/20 bg-emerald-500/[0.06] p-4 text-left">
                                 <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-300"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path :d="icons.check"/></svg></span>
@@ -295,6 +321,11 @@ onUnmounted(() => {
                             </div>
                             <p class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-slate-500 lg:justify-start">
                                 <span>✓ Gratuit</span><span>✓ Sans carte bancaire</span><span>✓ Aperçu immédiat</span><span>✓ Modifiable en 2 clics</span>
+                            </p>
+                            <p v-if="!selected" class="mt-3 text-center text-xs text-slate-500 lg:text-left">
+                                <Link :href="intakeUrl" class="font-semibold text-slate-400 underline-offset-2 hover:text-white hover:underline">Pas de fiche Google ?</Link>
+                                <span class="mx-2 text-slate-700">·</span>
+                                <span>Vous avez déjà un site ? Collez son adresse ci-dessus pour une refonte.</span>
                             </p>
                         </form>
 

@@ -4,7 +4,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
 import GenerationShow from '@/Components/GenerationShow.vue';
 
-const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false }, has_email: { type: Boolean, default: false }, expires_in_days: { type: Number, default: 7 } });
+const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false }, has_email: { type: Boolean, default: false }, expires_in_days: { type: Number, default: 7 }, old_url: { type: String, default: null } });
+const oldHost = computed(() => (props.old_url || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, ''));
 
 // ── Email : indispensable pour retrouver le site et ouvrir le Studio ──
 const hasEmail = ref(props.has_email);
@@ -121,7 +122,13 @@ onUnmounted(() => timer && clearInterval(timer));
             <div class="mb-8 text-center">
                 <p class="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">🎉 Votre site est prêt</p>
                 <h1 class="font-display text-3xl font-bold text-white sm:text-4xl">{{ site.name }}</h1>
-                <p class="mt-2 text-slate-400">Voici l'aperçu de votre site. Personnalisez-le gratuitement dans le Studio, puis mettez-le en ligne quand il est parfait.</p>
+                <p class="mt-2 text-slate-400">{{ old_url ? 'Voici votre nouveau site, reconstruit à partir de votre site actuel : textes réécrits, photos conservées, pages reprises.' : 'Voici l\'aperçu de votre site. Personnalisez-le gratuitement dans le Studio, puis mettez-le en ligne quand il est parfait.' }}</p>
+                <!-- Refonte : avant / après -->
+                <div v-if="old_url" class="mx-auto mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-xs">
+                    <span class="text-slate-500">Avant</span><a :href="old_url" target="_blank" rel="noopener nofollow" class="font-semibold text-slate-300 line-through decoration-rose-400/70 hover:text-white">{{ oldHost }}</a>
+                    <span class="text-slate-600">→</span>
+                    <span class="text-slate-500">Après</span><a :href="liveUrl" target="_blank" rel="noopener" class="font-semibold text-emerald-300 hover:text-white">{{ site.slug }}.joow.fr</a>
+                </div>
                 <!-- Studio accessible : email déjà rattaché -->
                 <template v-if="can_edit && hasEmail">
                     <div class="mt-6 flex flex-wrap items-center justify-center gap-3">

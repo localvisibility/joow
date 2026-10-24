@@ -54,7 +54,7 @@ const p = computed(() => props.progress || {});
 
 const scripted = [ // [secondes écoulées min, étape requise ou null, clé, texte]
     [0, null, 'boot', 'Initialisation du moteur Joow · modèle multimodal chargé'],
-    [1.2, null, 'gbp', 'Connexion à la fiche Google Business Profile…'],
+    [1.2, null, 'gbp', { google: 'Connexion à la fiche Google Business Profile…', questionnaire: 'Lecture de vos réponses : métier, prestations, points forts…', refonte: 'Lecture de votre site actuel : pages, textes, images…' }],
     [9, 'photos', 'vision', 'Analyse visuelle des photos : cadrage, lumière, sujet, qualité…'],
     [20, 'photos', 'roles', 'Attribution des rôles : visuel principal, portrait, services, galerie'],
     [1, 'content', 'brief', 'Brief métier appliqué · ton, services typiques, règles du secteur'],
@@ -71,14 +71,17 @@ let scriptTimer = null;
 const runScript = () => {
     const step = currentStep.value;
     const sinceStep = (Date.now() - stepStartedAt.value) / 1000;
+    const src = p.value.source || props.site?.source || 'google';
+    const srcKey = src === 'questionnaire' ? 'questionnaire' : (src === 'refonte' ? 'refonte' : 'google');
     for (const [at, req, key, text] of scripted) {
-        if (req === null ? elapsed.value >= at : (step === req && sinceStep >= at)) say(key, text);
+        if (req === null ? elapsed.value >= at : (step === req && sinceStep >= at)) say(key, typeof text === 'string' ? text : text[srcKey]);
     }
     const d = p.value;
-    if (d.name) say('found', `Fiche trouvée : ${d.name}${d.city ? ' · ' + d.city : ''}`, 'ok');
+    if (d.name) say('found', (srcKey === 'google' ? 'Fiche trouvée : ' : (srcKey === 'refonte' ? 'Site analysé : ' : 'Entreprise : ')) + `${d.name}${d.city ? ' · ' + d.city : ''}`, 'ok');
     if (d.reviews_count) say('reviews', `Lecture de ${fmt(d.reviews_count)} avis clients · note ${d.rating ?? '—'}/5`, 'ok');
     if (d.sector) say('sector', `Métier identifié : ${d.sector} → modèle « ${d.sector} » chargé`, 'ok');
-    if (d.photos?.length) say('photos', `${d.photos.length} photos récupérées sur la fiche`, 'ok');
+    if (d.photos?.length) say('photos', srcKey === 'google' ? `${d.photos.length} photos récupérées sur la fiche` : (srcKey === 'refonte' ? `${d.photos.length} images récupérées sur votre site` : `${d.photos.length} photos reçues`), 'ok');
+    if (d.step && d.step !== 'lookup' && !d.photos?.length && srcKey !== 'google') say('stock', 'Aucune photo fournie : sélection de visuels professionnels du métier', 'ok');
     (d.photo_notes || []).forEach((n, i) => { if (n.description) say('note' + i, `Photo ${i + 1} · ${n.category} · ${n.description}`); });
     if (d.hero) say('hero', 'Visuel principal sélectionné pour le haut de page', 'ok');
     if (d.hero_title) say('title', `Accroche : « ${d.hero_title} »`, 'ok');
@@ -128,7 +131,7 @@ onUnmounted(() => { cancelAnimationFrame(raf); clearInterval(scriptTimer); clear
                 <div class="gen-bar h-full rounded-full" :style="{ width: pct + '%' }"></div>
             </div>
             <div class="mx-auto mt-3 grid max-w-2xl grid-cols-4 gap-2 text-[11px] font-semibold uppercase tracking-wider">
-                <span v-for="(s, i) in [['lookup','Fiche Google'],['photos','Photos'],['content','Rédaction'],['render','Mise en ligne']]" :key="s[0]" :class="PLAN.findIndex(x=>x[0]===currentStep) > i || ready ? 'text-emerald-300' : (currentStep===s[0] ? 'text-white' : 'text-slate-600')">
+                <span v-for="(s, i) in [['lookup', (site.source === 'questionnaire' ? 'Vos infos' : (site.source === 'refonte' ? 'Votre site' : 'Fiche Google'))],['photos','Photos'],['content','Rédaction'],['render','Mise en ligne']]" :key="s[0]" :class="PLAN.findIndex(x=>x[0]===currentStep) > i || ready ? 'text-emerald-300' : (currentStep===s[0] ? 'text-white' : 'text-slate-600')">
                     <span v-if="PLAN.findIndex(x=>x[0]===currentStep) > i || ready">✓ </span><span v-else-if="currentStep===s[0]" class="animate-pulse">◐ </span>{{ s[1] }}
                 </span>
             </div>
@@ -197,7 +200,7 @@ onUnmounted(() => { cancelAnimationFrame(raf); clearInterval(scriptTimer); clear
                     <div class="mx-3 mb-3 rounded-xl p-3 text-center text-[11px] font-semibold" :class="built.render ? 'text-white' : 'gen-shimmer text-transparent'" :style="built.render ? { background: `linear-gradient(135deg, ${accent}, #7c3aed)` } : {}">{{ built.render ? (p.sector ? `${p.sector} · ${p.city || ''}` : 'Mise en ligne…') : '…' }}</div>
                     <div v-if="ready" class="absolute inset-0 grid place-items-center bg-ink-950/70 backdrop-blur-sm"><span class="rounded-full bg-emerald-500/20 px-4 py-2 text-sm font-semibold text-emerald-200">✓ Aperçu généré</span></div>
                 </div>
-                <p class="mt-3 px-1 text-center text-[11px] text-slate-500">{{ built.render ? 'Dernières optimisations avant affichage…' : 'Le site se construit en direct à partir de votre fiche et de vos photos.' }}</p>
+                <p class="mt-3 px-1 text-center text-[11px] text-slate-500">{{ built.render ? 'Dernières optimisations avant affichage…' : (site.source === 'questionnaire' ? 'Le site se construit en direct à partir de vos réponses.' : (site.source === 'refonte' ? 'Le site se construit en direct à partir de votre site actuel.' : 'Le site se construit en direct à partir de votre fiche et de vos photos.')) }}</p>
             </div>
         </div>
     </section>

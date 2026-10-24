@@ -83,6 +83,7 @@ class SectorDetector
             'Type principal Google' => $context['primary_type'] ?? null,
             'Types Google' => implode(', ', $types),
             'Adresse' => $context['address'] ?? null,
+            'Description' => isset($context['description']) ? Str::limit((string) $context['description'], 400) : null,
             'Extraits d\'avis' => collect($context['reviews'] ?? [])->take(3)->map(fn ($r) => Str::limit((string) ($r['text'] ?? ''), 160))->implode(' | '),
         ])->filter()->map(fn ($v, $k) => "$k : $v")->implode("\n");
 

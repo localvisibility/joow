@@ -353,6 +353,62 @@ class SiteEditorController extends Controller
         return back();
     }
 
+    /**
+     * Rattache une fiche Google à un site créé sans (questionnaire, refonte) : note, avis, photos,
+     * horaires et coordonnées manquantes sont repris, le contenu rédigé est conservé, le site republié.
+     */
+    public function attachGoogle(Request $request, string $slug, \App\Services\GooglePlaces $places, SiteRenderer $renderer)
+    {
+        $site = $this->ownedSite($request, $slug);
+        $data = $request->validate(['place_id' => ['required', 'string', 'max:200']]);
+
+        $g = $places->lookup($data['place_id']);
+        if (! $g) {
+            return response()->json(['message' => 'Fiche Google introuvable.'], 422);
+        }
+
+        $d = $site->site_data ?? [];
+        $b = $d['business'] ?? [];
+        $merged = array_merge($b, [
+            'place_id'      => $g['place_id'],
+            'rating'        => $g['rating'],
+            'reviews_count' => $g['reviews_count'],
+            'reviews'       => $g['reviews'],
+            'maps_url'      => $g['maps_url'],
+            'lat'           => $g['lat'],
+            'lng'           => $g['lng'],
+            'types'         => $g['types'],
+            'primary_type'  => $b['primary_type'] ?? $g['primary_type'],
+            'photos'        => array_values(array_unique(array_merge((array) ($b['photos'] ?? []), $g['photos']))),
+            'opening_hours' => ! empty($b['opening_hours']) ? $b['opening_hours'] : $g['opening_hours'],
+            'phone'         => $b['phone'] ?? $g['phone'],
+            'address'       => ! empty($b['address']) && $b['address'] !== ($b['city'] ?? null) ? $b['address'] : $g['address'],
+            'city'          => $b['city'] ?? $g['city'],
+            'website'       => $b['website'] ?? $g['website'],
+        ]);
+        // Le module « avis » s'active si des avis arrivent
+        $modules = $site->modules ?: [];
+        if ($g['reviews'] && array_key_exists('reviews', $modules) && ! $modules['reviews']) {
+            $modules['reviews'] = true;
+        }
+        $site->update([
+            'place_id'      => $g['place_id'],
+            'rating'        => $g['rating'],
+            'reviews_count' => $g['reviews_count'],
+            'maps_url'      => $g['maps_url'],
+            'lat'           => $g['lat'],
+            'lng'           => $g['lng'],
+            'address'       => $merged['address'],
+            'city'          => $merged['city'],
+            'phone'         => $merged['phone'],
+            'modules'       => $modules ?: null,
+            'site_data'     => array_merge($d, ['business' => $merged]),
+        ]);
+        $renderer->publish($site->fresh());
+
+        return response()->json(['ok' => true, 'version' => now()->timestamp, 'state' => $this->stateOf($site->fresh()), 'google' => ['name' => $g['name'], 'rating' => $g['rating'], 'reviews_count' => $g['reviews_count'], 'photos' => count($g['photos'])]]);
+    }
+
     // ───────────────────────────── helpers ─────────────────────────────
 
     private function stateOf(Site $site): array

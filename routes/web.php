@@ -29,6 +29,13 @@ Route::prefix('/api/site/{slug}')->middleware('throttle:120,1')->group(function 
 Route::get('/', [PublicSiteController::class, 'landing'])->name('home');
 Route::get('/recherche', [PublicSiteController::class, 'search'])->middleware('throttle:60,1')->name('public.search');
 Route::post('/generer', [PublicSiteController::class, 'generate'])->middleware('throttle:8,1')->name('public.generate');
+// Sans fiche Google : mini-questionnaire → même génération
+Route::get('/creer', [\App\Http\Controllers\IntakeController::class, 'create'])->name('intake.create');
+Route::get('/creer/suggestions', [\App\Http\Controllers\IntakeController::class, 'suggestions'])->middleware('throttle:30,1')->name('intake.suggestions');
+Route::post('/creer/photos', [\App\Http\Controllers\IntakeController::class, 'photos'])->middleware('throttle:20,1')->name('intake.photos');
+Route::post('/creer', [\App\Http\Controllers\IntakeController::class, 'store'])->middleware('throttle:8,1')->name('intake.store');
+// Refonte d'un site existant : l'adresse suffit
+Route::post('/refonte', [\App\Http\Controllers\RedesignController::class, 'start'])->middleware('throttle:6,1')->name('redesign.start');
 Route::get('/site/{slug}', [PublicSiteController::class, 'show'])->name('public.site');
 Route::get('/site/{slug}/status', [PublicSiteController::class, 'status'])->name('public.site.status');
 Route::post('/site/{slug}/retry', [PublicSiteController::class, 'retry'])->middleware('throttle:5,1')->name('public.site.retry');
@@ -118,6 +125,7 @@ Route::prefix('/sites/{slug}/editeur')->name('sites.editor')->group(function () 
     Route::post('/module', [SiteEditorController::class, 'module'])->name('.module');
     Route::post('/accent', [SiteEditorController::class, 'accent'])->name('.accent');
     Route::post('/regenerer', [SiteEditorController::class, 'regenerate'])->middleware('throttle:5,1')->name('.regenerate');
+    Route::post('/google', [SiteEditorController::class, 'attachGoogle'])->middleware('throttle:10,1')->name('.google');
 });
 
 // ─── Nom de domaine d'un site (compte requis) ───

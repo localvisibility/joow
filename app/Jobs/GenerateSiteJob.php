@@ -4,8 +4,8 @@ namespace App\Jobs;
 
 use App\Models\GenerationJob;
 use App\Models\Site;
+use App\Services\BusinessSource;
 use App\Services\GeminiContent;
-use App\Services\GooglePlaces;
 use App\Services\PhotoCurator;
 use App\Services\SiteRenderer;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -16,7 +16,7 @@ class GenerateSiteJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout = 180;
+    public int $timeout = 240;
 
     public int $tries = 2;
 
@@ -31,29 +31,28 @@ class GenerateSiteJob implements ShouldQueue
         public ?string $jobId = null,
     ) {}
 
-    public function handle(GooglePlaces $places, GeminiContent $gemini, PhotoCurator $curator): void
+    public function handle(BusinessSource $source, GeminiContent $gemini, PhotoCurator $curator): void
     {
         $job = $this->jobId ? GenerationJob::find($this->jobId) : null;
         $job?->update(['status' => 'processing', 'started_at' => now(), 'attempts' => ($job->attempts + 1)]);
 
         try {
-            $b = $places->lookup($this->site->place_id);
-            if (! $b) {
-                throw new \RuntimeException('Fiche Google introuvable pour place_id '.$this->site->place_id);
-            }
+            // Progression détaillée : la page d'attente la lit toutes les 1,5 s (journal « en direct »)
+            $progress = fn (array $more) => $job?->update(['result' => array_merge($job->fresh()->result ?? [], $more)]);
+
+            // Fiche d'entreprise normalisée : Google, questionnaire ou site existant (refonte)
+            $b = $source->resolve($this->site, $progress);
+            $this->site->refresh();
 
             $sector = $this->site->sector ?: 'service';
             $cfg = config("sectors.$sector") ?? config('sectors.service');
             $prev = $this->site->site_data ?? [];
-
-            // Progression détaillée : la page d'attente la lit toutes les 1,5 s (journal « en direct »)
-            $progress = fn (array $more) => $job?->update(['result' => array_merge($job->fresh()->result ?? [], $more)]);
             $small = fn (string $u) => preg_replace('/maxWidthPx=\d+/', 'maxWidthPx=640', $u);
 
             // 1) Lecture des photos par l'IA : rôles (hero, à propos, services, galerie) + descriptions
             $t0 = microtime(true);
             $progress([
-                'step' => 'photos', 'name' => $b['name'], 'city' => $b['city'] ?? null, 'rating' => $b['rating'] ?? null,
+                'step' => 'photos', 'source' => $b['source'], 'name' => $b['name'], 'city' => $b['city'] ?? null, 'rating' => $b['rating'] ?? null,
                 'reviews_count' => $b['reviews_count'] ?? 0, 'sector' => $cfg['label'], 'color' => $cfg['color'], 'font' => $cfg['font'] ?? null,
                 'photos' => array_map($small, array_slice(array_values(array_filter($b['photos'] ?? [])), 0, 8)),
             ]);
@@ -88,6 +87,14 @@ class GenerateSiteJob implements ShouldQueue
                 unset($content['services'][$i]['photo']);
             }
 
+            // 2b) Refonte : les pages internes du site existant deviennent des pages Joow (une fois)
+            $pages = $prev['pages'] ?? null;
+            if ($b['source'] === 'refonte' && empty($pages) && count($b['existing']['pages'] ?? []) > 1) {
+                $progress(['substep' => 'pages']);
+                $pages = app(\App\Services\PageImporter::class)->build($b, $content, $cur['photos'], $cfg['label']);
+                $progress(['pages' => array_map(fn ($p) => $p['title'], $pages)]);
+            }
+
             // 3) Modules par défaut du métier (première génération seulement) et images choisies
             $modules = $this->site->modules ?: ($cfg['modules'] ?? ['booking' => true]);
             $images = array_filter($prev['images'] ?? []) ?: array_filter($cur['images'], fn ($v) => $v !== null && $v !== []);
@@ -100,14 +107,15 @@ class GenerateSiteJob implements ShouldQueue
                 'images'      => $images,
                 'photos_meta' => $cur['photos'],
                 'accent'      => $prev['accent'] ?? $cfg['color'],
-            ]);
+            ] + ($pages ? ['pages' => $pages] : []));
             $this->site->update(['site_data' => $siteData, 'modules' => $modules]);
 
             $tContent = round(microtime(true) - $t0 - $tPhotos, 1);
             $progress(['step' => 'render']);
             $renderer = app(SiteRenderer::class);
-            $html = $renderer->html($this->site->fresh());
-            $renderer->write($this->site->slug, $html);
+            $all = $renderer->renderAll($this->site->fresh());
+            $html = $all[''] ?? $renderer->html($this->site->fresh());
+            $renderer->writeAll($this->site->slug, $all);
 
             // Généré et visible comme aperçu (statut 'preview') ; devient 'paid' après achat.
             \Illuminate\Support\Facades\Log::info(sprintf('Génération %s : photos %.1fs · contenu %.1fs · total %.1fs', $this->site->slug, $tPhotos, $tContent, microtime(true) - $t0));
