@@ -172,15 +172,32 @@ TXT];
     private function downloadAll(array $urls): array
     {
         $small = fn (string $u) => preg_replace('/([?&])w=\d+/', '$1w=640', preg_replace('/maxWidthPx=\d+/', 'maxWidthPx=640', $u));
+
+        // Photos hébergées par Joow (téléversées ou rapatriées) : lues directement sur le disque,
+        // le worker n'a pas forcément accès à sa propre adresse publique.
+        $out = [];
+        $remote = [];
+        foreach ($urls as $u) {
+            if (preg_match('#/media/([a-z0-9-]+)/([A-Za-z0-9._-]+)$#', $u, $m) && \Illuminate\Support\Facades\Storage::disk('local')->exists("uploads/{$m[1]}/{$m[2]}")) {
+                $body = \Illuminate\Support\Facades\Storage::disk('local')->get("uploads/{$m[1]}/{$m[2]}");
+                if (strlen($body) >= 2_000 && strlen($body) <= 4_000_000) {
+                    $out[$u] = $body;
+                }
+            } else {
+                $remote[] = $u;
+            }
+        }
+        if (! $remote) {
+            return $out;
+        }
         try {
-            $responses = Http::pool(fn ($pool) => array_map(fn ($u) => $pool->as($u)->timeout(12)->withOptions(['allow_redirects' => true])->get($small($u)), $urls));
+            $responses = Http::pool(fn ($pool) => array_map(fn ($u) => $pool->as($u)->timeout(12)->withOptions(['allow_redirects' => true])->get($small($u)), $remote));
         } catch (\Throwable $e) {
             Log::info('PhotoCurator : téléchargement groupé impossible '.$e->getMessage());
 
-            return [];
+            return $out;
         }
-        $out = [];
-        foreach ($urls as $u) {
+        foreach ($remote as $u) {
             $res = $responses[$u] ?? null;
             if (! $res instanceof \Illuminate\Http\Client\Response || ! $res->successful()) {
                 continue;
