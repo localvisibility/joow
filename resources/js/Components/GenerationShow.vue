@@ -134,6 +134,9 @@ onUnmounted(() => { cancelAnimationFrame(raf); clearInterval(scriptTimer); clear
             </div>
         </div>
 
+        <!-- Capture d'email pendant l'attente (fourni par la page) -->
+        <slot name="capture" />
+
         <div class="grid gap-5 lg:grid-cols-[1.05fr,1fr]">
             <!-- Journal de l'IA -->
             <div class="glass relative overflow-hidden rounded-3xl p-5 sm:p-6">

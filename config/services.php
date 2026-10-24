@@ -43,6 +43,8 @@ return [
         'key' => env('GEMINI_API_KEY'),
     ],
     'sites_path' => env('SITES_PATH', '/var/www/sites'),
+    // Durée de vie (jours) d'un aperçu créé sans email ni compte : passé ce délai, il est supprimé automatiquement.
+    'preview_ttl_days' => (int) env('PREVIEW_TTL_DAYS', 7),
 
     // Connexion « Continuer avec Google » (Socialite). Créer un client OAuth 2.0 dans Google Cloud,
     // URI de redirection autorisée : https://app.joow.fr/auth/google/callback

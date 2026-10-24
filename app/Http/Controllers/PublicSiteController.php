@@ -6,6 +6,7 @@ use App\Jobs\GenerateSiteJob;
 use App\Models\GenerationJob;
 use App\Models\Site;
 use App\Services\GooglePlaces;
+use App\Services\Notifier;
 use App\Services\SectorDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -91,12 +92,18 @@ class PublicSiteController extends Controller
     {
         $site = Site::where('slug', $slug)->firstOrFail();
 
+        $ttl = (int) config('services.preview_ttl_days', 7);
+
         return Inertia::render('Public/Site', [
             'site' => $site->only(['slug', 'name', 'city', 'sector', 'status', 'rating', 'reviews_count', 'preview_url']),
             // Email saisi à la génération : pré-rempli dans le tunnel de paiement
             'email' => $site->owner_email ?: ($request->user()?->email),
             // Accès au Studio : créateur de la session, propriétaire connecté ou admin
             'can_edit' => $site->editableBy($request->user(), $request->session()->get('joow_sites', [])),
+            // Le Studio est réservé aux sites rattachés à un email (ou à un compte)
+            'has_email' => (bool) ($site->owner_email || $site->user_id),
+            // Sans email, l'aperçu expire : nombre de jours restants
+            'expires_in_days' => max(0, $ttl - (int) $site->created_at->diffInDays(now())),
         ]);
     }
 
@@ -113,6 +120,38 @@ class PublicSiteController extends Controller
             'failed'   => $site->status === 'failed',
             'live_url' => 'https://'.$site->slug.'.joow.fr',
         ]);
+    }
+
+    /**
+     * Rattache un email au site (pendant ou après la génération) : il sert à retrouver le site
+     * et conditionne l'accès au Studio. Le lien privé part tout de suite si le site est prêt,
+     * sinon à la fin de la génération.
+     */
+    public function email(Request $request, string $slug, Notifier $notifier)
+    {
+        $site = Site::where('slug', $slug)->firstOrFail();
+        $data = $request->validate(['email' => ['required', 'email:rfc', 'max:190']]);
+        $guest = $request->session()->get('joow_sites', []);
+
+        abort_unless($site->editableBy($request->user(), $guest), 403);
+
+        if ($site->user_id && $site->user && strtolower($site->user->email) !== strtolower($data['email'])) {
+            return response()->json(['message' => 'Ce site est déjà rattaché à un compte.'], 422);
+        }
+        if (! $site->user_id) {
+            $site->update(['owner_email' => $data['email']]);
+        }
+
+        $ready = in_array($site->status, ['preview', 'paid', 'published'], true);
+        if ($ready) {
+            try {
+                $notifier->editLink($site, $data['email']);
+            } catch (\Throwable) {
+                // l'envoi ne doit pas bloquer l'enregistrement
+            }
+        }
+
+        return response()->json(['ok' => true, 'sent' => $ready, 'studio' => route('sites.editor', $slug)]);
     }
 
     /** Relance la génération d'un site en échec. */

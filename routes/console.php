@@ -42,6 +42,8 @@ Artisan::command('modules:reservation-reminders', function (\App\Services\Notifi
 })->purpose('Envoie les rappels de réservation de la veille');
 
 Schedule::command('modules:ical-sync')->hourly();
+// Aperçus créés sans email : supprimés passé le délai de conservation
+Schedule::command('sites:purge-previews')->dailyAt('04:10');
 Schedule::command('modules:reservation-reminders')->dailyAt('18:00');
 // Domaines personnalisés : DNS, certificats (agent hôte), export
 Schedule::command('domains:sync')->everyMinute()->withoutOverlapping();

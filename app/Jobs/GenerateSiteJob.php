@@ -119,6 +119,15 @@ class GenerateSiteJob implements ShouldQueue
                 'preview_url'   => 'https://'.$this->site->slug.'.joow.fr',
             ]);
 
+            // Lien privé du Studio envoyé à l'email rattaché (saisi à l'accueil ou pendant l'attente)
+            if ($to = $this->site->fresh()->owner_email) {
+                try {
+                    app(\App\Services\Notifier::class)->editLink($this->site, $to);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Email site prêt : '.$e->getMessage());
+                }
+            }
+
             $job?->update([
                 'status' => 'completed',
                 'completed_at' => now(),

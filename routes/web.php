@@ -32,6 +32,7 @@ Route::post('/generer', [PublicSiteController::class, 'generate'])->middleware('
 Route::get('/site/{slug}', [PublicSiteController::class, 'show'])->name('public.site');
 Route::get('/site/{slug}/status', [PublicSiteController::class, 'status'])->name('public.site.status');
 Route::post('/site/{slug}/retry', [PublicSiteController::class, 'retry'])->middleware('throttle:5,1')->name('public.site.retry');
+Route::post('/site/{slug}/email', [PublicSiteController::class, 'email'])->middleware('throttle:10,1')->name('public.site.email');
 Route::post('/site/{slug}/checkout', [CheckoutController::class, 'start'])->middleware('throttle:10,1')->name('public.checkout');
 Route::get('/site/{slug}/merci', [CheckoutController::class, 'paid'])->name('public.paid');
 

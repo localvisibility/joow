@@ -1,10 +1,31 @@
 <script setup>
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
 import GenerationShow from '@/Components/GenerationShow.vue';
 
-const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false } });
+const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false }, has_email: { type: Boolean, default: false }, expires_in_days: { type: Number, default: 7 } });
+
+// ── Email : indispensable pour retrouver le site et ouvrir le Studio ──
+const hasEmail = ref(props.has_email);
+const lead = ref({ email: props.email || '', sending: false, done: false, sent: false, error: '' });
+const leadInput = ref(null);
+const studioInput = ref(null);
+// Renvoyé du Studio sans email (?studio=1) : on explique et on amène sur le champ
+const fromStudio = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('studio') === '1';
+const saveEmail = async (next = null) => {
+    const v = (lead.value.email || '').trim();
+    if (!emailValid(v)) { lead.value.error = 'Entrez une adresse email valide.'; (next ? studioInput : leadInput).value?.focus(); return; }
+    lead.value.sending = true; lead.value.error = '';
+    try {
+        const r = await fetch(route('public.site.email', props.site.slug), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '' }, body: JSON.stringify({ email: v }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.message || 'Impossible d\'enregistrer cet email.');
+        hasEmail.value = true; lead.value.done = true; lead.value.sent = !!d.sent; checkout.email ||= v;
+        if (next === 'studio') router.visit(d.studio || route('sites.editor', props.site.slug));
+    } catch (e) { lead.value.error = e.message; }
+    finally { lead.value.sending = false; }
+};
 
 const trialDays = usePage().props.trial_days || 0;
 const checkout = useForm({ email: props.email || '', plan: 'pro' });
@@ -52,6 +73,7 @@ const poll = async () => {
 
 onMounted(() => {
     if (!ready.value && !failed.value) { poll(); timer = setInterval(poll, 1500); }
+    if (fromStudio && !hasEmail.value) setTimeout(() => { studioInput.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }); studioInput.value?.focus({ preventScroll: true }); }, 400);
 });
 onUnmounted(() => timer && clearInterval(timer));
 </script>
@@ -77,7 +99,22 @@ onUnmounted(() => timer && clearInterval(timer));
         </section>
 
         <!-- En cours -->
-        <GenerationShow v-else-if="!ready" :site="site" :progress="progress" :ready="readying" :failed="failed" />
+        <GenerationShow v-else-if="!ready" :site="site" :progress="progress" :ready="readying" :failed="failed">
+            <template #capture>
+                <div v-if="can_edit" class="mx-auto mb-6 max-w-2xl">
+                    <div v-if="!hasEmail" class="glass rounded-2xl border-brand-500/20 p-4 sm:p-5">
+                        <p class="flex items-center gap-2 text-sm font-semibold text-white"><span class="grid h-6 w-6 place-items-center rounded-full bg-brand-gradient text-xs">✉️</span> Recevez le lien de votre site par email</p>
+                        <p class="mt-1 text-xs text-slate-400">Pour le retrouver sur n'importe quel appareil et le personnaliser dans le Studio. Aucun compte à créer.</p>
+                        <form class="mt-3 flex flex-col gap-2 sm:flex-row" @submit.prevent="saveEmail()">
+                            <input ref="leadInput" v-model="lead.email" type="email" inputmode="email" autocomplete="email" class="field sm:flex-1" :class="{ 'border-rose-400 ring-2 ring-rose-400/40': lead.error }" placeholder="prenom@exemple.fr" @input="lead.error = ''" />
+                            <button type="submit" class="btn-brand shrink-0 !px-5 !py-3 text-sm" :disabled="lead.sending">{{ lead.sending ? '…' : 'M\'envoyer le lien' }}</button>
+                        </form>
+                        <p v-if="lead.error" class="mt-2 text-xs font-medium text-rose-300">{{ lead.error }}</p>
+                    </div>
+                    <p v-else class="rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.06] px-4 py-3 text-center text-sm text-emerald-200">✓ Dès que le site est prêt, nous envoyons votre lien privé à <span class="font-semibold">{{ lead.email || email }}</span>.</p>
+                </div>
+            </template>
+        </GenerationShow>
 
         <!-- Prêt -->
         <section v-else class="mx-auto max-w-6xl px-5 py-12">
@@ -85,11 +122,29 @@ onUnmounted(() => timer && clearInterval(timer));
                 <p class="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">🎉 Votre site est prêt</p>
                 <h1 class="font-display text-3xl font-bold text-white sm:text-4xl">{{ site.name }}</h1>
                 <p class="mt-2 text-slate-400">Voici l'aperçu de votre site. Personnalisez-le gratuitement dans le Studio, puis mettez-le en ligne quand il est parfait.</p>
-                <div v-if="can_edit" class="mt-6 flex flex-wrap items-center justify-center gap-3">
-                    <Link :href="route('sites.editor', site.slug)" class="btn-brand !px-7 !py-3.5 text-base">✨ Personnaliser mon site dans le Studio</Link>
-                    <a :href="liveUrl" target="_blank" rel="noopener" class="rounded-xl border border-white/10 px-5 py-3.5 text-sm font-semibold text-slate-300 transition hover:border-white/25">Voir en plein écran ↗</a>
+                <!-- Studio accessible : email déjà rattaché -->
+                <template v-if="can_edit && hasEmail">
+                    <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+                        <Link :href="route('sites.editor', site.slug)" class="btn-brand !px-7 !py-3.5 text-base">✨ Personnaliser mon site dans le Studio</Link>
+                        <a :href="liveUrl" target="_blank" rel="noopener" class="rounded-xl border border-white/10 px-5 py-3.5 text-sm font-semibold text-slate-300 transition hover:border-white/25">Voir en plein écran ↗</a>
+                    </div>
+                    <p class="mt-3 text-xs text-slate-500">Textes, photos, pages, couleurs, formulaire… tout est modifiable en 2 clics ou avec l'assistant IA. Gratuit, sans compte.</p>
+                    <p v-if="lead.sent" class="mt-2 text-xs text-emerald-300">✓ Votre lien privé vient d'être envoyé à {{ lead.email }}.</p>
+                </template>
+                <!-- Studio verrouillé : on demande l'email d'abord -->
+                <div v-else-if="can_edit" class="mx-auto mt-6 max-w-xl text-left">
+                    <div class="glass rounded-2xl p-4 sm:p-5" :class="fromStudio || lead.error ? 'border-brand-400/50' : 'border-brand-500/20'">
+                        <p class="flex items-center gap-2 text-sm font-semibold text-white"><span class="grid h-6 w-6 place-items-center rounded-full bg-brand-gradient text-xs">1</span> Votre email pour ouvrir le Studio</p>
+                        <p class="mt-1 text-xs text-slate-400">{{ fromStudio ? 'Le Studio s\'ouvre dès que votre email est enregistré : ' : '' }}il sert à retrouver votre site et à recevoir votre lien privé. Aucun compte à créer.</p>
+                        <form class="mt-3 flex flex-col gap-2 sm:flex-row" @submit.prevent="saveEmail('studio')">
+                            <input ref="studioInput" v-model="lead.email" type="email" inputmode="email" autocomplete="email" class="field sm:flex-1" :class="{ 'border-rose-400 ring-2 ring-rose-400/40': lead.error }" placeholder="prenom@exemple.fr" @input="lead.error = ''" />
+                            <button type="submit" class="btn-brand shrink-0 !px-6 !py-3 text-sm" :disabled="lead.sending">{{ lead.sending ? 'Ouverture…' : '✨ Ouvrir le Studio' }}</button>
+                        </form>
+                        <p v-if="lead.error" class="mt-2 text-xs font-medium text-rose-300">{{ lead.error }}</p>
+                        <p class="mt-3 text-[11px] text-slate-500">Sans email, cet aperçu est supprimé automatiquement dans {{ expires_in_days }} jour{{ expires_in_days > 1 ? 's' : '' }}.</p>
+                    </div>
+                    <p class="mt-3 text-center text-xs"><a :href="liveUrl" target="_blank" rel="noopener" class="font-semibold text-slate-400 underline-offset-2 hover:text-white hover:underline">Voir en plein écran ↗</a></p>
                 </div>
-                <p v-if="can_edit" class="mt-3 text-xs text-slate-500">Textes, photos, pages, couleurs, formulaire… tout est modifiable en 2 clics ou avec l'assistant IA. Gratuit, sans compte.</p>
             </div>
 
             <!-- Fenêtre navigateur -->

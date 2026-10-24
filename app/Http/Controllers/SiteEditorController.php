@@ -31,6 +31,11 @@ class SiteEditorController extends Controller
     {
         $site = $this->ownedSite($request, $slug);
 
+        // Sans email ni compte, pas de Studio : retour à l'aperçu, qui demande l'email
+        if (! $site->user_id && ! $site->owner_email && ! $request->user()?->isAdmin()) {
+            return redirect(route('public.site', $slug).'?studio=1');
+        }
+
         return Inertia::render('SiteEditor', [
             'site' => [
                 'slug'        => $site->slug,
