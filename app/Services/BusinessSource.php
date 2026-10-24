@@ -16,7 +16,7 @@ use Illuminate\Support\Str;
  */
 class BusinessSource
 {
-    public function __construct(private GooglePlaces $places, private SiteImporter $importer, private SectorDetector $detector) {}
+    public function __construct(private GooglePlaces $places, private SiteImporter $importer, private SectorDetector $detector, private ImageStore $images) {}
 
     /** @param  callable|null  $progress  fn(array $more) : publie l'avancement sur la page d'attente */
     public function resolve(Site $site, ?callable $progress = null): array
@@ -29,6 +29,13 @@ class BusinessSource
         if ($import && empty($import['pages']) && ! empty($import['url'])) {
             $progress && $progress(['step' => 'lookup', 'source' => 'refonte', 'name' => $site->name]);
             $import = array_merge($import, $this->importer->crawl($import['url']));
+            // Les images de l'ancien site sont rapatriées chez Joow (le nouveau site ne dépend plus de l'ancien)
+            $mirrored = $this->images->mirror(array_merge((array) ($import['images'] ?? []), array_filter([$import['logo'] ?? null])), $site->slug);
+            $import['images_original'] = $import['images'] ?? [];
+            $import['images'] = array_values(array_filter(array_map(fn ($u) => $mirrored[$u] ?? null, (array) ($import['images'] ?? []))));
+            if (! empty($import['logo']) && isset($mirrored[$import['logo']])) {
+                $import['logo'] = $mirrored[$import['logo']];
+            }
             if (! $site->place_id && ! empty($import['name'])) {
                 $g = $this->findGoogle($import['name'], $import['city'] ?? ($import['address'] ?? ''));
                 if ($g) {

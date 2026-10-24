@@ -25,6 +25,52 @@ class ImageStore
         return $name;
     }
 
+    /** Enregistre des octets d'image (déjà téléchargés) et retourne le nom du fichier, ou null si illisible. */
+    public function storeBytes(string $raw, string $dir): ?string
+    {
+        $jpeg = $this->toJpeg($raw);
+        if (! $jpeg) {
+            return null;
+        }
+        $name = Str::lower(Str::random(10)).'-'.time().'.jpg';
+        Storage::disk('local')->put("uploads/$dir/$name", $jpeg);
+
+        return $name;
+    }
+
+    /**
+     * Rapatrie des images distantes (site existant) chez Joow : le nouveau site ne dépend plus de l'ancien
+     * (hotlink, site coupé après la refonte). Retourne [url d'origine => url Joow] pour celles qui ont abouti.
+     */
+    public function mirror(array $urls, string $dir, int $max = 14): array
+    {
+        $urls = array_values(array_unique(array_filter($urls, fn ($u) => is_string($u) && Str::startsWith($u, ['http://', 'https://']))));
+        $urls = array_slice($urls, 0, $max);
+        if (! $urls) {
+            return [];
+        }
+        $responses = \Illuminate\Support\Facades\Http::pool(fn ($pool) => array_map(
+            fn ($u) => $pool->as($u)->timeout(15)->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; JoowBot/1.0; +https://joow.fr)', 'Accept' => 'image/*'])->get($u),
+            $urls
+        ));
+        $out = [];
+        foreach ($urls as $u) {
+            $r = $responses[$u] ?? null;
+            if (! $r instanceof \Illuminate\Http\Client\Response || ! $r->successful() || strlen($r->body()) < 1000) {
+                continue;
+            }
+            $info = @getimagesizefromstring($r->body());
+            if (! $info || $info[0] < 400 || $info[1] < 250) {
+                continue; // trop petit pour un visuel de site
+            }
+            if ($name = $this->storeBytes($r->body(), $dir)) {
+                $out[$u] = rtrim(config('app.url'), '/')."/media/$dir/$name";
+            }
+        }
+
+        return $out;
+    }
+
     /** Déplace les photos d'un dossier temporaire vers le dossier définitif du site. */
     public function move(array $files, string $fromDir, string $toDir): array
     {

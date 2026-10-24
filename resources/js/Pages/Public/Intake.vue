@@ -41,7 +41,8 @@ const lookForProfile = () => {
             // Seules les correspondances dont le nom ressemble à celui saisi sont proposées
             const norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
             const words = norm(n).split(' ').filter((w) => w.length > 2);
-            matches.value = (d.results || []).filter((x) => { const m = norm(x.main); return words.length && words.filter((w) => m.includes(w)).length >= Math.ceil(words.length / 2); }).slice(0, 2);
+            // Le nom doit vraiment concorder : tous les mots pour 1-2 mots, au moins 2/3 au-delà (évite « Rénovation » seul)
+            matches.value = (d.results || []).filter((x) => { const m = norm(x.main); const hits = words.filter((w) => m.includes(w)).length; return words.length && hits >= (words.length <= 2 ? words.length : Math.ceil(words.length * 2 / 3)); }).slice(0, 2);
         } catch (e) { matches.value = []; }
         finally { matching.value = false; }
     }, 650);

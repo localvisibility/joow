@@ -24,7 +24,8 @@ const tick = () => {
     if (props.ready) { pct.value = Math.min(100, pct.value + (100 - pct.value) * 0.18 + 0.6); }
     else {
         const plan = PLAN.find((p) => p[0] === currentStep.value) || PLAN[0];
-        const [, dur, from, to] = plan;
+        const [, dur0, from, to] = plan;
+        const dur = dur0 * speed;
         const t = (Date.now() - stepStartedAt.value) / 1000;
         const eased = 1 - Math.exp(-t / (dur * 0.9));           // approche asymptotique : ne dépasse jamais la fin de l'étape
         const target = from + (to - from) * Math.min(0.97, eased);
@@ -32,7 +33,9 @@ const tick = () => {
     }
     raf = requestAnimationFrame(tick);
 };
-const remaining = computed(() => Math.max(0, Math.round((100 - pct.value) / 100 * 92)));
+// Refonte : lecture du site existant et reconstruction des sous-pages en plus → ~2,5 min au lieu de 90 s
+const speed = (props.site?.source === 'refonte') ? 1.8 : 1;
+const remaining = computed(() => Math.max(0, Math.round((100 - pct.value) / 100 * 92 * speed)));
 
 /* ── Journal de l'IA : lignes scriptées + lignes issues des vraies données, tapées lettre par lettre ── */
 const lines = ref([]);
