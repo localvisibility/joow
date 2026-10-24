@@ -46,10 +46,22 @@ class GenerateSiteJob implements ShouldQueue
             $cfg = config("sectors.$sector") ?? config('sectors.service');
             $prev = $this->site->site_data ?? [];
 
+            // Progression détaillée : la page d'attente la lit toutes les 1,5 s (journal « en direct »)
+            $progress = fn (array $more) => $job?->update(['result' => array_merge($job->fresh()->result ?? [], $more)]);
+            $small = fn (string $u) => preg_replace('/maxWidthPx=\d+/', 'maxWidthPx=640', $u);
+
             // 1) Lecture des photos par l'IA : rôles (hero, à propos, services, galerie) + descriptions
             $t0 = microtime(true);
-            $job?->update(['result' => ['step' => 'photos']]);
+            $progress([
+                'step' => 'photos', 'name' => $b['name'], 'city' => $b['city'] ?? null, 'rating' => $b['rating'] ?? null,
+                'reviews_count' => $b['reviews_count'] ?? 0, 'sector' => $cfg['label'], 'color' => $cfg['color'], 'font' => $cfg['font'] ?? null,
+                'photos' => array_map($small, array_slice(array_values(array_filter($b['photos'] ?? [])), 0, 8)),
+            ]);
             $cur = $curator->curate($b['photos'] ?? [], $cfg['label'], $b['name']);
+            $progress([
+                'photo_notes' => array_values(array_map(fn ($ph) => ['category' => $ph['category'], 'description' => $ph['description'], 'quality' => $ph['quality']], array_slice($cur['photos'], 0, 8))),
+                'hero' => isset($cur['images']['hero']) ? $small($cur['images']['hero']) : null,
+            ]);
             $descOf = fn (?string $url) => $url ? (collect($cur['photos'])->firstWhere('url', $url)['description'] ?? '') : '';
             $notes = [
                 'notes'         => $cur['notes'],
@@ -60,8 +72,9 @@ class GenerateSiteJob implements ShouldQueue
 
             // 2) Rédaction, nourrie par le brief métier et la description des photos
             $tPhotos = round(microtime(true) - $t0, 1);
-            $job?->update(['result' => ['step' => 'content']]);
+            $progress(['step' => 'content']);
             $content = $gemini->generate($b, $sector, $cfg['label'], $notes, (string) ($cfg['brief'] ?? ''));
+            $progress(['hero_title' => $content['hero_title'] ?? null, 'tagline' => $content['tagline'] ?? null, 'services' => array_values(array_filter(array_map(fn ($s) => $s['name'] ?? null, array_slice($content['services'] ?? [], 0, 6))))]);
             // Image par service : l'IA désigne la photo (1..N) qui illustre chaque prestation
             $usedImgs = [];
             foreach ($content['services'] ?? [] as $i => $s) {
@@ -91,7 +104,7 @@ class GenerateSiteJob implements ShouldQueue
             $this->site->update(['site_data' => $siteData, 'modules' => $modules]);
 
             $tContent = round(microtime(true) - $t0 - $tPhotos, 1);
-            $job?->update(['result' => ['step' => 'render']]);
+            $progress(['step' => 'render']);
             $renderer = app(SiteRenderer::class);
             $html = $renderer->html($this->site->fresh());
             $renderer->write($this->site->slug, $html);
@@ -109,7 +122,7 @@ class GenerateSiteJob implements ShouldQueue
             $job?->update([
                 'status' => 'completed',
                 'completed_at' => now(),
-                'result' => ['bytes' => strlen($html), 'url' => 'https://'.$this->site->slug.'.joow.fr', 'timing' => ['photos' => $tPhotos, 'content' => $tContent, 'total' => round(microtime(true) - $t0, 1)]],
+                'result' => array_merge($job?->fresh()->result ?? [], ['step' => 'done', 'bytes' => strlen($html), 'url' => 'https://'.$this->site->slug.'.joow.fr', 'timing' => ['photos' => $tPhotos, 'content' => $tContent, 'total' => round(microtime(true) - $t0, 1)]]),
             ]);
         } catch (\Throwable $e) {
             // Dernière tentative épuisée => statut 'failed' (évite un site 'preview' cassé).

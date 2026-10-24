@@ -103,11 +103,12 @@ class PublicSiteController extends Controller
     public function status(string $slug)
     {
         $site = Site::where('slug', $slug)->firstOrFail(['status', 'slug']);
-        $step = GenerationJob::where('site_slug', $slug)->latest('id')->value('result')['step'] ?? null;
+        $progress = GenerationJob::where('site_slug', $slug)->latest('id')->value('result') ?? [];
 
         return response()->json([
             'status'   => $site->status,
-            'step'     => $step,
+            'step'     => $progress['step'] ?? null,
+            'progress' => \Illuminate\Support\Arr::only($progress, ['step', 'name', 'city', 'rating', 'reviews_count', 'sector', 'color', 'font', 'photos', 'photo_notes', 'hero', 'hero_title', 'tagline', 'services', 'timing']),
             'ready'    => in_array($site->status, ['preview', 'paid', 'published'], true),
             'failed'   => $site->status === 'failed',
             'live_url' => 'https://'.$site->slug.'.joow.fr',

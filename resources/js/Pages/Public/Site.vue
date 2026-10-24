@@ -2,6 +2,7 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
+import GenerationShow from '@/Components/GenerationShow.vue';
 
 const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false } });
 
@@ -32,25 +33,25 @@ const retryForm = useForm({});
 const retry = () => retryForm.post(route('public.site.retry', props.site.slug));
 
 const ready = ref(['preview', 'paid', 'published'].includes(props.site.status));
+const readying = ref(false);
 const failed = ref(props.site.status === 'failed');
 const liveUrl = props.site.preview_url || `https://${props.site.slug}.joow.fr`;
 let timer = null;
-const step = ref('photos');
-const STEPS = [['photos', 'Lecture de votre fiche et de vos photos'], ['content', 'Rédaction des textes par l\'IA'], ['render', 'Mise en page et mise en ligne de l\'aperçu']];
-const stepIndex = computed(() => Math.max(0, STEPS.findIndex((s) => s[0] === step.value)));
+const progress = ref({});
 
 const poll = async () => {
     try {
         const r = await fetch(route('public.site.status', props.site.slug), { headers: { Accept: 'application/json' } });
         const d = await r.json();
-        if (d.step) step.value = d.step;
-        if (d.ready) { ready.value = true; failed.value = false; if (timer) clearInterval(timer); }
+        if (d.progress) progress.value = d.progress;
+        // Prêt : on laisse 1,8 s au spectacle pour afficher « site prêt » puis on bascule sur l'aperçu
+        if (d.ready) { if (timer) clearInterval(timer); progress.value = { ...progress.value, step: 'done' }; readying.value = true; setTimeout(() => { ready.value = true; failed.value = false; }, 1800); }
         else if (d.failed) { failed.value = true; if (timer) clearInterval(timer); }
     } catch (e) { /* retry au prochain tick */ }
 };
 
 onMounted(() => {
-    if (!ready.value && !failed.value) { poll(); timer = setInterval(poll, 2500); }
+    if (!ready.value && !failed.value) { poll(); timer = setInterval(poll, 1500); }
 });
 onUnmounted(() => timer && clearInterval(timer));
 </script>
@@ -76,17 +77,7 @@ onUnmounted(() => timer && clearInterval(timer));
         </section>
 
         <!-- En cours -->
-        <section v-else-if="!ready" class="mx-auto max-w-xl px-5 py-24 text-center">
-            <div class="mx-auto mb-8 h-16 w-16 animate-spin rounded-full border-4 border-white/10 border-t-brand-500"></div>
-            <h1 class="font-display text-3xl font-bold text-white">Génération de votre site…</h1>
-            <p class="mt-3 text-slate-400">L'IA regarde vos photos, lit vos avis et rédige un site sur mesure pour <span class="font-semibold text-white">{{ site.name }}</span>. Comptez une à deux minutes.</p>
-            <div class="glass mt-8 space-y-3 rounded-2xl p-6 text-left text-sm">
-                <p v-for="(s, i) in STEPS" :key="s[0]" class="flex items-center gap-3" :class="i < stepIndex ? 'text-slate-300' : (i === stepIndex ? 'text-white' : 'text-slate-500')">
-                    <span v-if="i < stepIndex" class="text-brand-400">✓</span><span v-else-if="i === stepIndex" class="animate-pulse text-brand-400">◐</span><span v-else>○</span>
-                    {{ s[1] }}
-                </p>
-            </div>
-        </section>
+        <GenerationShow v-else-if="!ready" :site="site" :progress="progress" :ready="readying" :failed="failed" />
 
         <!-- Prêt -->
         <section v-else class="mx-auto max-w-6xl px-5 py-12">

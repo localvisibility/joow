@@ -142,7 +142,7 @@ const icons = {
 };
 
 const compare = [
-    { k: 'Délai de mise en ligne', j: '30 secondes', a: '3 à 8 semaines', w: 'Plusieurs jours de travail' },
+    { k: 'Délai de mise en ligne', j: '90 secondes', a: '3 à 8 semaines', w: 'Plusieurs jours de travail' },
     { k: 'Prix', j: '39 € HT/mois ou 349 € une fois', a: '1 500 à 5 000 €', w: '20 à 40 €/mois + votre temps' },
     { k: 'Textes rédigés pour votre métier', j: true, a: true, w: false },
     { k: 'Photos & avis Google intégrés', j: true, a: 'Parfois', w: false },
@@ -213,7 +213,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Créez votre site pro en 30 secondes — Joow" />
+    <Head title="Créez votre site pro en 90 secondes — Joow" />
 
     <div class="min-h-screen overflow-x-clip bg-ink-950 text-slate-200">
         <!-- Fond aurora -->
@@ -253,7 +253,7 @@ onUnmounted(() => {
                             IA + votre fiche Google · essai gratuit
                         </p>
                         <h1 class="reveal mt-5 font-display text-5xl font-bold leading-[1.02] text-white sm:text-6xl xl:text-7xl">
-                            Le site pro<br>de votre métier,<br><span class="text-shimmer">en 30 secondes.</span>
+                            Le site pro<br>de votre métier,<br><span class="text-shimmer">en 90 secondes.</span>
                         </h1>
                         <p class="reveal mx-auto mt-6 max-w-xl text-lg text-slate-400 lg:mx-0">
                             Tapez le nom de votre établissement. Joow rédige, choisit vos photos, intègre vos avis Google et active réservation, paiement et assistant IA. Sans compte, sans attente.
@@ -338,7 +338,7 @@ onUnmounted(() => {
                             <!-- Puces flottantes -->
                             <div class="float-chip chip-a"><svg class="h-4 w-4 text-amber-300" viewBox="0 0 24 24" fill="currentColor"><path :d="icons.star"/></svg><span><strong>4.8</strong> · 327 avis Google</span></div>
                             <div class="float-chip chip-b"><svg class="h-4 w-4 text-emerald-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path :d="icons.check"/></svg><span>Nouvelle réservation · 20h30 · 4 couv.</span></div>
-                            <div class="float-chip chip-c"><svg class="h-4 w-4 text-brand-400" viewBox="0 0 24 24" fill="currentColor"><path :d="icons.bolt"/></svg><span>Généré en <strong>28 s</strong></span></div>
+                            <div class="float-chip chip-c"><svg class="h-4 w-4 text-brand-400" viewBox="0 0 24 24" fill="currentColor"><path :d="icons.bolt"/></svg><span>Généré en <strong>84 s</strong></span></div>
                         </div>
                         <div class="mt-5 flex flex-wrap items-center justify-center gap-2">
                             <button v-for="(s, i) in showcase" :key="s.key" type="button" @click="stage = i" class="rounded-full border px-3 py-1.5 text-xs font-semibold transition" :class="i === stage ? 'border-brand-500/60 bg-brand-500/15 text-white' : 'border-white/10 bg-white/[0.03] text-slate-400 hover:text-white'">{{ s.sector }}</button>
@@ -390,7 +390,7 @@ onUnmounted(() => {
                         </ul>
                         <div class="mt-6 flex items-center justify-between rounded-2xl border border-emerald-400/20 bg-emerald-500/[0.06] px-4 py-3 transition-all duration-500" :class="genStep >= genSteps.length ? 'opacity-100' : 'opacity-0'">
                             <span class="text-sm font-semibold text-emerald-300">✓ Site prêt · latabledemile.joow.fr</span>
-                            <span class="text-xs text-slate-400">28 s</span>
+                            <span class="text-xs text-slate-400">84 s</span>
                         </div>
                     </div>
                 </div>
@@ -463,7 +463,7 @@ onUnmounted(() => {
                         </button>
                     </div>
                 </div>
-                <div class="mt-12 text-center"><button @click="scrollToSearch" class="btn-brand">Voir le mien en 30 secondes →</button></div>
+                <div class="mt-12 text-center"><button @click="scrollToSearch" class="btn-brand">Voir le mien en 90 secondes →</button></div>
             </section>
 
             <!-- ═══ MODULES ═══ -->
@@ -636,7 +636,7 @@ onUnmounted(() => {
             <!-- ═══ TÉMOIGNAGES ═══ -->
             <section class="mx-auto max-w-6xl px-5 py-20">
                 <div class="reveal mb-10 text-center">
-                    <h2 class="font-display text-3xl font-bold text-white sm:text-5xl">Ils ont créé leur site en quelques secondes</h2>
+                    <h2 class="font-display text-3xl font-bold text-white sm:text-5xl">Ils ont créé leur site en moins de 2 minutes</h2>
                 </div>
                 <div class="grid gap-5 sm:grid-cols-3">
                     <figure v-for="t in testimonials" :key="t.a" class="reveal glass glass-hover rounded-3xl p-6">
@@ -707,7 +707,7 @@ onUnmounted(() => {
                 <div class="reveal cta-final relative overflow-hidden rounded-[2rem] p-10 text-center sm:p-16">
                     <div class="relative">
                         <h2 class="font-display text-3xl font-bold text-white sm:text-5xl">Votre site vous attend.</h2>
-                        <p class="mx-auto mt-4 max-w-lg text-lg text-slate-300">Cherchez votre établissement et voyez le résultat en 30 secondes. C'est gratuit, sans carte bancaire.</p>
+                        <p class="mx-auto mt-4 max-w-lg text-lg text-slate-300">Cherchez votre établissement et voyez le résultat en 90 secondes. C'est gratuit, sans carte bancaire.</p>
                         <button @click="scrollToSearch" class="btn-brand mt-8 !px-8 !py-4 text-base">Créer mon site maintenant →</button>
                         <p class="mt-4 text-xs text-slate-400"><span v-if="stats.sites >= 100">{{ displaySites.toLocaleString('fr-FR') }}+ sites créés · </span>Essai gratuit · résiliable en un clic</p>
                     </div>
