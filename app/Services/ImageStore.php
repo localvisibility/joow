@@ -19,8 +19,7 @@ class ImageStore
     {
         $raw = file_get_contents($file->getRealPath());
         $name = Str::lower(Str::random(10)).'-'.time().'.jpg';
-        $jpeg = $this->toJpeg($raw) ?? $raw;
-        Storage::disk('local')->put("uploads/$dir/$name", $jpeg);
+        $this->write("uploads/$dir/$name", $this->toJpeg($raw) ?? $raw);
 
         return $name;
     }
@@ -33,9 +32,32 @@ class ImageStore
             return null;
         }
         $name = Str::lower(Str::random(10)).'-'.time().'.jpg';
-        Storage::disk('local')->put("uploads/$dir/$name", $jpeg);
+        $this->write("uploads/$dir/$name", $jpeg);
 
         return $name;
+    }
+
+    /**
+     * Écriture lisible par le serveur web : le worker (root) crée sinon des dossiers privés (0700)
+     * que PHP-FPM (www-data) ne peut pas traverser → /media renvoie 404.
+     */
+    private function write(string $path, string $bytes): void
+    {
+        $disk = Storage::disk('local');
+        $disk->put($path, $bytes);
+        try {
+            $abs = $disk->path($path);
+            @chmod(dirname($abs), 0775);
+            @chmod($abs, 0664);
+            if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+                foreach ([dirname($abs), $abs] as $p) {
+                    @chown($p, 'www-data');
+                    @chgrp($p, 'www-data');
+                }
+            }
+        } catch (\Throwable) {
+            // disque factice (tests) : pas de chemin physique
+        }
     }
 
     /**

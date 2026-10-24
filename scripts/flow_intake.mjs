@@ -5,17 +5,17 @@ const p = await (await b.newContext({ ...devices['iPhone 13'], ignoreHTTPSErrors
 p.on('pageerror', (e) => console.log('[pageerror]', String(e).slice(0, 200)));
 const OUT = process.env.OUT; const shot = (n) => p.screenshot({ path: `${OUT}/i-${n}.png` });
 await p.goto('https://app.joow.fr/?v=' + Date.now(), { waitUntil: 'load', timeout: 60000 });
-await p.click('#search-input'); await p.keyboard.type('Zorglub Rénovation Albi');
+await p.click('#search-input'); await p.keyboard.type(process.env.Q || 'Zorglub Rénovation Albi');
 await p.waitForSelector('text=Je n\'ai pas de fiche Google', { timeout: 30000 }); await p.waitForTimeout(600); await shot('0-landing');
 await Promise.all([p.waitForURL(/\/creer/, { timeout: 30000 }), p.click('text=Je n\'ai pas de fiche Google')]);
 await p.waitForTimeout(800); await shot('1-who');
 // Étape 1 : nom prérempli, ville
 const nameVal = await p.inputValue('input[placeholder="Ex : Plomberie Martin"]'); console.log('nom prérempli :', nameVal);
-await p.fill('input[placeholder="Ex : Plomberie Martin"]', 'Zorglub Rénovation'); await p.fill('input[placeholder="Ex : Toulouse"]', 'Albi');
+await p.fill('input[placeholder="Ex : Plomberie Martin"]', process.env.NAME || 'Zorglub Rénovation'); await p.fill('input[placeholder="Ex : Toulouse"]', process.env.CITY || 'Albi');
 await p.waitForTimeout(1800); console.log('fiche suggérée :', !!(await p.$('text=C\'est vous ?')));
 await p.click(".fixed button:has-text(\"Continuer\")"); await p.waitForTimeout(800); await shot('1b-after'); console.log('erreur affichée :', await (await p.$('[role=alert]'))?.innerText() || 'non', '| url', p.url());
 // Étape 2 : métier
-await p.waitForSelector('input[placeholder^="Tapez votre métier"]'); await p.fill('input[placeholder^="Tapez votre métier"]', 'rénovation');
+await p.waitForSelector('input[placeholder^="Tapez votre métier"]'); await p.fill('input[placeholder^="Tapez votre métier"]', process.env.SECTOR || 'rénovation');
 await p.waitForTimeout(300); await shot('2-sector');
 const chips = await p.$$('main button.rounded-full'); console.log('métiers proposés :', (await Promise.all(chips.slice(0, 5).map((c) => c.innerText()))).join(' · '));
 await chips[0].click(); await p.click(".fixed button:has-text(\"Continuer\")");
@@ -30,7 +30,14 @@ await p.fill('textarea', 'Artisan depuis 2012, je rénove cuisines et salles de 
 await p.click(".fixed button:has-text(\"Continuer\")");
 // Étape 5 : photos (on passe)
 await p.waitForSelector('text=Choisir des photos'); await shot('5-photos');
-await Promise.all([p.waitForURL(/\/site\//, { timeout: 60000 }), p.click('button:has-text("Générer sans photo")')]);
+if (process.env.PHOTO) {
+  await p.setInputFiles('input[type=file]', process.env.PHOTO);
+  await p.waitForSelector('img[src*="/media/intake-"]', { timeout: 30000 }); await p.waitForTimeout(400); await shot('5b-uploaded');
+  const thumb = await p.$eval('img[src*="/media/intake-"]', (i) => i.src); const r = await fetch(thumb); console.log('miniature servie (écrite par le web) :', r.status, r.headers.get('content-type'));
+  await Promise.all([p.waitForURL(/\/site\//, { timeout: 60000 }), p.click('.fixed button:has-text("Générer mon site")')]);
+} else {
+  await Promise.all([p.waitForURL(/\/site\//, { timeout: 60000 }), p.click('button:has-text("Générer sans photo")')]);
+}
 console.log('génération lancée :', p.url());
 await p.waitForTimeout(7000); await shot('6-wait');
 const t0 = Date.now(); for (let i = 0; i < 90; i++) { if (await p.$('text=Votre site est prêt')) break; await p.waitForTimeout(2000); }
@@ -38,6 +45,10 @@ console.log('prêt après', Math.round((Date.now() - t0) / 1000) + 7, 's'); awai
 console.log('bouton Studio direct (email déjà donné) :', !!(await p.$('a:has-text("Personnaliser mon site dans le Studio")')));
 const slug = p.url().split('/site/')[1].split(/[/?]/)[0];
 await p.goto(`https://${slug}.joow.fr/`, { waitUntil: 'networkidle', timeout: 60000 }); await shot('8-site');
+const st = await (await fetch(`https://app.joow.fr/site/${slug}/status`, { headers: { Accept: 'application/json' } })).json();
+console.log('timing', JSON.stringify(st.progress.timing), '| photos', st.progress.photos?.length, '| notes', (st.progress.photo_notes || []).length);
+const html = await (await fetch(`https://${slug}.joow.fr/`)).text(); const media = html.match(/https:\/\/app\.joow\.fr\/media\/[^"]+/g) || [];
+console.log('médias Joow dans le site :', media.length); if (media[0]) { const r2 = await fetch(media[0]); console.log('média (écrit par le web, déplacé par le web) servi :', r2.status); }
 const txt = (await p.textContent('body')).replace(/\s+/g, ' ');
 console.log('avis Google mentionnés :', /avis Google/i.test(txt), '| note affichée :', /\d\.\d\/5/.test(txt));
 // Studio : bannière « Rattacher ma fiche Google »
