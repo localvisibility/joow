@@ -40,3 +40,9 @@
 }
 .animate-shake { animation: shake 0.55s cubic-bezier(.36,.07,.19,.97) both; }
 @media (prefers-reduced-motion: reduce) { .animate-shake { animation: none; } }
+
+/* Studio mobile : le panneau devient une feuille coulissante au-dessus de l'aperçu */
+@media (max-width: 1023.98px) {
+    .studio-aside { position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 35; height: min(78dvh, 100dvh - 3.5rem); border-radius: 1.5rem 1.5rem 0 0; border-right: 0; border-top: 1px solid rgba(255,255,255,.1); box-shadow: 0 -30px 60px rgba(0,0,0,.6); transform: translateY(calc(100% + 4rem)); transition: transform .32s cubic-bezier(.22,1,.36,1); padding-bottom: calc(3.6rem + env(safe-area-inset-bottom)); }
+    .studio-aside.is-open { transform: translateY(0); }
+}

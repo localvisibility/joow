@@ -16,6 +16,9 @@ const status = ref('idle');      // idle | saving | saved | queued | error
 const tab = ref('ia');           // ia | contenu | pages | style
 const panel = ref('hero');       // section (accueil) ou bloc ouvert dans le panneau
 const device = ref('desktop');
+// Mobile : l'aperçu occupe tout l'écran, le panneau s'ouvre en feuille depuis la barre du bas
+const sheet = ref(false);
+const openTab = (t) => { if (tab.value === t && sheet.value) { sheet.value = false; return; } tab.value = t; sheet.value = true; };
 const frame = ref(null);
 const undoStack = ref([]);
 const redoStack = ref([]);
@@ -391,20 +394,20 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
 
 <template>
     <Head :title="`Studio — ${site.name}`" />
-    <div class="flex h-screen flex-col overflow-hidden bg-ink-950 text-slate-200">
+    <div class="flex h-[100dvh] flex-col overflow-hidden bg-ink-950 text-slate-200">
         <!-- ═══ BARRE SUPÉRIEURE ═══ -->
         <header class="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-ink-900/80 px-4 backdrop-blur">
             <Link :href="authUser ? route('dashboard') : route('home')" class="group flex shrink-0 items-center gap-2 rounded-xl py-1 pr-2 transition hover:bg-white/[0.06]" :title="authUser ? 'Retour à mes sites' : 'Retour à l\'accueil Joow'">
                 <BrandLogo variant="mark" class="h-7 w-7" />
                 <span class="hidden text-xs font-semibold text-slate-400 group-hover:text-white sm:inline">← {{ authUser ? 'Mes sites' : 'Accueil' }}</span>
             </Link>
-            <div class="hidden min-w-0 items-center gap-2 md:flex">
-                <span class="truncate font-display text-sm font-bold text-white">{{ site.name }}</span>
+            <div class="flex min-w-0 items-center gap-2">
+                <span class="truncate font-display text-sm font-bold text-white max-w-[9rem] sm:max-w-none">{{ site.name }}</span>
                 <span class="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider" :class="paid ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'">{{ paid ? (trial ? 'En ligne · essai' : 'En ligne') : 'Essai gratuit' }}</span>
             </div>
 
             <!-- Onglets de pages -->
-            <nav class="ml-2 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+            <nav class="ml-2 hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex">
                 <button @click="curPage=''" class="ptab" :class="curPage==='' && 'on'">Accueil</button>
                 <button v-for="p in pages" :key="p.slug" @click="curPage=p.slug" class="ptab" :class="curPage===p.slug && 'on'"><span v-if="!p.nav" class="mr-1 opacity-50" title="Masquée du menu">◌</span>{{ p.title }}</button>
                 <button @click="modal='newpage'" class="ptab text-brand-300" title="Ajouter une page">+ Page</button>
@@ -412,7 +415,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
 
             <div class="flex shrink-0 items-center gap-2">
                 <span class="hidden text-xs lg:inline" :class="status==='error' ? 'text-rose-400' : 'text-slate-500'">{{ statusLabel }}</span>
-                <div class="glass flex rounded-xl p-0.5">
+                <div class="glass hidden rounded-xl p-0.5 sm:flex">
                     <button @click="undo" :disabled="!undoStack.length" class="rounded-lg px-2 py-1.5 text-sm text-slate-300 disabled:opacity-30" title="Annuler (Ctrl+Z)">↶</button>
                     <button @click="redo" :disabled="!redoStack.length" class="rounded-lg px-2 py-1.5 text-sm text-slate-300 disabled:opacity-30" title="Rétablir (Ctrl+Y)">↷</button>
                 </div>
@@ -423,13 +426,13 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                 <button v-if="st?.credits" @click="modal='credits'" class="hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition md:inline-flex" :class="st.credits.balance > 0 ? 'border-white/10 text-slate-200 hover:border-white/25' : 'border-amber-400/40 bg-amber-500/10 text-amber-200'" title="Crédits IA disponibles">✦ {{ st.credits.balance }} <span class="hidden xl:inline">crédits IA</span></button>
                 <a :href="liveUrl" target="_blank" rel="noopener" class="hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25 md:inline">Voir ↗</a>
                 <button v-if="!authUser" @click="modal='claim'" class="hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25 lg:inline">Retrouver mon site plus tard</button>
-                <button v-if="paid" @click="publish" :disabled="publishing" class="btn-brand !px-4 !py-2 text-sm">{{ publishing ? 'Publication…' : 'Publier' }}</button>
-                <button v-else @click="modal='publish'" class="btn-brand !px-4 !py-2 text-sm">🚀 Mettre en ligne</button>
+                <button v-if="paid" @click="publish" :disabled="publishing" class="btn-brand !px-3 !py-2 text-sm sm:!px-4">{{ publishing ? 'Publication…' : 'Publier' }}</button>
+                <button v-else @click="modal='publish'" class="btn-brand !px-3 !py-2 text-sm sm:!px-4"><span class="sm:hidden">🚀 En ligne</span><span class="hidden sm:inline">🚀 Mettre en ligne</span></button>
             </div>
         </header>
 
         <!-- Bandeau invité -->
-        <div v-if="!authUser && !paid" class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-b border-brand-500/20 bg-brand-500/10 px-4 py-1.5 text-center text-xs text-brand-100">
+        <div v-if="!authUser && !paid" class="hidden flex-wrap items-center justify-center gap-x-4 gap-y-1 border-b border-brand-500/20 bg-brand-500/10 px-4 py-1.5 text-center text-xs text-brand-100 lg:flex">
             <span>Votre site est modifiable gratuitement, aussi longtemps que vous voulez.</span>
             <button @click="modal='claim'" class="font-semibold underline decoration-brand-400/60 underline-offset-2 hover:text-white">Recevoir mon lien d'édition</button>
             <span class="hidden sm:inline">·</span>
@@ -443,10 +446,22 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
         </div>
 
         <!-- ═══ CORPS ═══ -->
-        <div class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[420px,1fr]">
-            <!-- ─── PANNEAU ─── -->
-            <aside class="flex min-h-0 flex-col border-r border-white/[0.06] bg-ink-900/40">
-                <div class="flex gap-1 border-b border-white/[0.06] p-2 text-sm font-semibold">
+        <div class="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[420px,1fr]">
+            <!-- ─── PANNEAU (colonne sur desktop, feuille coulissante sur mobile) ─── -->
+            <div v-if="sheet" class="absolute inset-0 z-30 bg-black/50 backdrop-blur-[2px] lg:hidden" @click="sheet=false"></div>
+            <aside class="studio-aside flex min-h-0 flex-col border-r border-white/[0.06] bg-ink-900/95 lg:bg-ink-900/40" :class="sheet ? 'is-open' : ''">
+                <div class="flex items-center justify-between px-4 pt-2 lg:hidden" @click="sheet=false">
+                    <span class="mx-auto block h-1.5 w-12 rounded-full bg-white/20"></span>
+                </div>
+                <div class="flex items-center justify-between px-4 pb-1 pt-2 lg:hidden">
+                    <p class="text-sm font-bold text-white">{{ ({ia:'✨ Assistant IA', contenu:'✏️ Contenu', pages:'📄 Pages', style:'🎨 Style', modules:'⚙️ Modules'})[tab] }}</p>
+                    <div class="flex items-center gap-2">
+                        <button @click="undo" :disabled="!undoStack.length" class="rounded-lg bg-white/5 px-2 py-1 text-sm text-slate-300 disabled:opacity-30">↶</button>
+                        <button @click="redo" :disabled="!redoStack.length" class="rounded-lg bg-white/5 px-2 py-1 text-sm text-slate-300 disabled:opacity-30">↷</button>
+                        <button @click="sheet=false" class="rounded-lg bg-white/5 px-2.5 py-1 text-sm text-slate-300">✕</button>
+                    </div>
+                </div>
+                <div class="hidden gap-1 border-b border-white/[0.06] p-2 text-sm font-semibold lg:flex">
                     <button v-for="t in [['ia','✨ IA'],['contenu','✏️ Contenu'],['pages','📄 Pages'],['style','🎨 Style'],['modules','⚙️ Modules']]" :key="t[0]" @click="tab=t[0]" class="flex-1 rounded-lg px-1.5 py-2 transition" :class="tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'">{{ t[1] }}</button>
                 </div>
 
@@ -851,22 +866,35 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
             </aside>
 
             <!-- ─── APERÇU ─── -->
-            <section class="flex min-h-0 flex-col bg-ink-950">
-                <div class="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2">
-                    <span class="h-2.5 w-2.5 rounded-full bg-rose-400/70"></span><span class="h-2.5 w-2.5 rounded-full bg-amber-400/70"></span><span class="h-2.5 w-2.5 rounded-full bg-emerald-400/70"></span>
-                    <span class="ml-3 truncate rounded-md bg-white/5 px-3 py-1 text-xs text-slate-400">{{ site.slug }}.joow.fr{{ curPage ? '/' + curPage + '/' : '' }}</span>
+            <section class="flex min-h-0 flex-col bg-ink-950 pb-16 lg:pb-0">
+                <div class="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2 lg:px-4">
+                    <div class="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto md:hidden">
+                        <button @click="curPage=''" class="ptab !py-1 text-xs" :class="curPage==='' && 'on'">Accueil</button>
+                        <button v-for="p in pages" :key="p.slug" @click="curPage=p.slug" class="ptab !py-1 text-xs" :class="curPage===p.slug && 'on'">{{ p.title }}</button>
+                        <button @click="modal='newpage'" class="ptab !py-1 text-xs text-brand-300">+ Page</button>
+                    </div>
+                    <span class="hidden h-2.5 w-2.5 rounded-full bg-rose-400/70 md:inline"></span><span class="hidden h-2.5 w-2.5 rounded-full bg-amber-400/70 md:inline"></span><span class="hidden h-2.5 w-2.5 rounded-full bg-emerald-400/70 md:inline"></span>
+                    <span class="ml-3 hidden truncate rounded-md bg-white/5 px-3 py-1 text-xs text-slate-400 md:inline">{{ site.slug }}.joow.fr{{ curPage ? '/' + curPage + '/' : '' }}</span>
                     <span class="ml-auto hidden text-xs text-slate-500 xl:inline">Cliquez un texte ou une image pour le modifier · Entrée pour valider · Échap pour annuler</span>
                 </div>
-                <div class="min-h-0 flex-1 p-3" :class="device==='mobile' && 'flex justify-center'">
-                    <iframe ref="frame" :key="version + curPage" :src="previewUrl" :class="device==='mobile' ? 'w-[390px] rounded-[2rem]' : 'w-full'" class="h-full rounded-xl border border-white/5 bg-white"></iframe>
+                <div class="min-h-0 flex-1 p-0 lg:p-3" :class="device==='mobile' && 'lg:flex lg:justify-center'">
+                    <iframe ref="frame" :key="version + curPage" :src="previewUrl" :class="device==='mobile' ? 'lg:w-[390px] lg:rounded-[2rem]' : 'w-full'" class="h-full w-full bg-white lg:rounded-xl lg:border lg:border-white/5"></iframe>
                 </div>
             </section>
+
+            <!-- ─── BARRE D'OUTILS MOBILE ─── -->
+            <nav class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/[0.08] bg-ink-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+                <button v-for="t in [['ia','✨','IA'],['contenu','✏️','Contenu'],['pages','📄','Pages'],['style','🎨','Style'],['modules','⚙️','Modules']]" :key="t[0]" @click="openTab(t[0])" class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition" :class="sheet && tab===t[0] ? 'text-white' : 'text-slate-400'">
+                    <span class="text-lg leading-none">{{ t[1] }}</span>{{ t[2] }}
+                    <span v-if="t[0]==='ia' && st?.credits" class="absolute -mt-1 ml-8 rounded-full bg-brand-500 px-1.5 text-[9px] text-white">{{ st.credits.balance }}</span>
+                </button>
+            </nav>
         </div>
 
         <!-- ═══ MODALES ═══ -->
         <Transition name="fade">
             <div v-if="modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur" @click="modal=null">
-                <div class="glass w-full max-w-2xl rounded-2xl bg-ink-800 p-6" @click.stop>
+                <div class="glass max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-ink-800 p-5 sm:p-6" @click.stop>
                     <!-- Nouvelle page -->
                     <template v-if="modal==='newpage'">
                         <div class="mb-4 flex items-center justify-between"><h3 class="font-display text-lg font-bold text-white">Nouvelle page</h3><button @click="modal=null" class="text-slate-400 hover:text-white">✕</button></div>
@@ -973,7 +1001,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
         <!-- ═══ SÉLECTEUR D'IMAGE ═══ -->
         <Transition name="fade">
             <div v-if="picker.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur" @click="picker.open=false">
-                <div class="glass w-full max-w-2xl rounded-2xl bg-ink-800 p-6" @click.stop>
+                <div class="glass max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-ink-800 p-5 sm:p-6" @click.stop>
                     <div class="mb-4 flex items-center justify-between"><h3 class="font-display text-lg font-bold text-white">Choisir une image</h3><button @click="picker.open=false" class="text-slate-400 hover:text-white">✕</button></div>
                     <div class="mb-4 flex gap-1 rounded-xl bg-white/[0.04] p-1 text-sm font-semibold">
                         <button v-for="t in [['upload','⬆️ Importer'],['google','📍 Photos Google'],['url','🔗 Lien']]" :key="t[0]" @click="picker.tab=t[0]" class="flex-1 rounded-lg px-3 py-2" :class="picker.tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400'">{{ t[1] }}</button>
