@@ -40,6 +40,9 @@ class GooglePlaces
         return $placeId ? $this->details($placeId) : null;
     }
 
+    /** Types Google désignant un lieu géographique (ville, quartier, rue…) et non un établissement. */
+    private const GEO_TYPES = ['locality', 'sublocality', 'sublocality_level_1', 'political', 'administrative_area_level_1', 'administrative_area_level_2', 'administrative_area_level_3', 'country', 'route', 'street_address', 'postal_code', 'neighborhood', 'premise', 'plus_code', 'geocode'];
+
     /** Autocomplétion : liste d'établissements candidats pour une saisie. */
     public function autocomplete(string $input): array
     {
@@ -61,7 +64,7 @@ class GooglePlaces
         ]);
         $this->logFailure('autocomplete', $res);
 
-        return collect($res->json('suggestions') ?? [])
+        $results = collect($res->json('suggestions') ?? [])
             ->pluck('placePrediction')
             ->filter(fn ($p) => ! empty($p['placeId']))
             ->take(6)
@@ -69,6 +72,30 @@ class GooglePlaces
                 'place_id'  => $p['placeId'],
                 'main'      => $p['structuredFormat']['mainText']['text'] ?? ($p['text']['text'] ?? ''),
                 'secondary' => $p['structuredFormat']['secondaryText']['text'] ?? '',
+            ])->values()->all();
+
+        // L'autocomplétion ignore les requêtes descriptives (« garage auto Toulouse ») :
+        // on se replie sur la recherche textuelle, qui comprend « métier + ville ».
+        return $results ?: $this->searchEstablishments($input);
+    }
+
+    /** Recherche textuelle : établissements correspondant à « métier + ville » ou à un nom approximatif. */
+    private function searchEstablishments(string $text): array
+    {
+        $res = $this->client('places.id,places.displayName,places.formattedAddress,places.types')->post(self::BASE.'/places:searchText', [
+            'textQuery'    => $text,
+            'languageCode' => 'fr',
+            'regionCode'   => 'FR',
+            'pageSize'     => 6,
+        ]);
+        $this->logFailure('searchText', $res);
+
+        return collect($res->json('places') ?? [])
+            ->filter(fn ($p) => ! empty($p['id']) && array_diff($p['types'] ?? ['establishment'], self::GEO_TYPES))
+            ->map(fn ($p) => [
+                'place_id'  => $p['id'],
+                'main'      => $p['displayName']['text'] ?? '',
+                'secondary' => preg_replace('/,\s*France$/u', '', $p['formattedAddress'] ?? ''),
             ])->values()->all();
     }
 
@@ -148,9 +175,8 @@ class GooglePlaces
             return null;
         }
         // Un lieu géographique (quartier, ville, rue, code postal) n'est pas un établissement : on refuse
-        $geo = ['locality', 'sublocality', 'sublocality_level_1', 'political', 'administrative_area_level_1', 'administrative_area_level_2', 'administrative_area_level_3', 'country', 'route', 'street_address', 'postal_code', 'neighborhood', 'premise', 'plus_code'];
         $types = $r['types'] ?? [];
-        if ($types && ! array_diff($types, $geo)) {
+        if ($types && ! array_diff($types, self::GEO_TYPES)) {
             \Illuminate\Support\Facades\Log::info('Places : lieu géographique ignoré ('.($r['displayName']['text'] ?? $placeId).')');
 
             return null;

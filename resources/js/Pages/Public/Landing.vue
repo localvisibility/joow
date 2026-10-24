@@ -246,20 +246,20 @@ onUnmounted(() => {
             <!-- ═══ HERO ═══ -->
             <div id="hero-wrap" class="relative">
                 <div class="pointer-events-none absolute inset-0" :style="glowStyle"></div>
-                <section id="start" class="relative mx-auto grid max-w-7xl items-center gap-12 px-5 pb-16 pt-14 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
+                <section id="start" class="relative mx-auto grid max-w-7xl items-center gap-12 px-5 pb-16 pt-6 sm:pt-14 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
                     <div class="text-center lg:text-left">
                         <p class="reveal inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold text-brand-400 backdrop-blur">
                             <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span></span>
                             IA + votre fiche Google · essai gratuit
                         </p>
-                        <h1 class="reveal mt-5 font-display text-5xl font-bold leading-[1.02] text-white sm:text-6xl xl:text-7xl">
+                        <h1 class="reveal mt-4 font-display text-[2.4rem] font-bold leading-[1.02] text-white sm:mt-5 sm:text-6xl xl:text-7xl">
                             Le site pro<br>de votre métier,<br><span class="text-shimmer">en 90 secondes.</span>
                         </h1>
-                        <p class="reveal mx-auto mt-6 max-w-xl text-lg text-slate-400 lg:mx-0">
-                            Tapez le nom de votre établissement. Joow rédige, choisit vos photos, intègre vos avis Google et active réservation, paiement et assistant IA. Sans compte, sans attente.
+                        <p class="reveal mx-auto mt-4 max-w-xl text-base text-slate-400 sm:mt-6 sm:text-lg lg:mx-0">
+                            Tapez le nom de votre établissement. Joow rédige, choisit vos photos, intègre vos avis Google et active réservation, paiement et assistant IA.<span class="hidden sm:inline"> Sans compte, sans attente.</span>
                         </p>
 
-                        <form @submit.prevent="submit" class="reveal mx-auto mt-8 max-w-xl lg:mx-0">
+                        <form @submit.prevent="submit" class="reveal mx-auto mt-5 max-w-xl sm:mt-8 lg:mx-0">
                             <label v-show="!selected" for="search-input" class="mb-2 flex items-center justify-center gap-2 text-sm font-semibold text-white lg:justify-start">
                                 <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-gradient text-[11px] font-bold">1</span>
                                 Tapez le nom de votre établissement
