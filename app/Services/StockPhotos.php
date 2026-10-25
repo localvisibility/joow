@@ -69,6 +69,7 @@ class StockPhotos
             $best = ($slot['pick'] ?? false) && count($cands) > 1 ? $this->pick($cands, $slot['subject'] ?? '', $sectorLabel) : $cands[0];
             $out[$key] = ['url' => $best['url'], 'credit' => $best['credit'], 'provider' => $best['provider'], 'query' => $best['query'] ?? null];
             $used[$best['url']] = true;
+            $this->notifyUse($best);
         }
 
         Log::info('StockPhotos : '.count($out).'/'.count($slots).' emplacement(s) comblé(s) — '.collect($out)->map(fn ($v, $k) => "$k:{$v['provider']}")->implode(', '));
@@ -198,6 +199,19 @@ TXT];
         }
     }
 
+    /** Unsplash exige un appel à download_location quand une photo est réellement utilisée. */
+    private function notifyUse(array $photo): void
+    {
+        if (($photo['provider'] ?? '') !== 'unsplash' || empty($photo['download'])) {
+            return;
+        }
+        try {
+            Http::timeout(5)->withHeaders(['Authorization' => 'Client-ID '.config('services.stock.unsplash'), 'Accept-Version' => 'v1', 'User-Agent' => self::UA])->get($photo['download']);
+        } catch (\Throwable) {
+            // non bloquant
+        }
+    }
+
     // ───────────────────────────── fournisseurs ─────────────────────────────
 
     private function pexels(string $q, int $n, string $orientation): array
@@ -248,8 +262,10 @@ TXT];
             'url'      => isset($p['urls']['raw']) ? $p['urls']['raw'].'&w=1920&q=82&auto=format&fit=crop' : ($p['urls']['regular'] ?? null),
             'thumb'    => $p['urls']['small'] ?? null,
             'alt'      => $p['alt_description'] ?? '',
-            'credit'   => 'Photo : '.($p['user']['name'] ?? 'Unsplash').' / Unsplash',
+            'credit'   => 'Photo : '.($p['user']['name'] ?? 'Unsplash').' / Unsplash'.(! empty($p['user']['links']['html']) ? ' — '.$p['user']['links']['html'] : ''),
             'provider' => 'unsplash',
+            // Règle de l'API Unsplash : signaler l'utilisation d'une photo (comptabilisée comme téléchargement)
+            'download' => $p['links']['download_location'] ?? null,
         ])->filter(fn ($p) => $p['url'] && $p['thumb'])->values()->all();
     }
 
