@@ -89,7 +89,7 @@ class GenerateSiteJob implements ShouldQueue
 
             // 2b) Refonte : les pages internes du site existant deviennent des pages Joow (une fois)
             $pages = $prev['pages'] ?? null;
-            if ($b['source'] === 'refonte' && empty($pages) && count($b['existing']['pages'] ?? []) > 1) {
+            if (empty($pages) && count($b['existing']['pages'] ?? []) > 1) {
                 $progress(['substep' => 'pages']);
                 $pages = app(\App\Services\PageImporter::class)->build($b, $content, $cur['photos'], $cfg['label']);
                 $progress(['pages' => array_map(fn ($p) => $p['title'], $pages)]);

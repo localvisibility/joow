@@ -28,16 +28,9 @@ class BusinessSource
         // Refonte : lecture du site existant (une seule fois), puis recherche de la fiche Google correspondante
         if ($import && empty($import['pages']) && ! empty($import['url'])) {
             $progress && $progress(['step' => 'lookup', 'source' => 'refonte', 'name' => $site->name]);
-            $import = array_merge($import, $this->importer->crawl($import['url']));
-            // Les images de l'ancien site sont rapatriées chez Joow (le nouveau site ne dépend plus de l'ancien)
-            $mirrored = $this->images->mirror(array_merge((array) ($import['images'] ?? []), array_filter([$import['logo'] ?? null])), $site->slug);
-            $import['images_original'] = $import['images'] ?? [];
-            $import['images'] = array_values(array_filter(array_map(fn ($u) => $mirrored[$u] ?? null, (array) ($import['images'] ?? []))));
-            if (! empty($import['logo']) && isset($mirrored[$import['logo']])) {
-                $import['logo'] = $mirrored[$import['logo']];
-            }
+            $import = $this->readSite($import, $site);
             if (! $site->place_id && ! empty($import['name'])) {
-                $g = $this->findGoogle($import['name'], $import['city'] ?? ($import['address'] ?? ''));
+                $g = $this->findGoogle($import['name'], $import['city'] ?? ($import['address'] ?? ''), $import['phone'] ?? null);
                 if ($g) {
                     $site->place_id = $g['place_id'];
                     $import['google_place_id'] = $g['place_id'];
@@ -52,6 +45,23 @@ class BusinessSource
             $b = $this->places->lookup($site->place_id);
             if (! $b) {
                 throw new \RuntimeException('Fiche Google introuvable pour place_id '.$site->place_id);
+            }
+
+            // Combo : la fiche Google indique un site → on le lit aussi (textes, pages, photos, logo)
+            if (! $import && ! empty($b['website']) && $this->crawlable($b['website']) && empty($d['import_skipped'])) {
+                $progress && $progress(['step' => 'lookup', 'source' => 'google', 'name' => $b['name'], 'city' => $b['city'] ?? null, 'website' => parse_url($b['website'], PHP_URL_HOST)]);
+                try {
+                    $import = $this->readSite(['url' => $b['website'], 'host' => parse_url($b['website'], PHP_URL_HOST), 'auto' => true], $site);
+                    $progress && $progress(['site_pages' => count($import['pages'] ?? []), 'site_images' => count($import['images'] ?? [])]);
+                    $site->site_data = array_merge($site->site_data ?? [], ['import' => $import]);
+                    $site->save();
+                } catch (\Throwable $e) {
+                    // Site illisible : la fiche Google suffit
+                    \Illuminate\Support\Facades\Log::info('Combo Google + site : '.$e->getMessage());
+                    $import = [];
+                    $site->site_data = array_merge($site->site_data ?? [], ['import_skipped' => true]);
+                    $site->save();
+                }
             }
         }
 
@@ -87,28 +97,73 @@ class BusinessSource
         if ($uploaded) {
             $b['photos'] = array_values(array_unique(array_merge($uploaded, $b['photos'] ?? [])));
         }
-        $b['source'] = $import ? 'refonte' : ($site->place_id ? 'google' : 'questionnaire');
+        // Origine : refonte (on est parti du site), google (fiche, éventuellement enrichie du site), questionnaire
+        $b['source'] = $site->source === 'refonte' ? 'refonte' : ($site->place_id ? 'google' : 'questionnaire');
+        $b['combo'] = (bool) ($site->place_id && $import);
 
         return $this->normalize($b);
     }
 
-    /** Fiche Google correspondant à « nom + ville », acceptée seulement si le nom concorde. */
-    private function findGoogle(string $name, string $place): ?array
+    /** Lecture du site + rapatriement des images chez Joow. */
+    private function readSite(array $import, Site $site): array
     {
-        try {
-            $g = $this->places->lookup(trim("$name $place"));
-        } catch (\Throwable) {
-            return null;
+        $import = array_merge($import, $this->importer->crawl($import['url']));
+        // Les images de l'ancien site sont rapatriées chez Joow (le nouveau site ne dépend plus de l'ancien)
+        $mirrored = $this->images->mirror(array_merge((array) ($import['images'] ?? []), array_filter([$import['logo'] ?? null])), $site->slug);
+        $import['images_original'] = $import['images'] ?? [];
+        $import['images'] = array_values(array_filter(array_map(fn ($u) => $mirrored[$u] ?? null, (array) ($import['images'] ?? []))));
+        if (! empty($import['logo']) && isset($mirrored[$import['logo']])) {
+            $import['logo'] = $mirrored[$import['logo']];
         }
-        if (! $g) {
-            return null;
-        }
-        $norm = fn ($s) => preg_replace('/[^a-z0-9 ]+/', ' ', Str::lower(Str::ascii((string) $s)));
-        $words = array_filter(explode(' ', $norm($name)), fn ($w) => strlen($w) > 2);
-        $hay = $norm($g['name']);
-        $hits = count(array_filter($words, fn ($w) => str_contains($hay, $w)));
 
-        return $words && $hits >= ceil(count($words) / 2) ? $g : null;
+        return $import;
+    }
+
+    /** Un « site » de fiche Google qui vaut la peine d'être lu (pas un réseau social ni un annuaire). */
+    private function crawlable(string $url): bool
+    {
+        $host = Str::lower((string) parse_url(Str::startsWith($url, 'http') ? $url : 'https://'.$url, PHP_URL_HOST));
+        if ($host === '' || ! Str::contains($host, '.')) {
+            return false;
+        }
+        foreach (['facebook.', 'instagram.', 'linktr.ee', 'pagesjaunes.', 'tripadvisor.', 'thefork.', 'lafourchette.', 'doctolib.', 'booking.com', 'airbnb.', 'ubereats.', 'deliveroo.', 'google.', 'youtube.', 'tiktok.', 'leboncoin.', 'planity.', 'treatwell.', 'resalib.', 'linkedin.', 'joow.fr', 'wa.me', 'whatsapp.'] as $bad) {
+            if (Str::contains($host, $bad)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Fiche Google correspondant au site : « nom + ville », puis nom seul. Acceptée si le nom concorde
+     * ou si le téléphone est le même (le nom commercial diffère souvent de la raison sociale).
+     */
+    private function findGoogle(string $name, string $place, ?string $phone = null): ?array
+    {
+        $digits = fn ($s) => preg_replace('/\D+/', '', (string) $s);
+        $norm = fn ($s) => preg_replace('/[^a-z0-9 ]+/', ' ', Str::lower(Str::ascii((string) $s)));
+        $words = array_values(array_filter(explode(' ', $norm($name)), fn ($w) => strlen($w) > 2));
+
+        foreach (array_unique(array_filter([trim("$name $place"), trim($name)])) as $q) {
+            try {
+                $g = $this->places->lookup($q);
+            } catch (\Throwable) {
+                continue;
+            }
+            if (! $g) {
+                continue;
+            }
+            $hay = $norm($g['name']);
+            $hits = count(array_filter($words, fn ($w) => str_contains($hay, $w)));
+            $nameOk = $words && $hits >= ceil(count($words) / 2);
+            $phoneOk = $phone && ! empty($g['phone']) && substr($digits($phone), -9) === substr($digits($g['phone']), -9);
+            if ($nameOk || $phoneOk) {
+                return $g;
+            }
+        }
+
+        return null;
     }
 
     /** Fiche construite à partir des réponses du questionnaire. */

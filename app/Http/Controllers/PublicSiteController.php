@@ -105,7 +105,8 @@ class PublicSiteController extends Controller
             // Sans email, l'aperçu expire : nombre de jours restants
             'expires_in_days' => max(0, $ttl - (int) $site->created_at->diffInDays(now())),
             // Refonte : adresse de l'ancien site pour le comparatif avant / après
-            'old_url' => $site->source === 'refonte' ? ($site->site_data['import']['url'] ?? null) : null,
+            'old_url' => $site->site_data['import']['url'] ?? null,
+            'combo' => (bool) ($site->place_id && ! empty($site->site_data['import']['pages'])),
         ]);
     }
 
@@ -117,7 +118,7 @@ class PublicSiteController extends Controller
         return response()->json([
             'status'   => $site->status,
             'step'     => $progress['step'] ?? null,
-            'progress' => \Illuminate\Support\Arr::only($progress, ['step', 'source', 'name', 'city', 'rating', 'reviews_count', 'sector', 'color', 'font', 'photos', 'photo_notes', 'hero', 'hero_title', 'tagline', 'services', 'pages', 'timing']),
+            'progress' => \Illuminate\Support\Arr::only($progress, ['step', 'source', 'name', 'city', 'rating', 'reviews_count', 'sector', 'color', 'font', 'photos', 'photo_notes', 'hero', 'hero_title', 'tagline', 'services', 'pages', 'timing', 'website', 'site_pages', 'site_images']),
             'ready'    => in_array($site->status, ['preview', 'paid', 'published'], true),
             'failed'   => $site->status === 'failed',
             'live_url' => 'https://'.$site->slug.'.joow.fr',

@@ -25,7 +25,7 @@ const tick = () => {
     else {
         const plan = PLAN.find((p) => p[0] === currentStep.value) || PLAN[0];
         const [, dur0, from, to] = plan;
-        const dur = dur0 * speed;
+        const dur = dur0 * speed.value;
         const t = (Date.now() - stepStartedAt.value) / 1000;
         const eased = 1 - Math.exp(-t / (dur * 0.9));           // approche asymptotique : ne dépasse jamais la fin de l'étape
         const target = from + (to - from) * Math.min(0.97, eased);
@@ -34,8 +34,8 @@ const tick = () => {
     raf = requestAnimationFrame(tick);
 };
 // Refonte : lecture du site existant et reconstruction des sous-pages en plus → ~2,5 min au lieu de 90 s
-const speed = (props.site?.source === 'refonte') ? 1.8 : 1;
-const remaining = computed(() => Math.max(0, Math.round((100 - pct.value) / 100 * 92 * speed)));
+const speed = computed(() => (props.site?.source === 'refonte' || props.progress?.website) ? 1.8 : 1);
+const remaining = computed(() => Math.max(0, Math.round((100 - pct.value) / 100 * 92 * speed.value)));
 
 /* ── Journal de l'IA : lignes scriptées + lignes issues des vraies données, tapées lettre par lettre ── */
 const lines = ref([]);
@@ -81,6 +81,8 @@ const runScript = () => {
     }
     const d = p.value;
     if (d.name) say('found', (srcKey === 'google' ? 'Fiche trouvée : ' : (srcKey === 'refonte' ? 'Site analysé : ' : 'Entreprise : ')) + `${d.name}${d.city ? ' · ' + d.city : ''}`, 'ok');
+    if (d.website && srcKey === 'google') say('website', `Site actuel détecté sur la fiche : ${d.website} · lecture des pages…`, 'ok');
+    if (d.site_pages) say('sitepages', `${d.site_pages} page${d.site_pages > 1 ? 's' : ''} lue${d.site_pages > 1 ? 's' : ''} sur votre site actuel · ${d.site_images || 0} image${(d.site_images || 0) > 1 ? 's' : ''} récupérée${(d.site_images || 0) > 1 ? 's' : ''} · fiche Google + site combinés`, 'ok');
     if (d.reviews_count) say('reviews', `Lecture de ${fmt(d.reviews_count)} avis clients · note ${d.rating ?? '—'}/5`, 'ok');
     if (d.sector) say('sector', `Métier identifié : ${d.sector} → modèle « ${d.sector} » chargé`, 'ok');
     if (d.photos?.length) say('photos', srcKey === 'google' ? `${d.photos.length} photos récupérées sur la fiche` : (srcKey === 'refonte' ? `${d.photos.length} images récupérées sur votre site` : `${d.photos.length} photos reçues`), 'ok');

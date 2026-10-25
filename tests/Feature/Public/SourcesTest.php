@@ -112,6 +112,60 @@ HTML;
         $this->assertSame('https://plomberie-dupont.fr', $b['website']);
     }
 
+    public function test_google_profile_with_website_is_combined_with_the_site_content(): void
+    {
+        $png = imagecreatetruecolor(800, 600); ob_start(); imagepng($png); $bytes = ob_get_clean();
+        Http::fake([
+            'https://plomberie-dupont.fr' => Http::response(self::HTML, 200, ['Content-Type' => 'text/html']),
+            'https://plomberie-dupont.fr/prestations' => Http::response('<html><body><h1>Prestations</h1><p>'.str_repeat('Plomberie et chauffage toutes marques. ', 10).'</p></body></html>', 200, ['Content-Type' => 'text/html']),
+            'https://plomberie-dupont.fr/tarifs' => Http::response('', 404),
+            'https://plomberie-dupont.fr/img/*' => Http::response($bytes, 200, ['Content-Type' => 'image/png']),
+        ]);
+        $this->mock(GooglePlaces::class)->shouldReceive('lookup')->with('ChIJdup')->once()->andReturn(['place_id' => 'ChIJdup', 'name' => 'Plomberie Dupont', 'address' => '12 rue de la République, 69002 Lyon', 'city' => 'Lyon', 'phone' => '04 78 12 34 56', 'rating' => 4.8, 'reviews_count' => 120, 'reviews' => [], 'photos' => ['https://g/p1.jpg'], 'maps_url' => null, 'lat' => null, 'lng' => null, 'types' => ['plumber'], 'primary_type' => 'Plombier', 'opening_hours' => ['lundi: 9-18'], 'website' => 'https://plomberie-dupont.fr']);
+        $site = Site::create(['slug' => 'plomberie-dupont-cd34', 'name' => 'Plomberie Dupont', 'sector' => 'plombier', 'status' => 'generating', 'source' => 'joow-public', 'place_id' => 'ChIJdup']);
+
+        $progress = [];
+        $b = app(BusinessSource::class)->resolve($site, function (array $more) use (&$progress) { $progress = array_merge($progress, $more); });
+
+        $this->assertSame('google', $b['source']);
+        $this->assertTrue($b['combo']);
+        $this->assertSame(4.8, $b['rating']);
+        $this->assertSame('plomberie-dupont.fr', $progress['website']);
+        $this->assertSame(2, $progress['site_pages']);
+        $this->assertCount(2, $b['existing']['pages']);
+        $this->assertStringStartsWith(config('app.url').'/media/plomberie-dupont-cd34/', $b['photos'][0]);
+        $this->assertContains('https://g/p1.jpg', $b['photos']);
+        $this->assertNotEmpty($site->fresh()->site_data['import']['pages']);
+    }
+
+    public function test_google_profile_website_on_social_network_is_ignored(): void
+    {
+        Http::fake();
+        $this->mock(GooglePlaces::class)->shouldReceive('lookup')->once()->andReturn(['place_id' => 'ChIJfb', 'name' => 'Démo', 'address' => 'Lyon', 'city' => 'Lyon', 'phone' => null, 'rating' => null, 'reviews_count' => 0, 'reviews' => [], 'photos' => [], 'maps_url' => null, 'lat' => null, 'lng' => null, 'types' => [], 'primary_type' => null, 'opening_hours' => [], 'website' => 'https://www.facebook.com/demo']);
+        $site = Site::create(['slug' => 'demo-fb-1', 'name' => 'Démo', 'sector' => 'service', 'status' => 'generating', 'source' => 'joow-public', 'place_id' => 'ChIJfb']);
+        $b = app(BusinessSource::class)->resolve($site);
+        $this->assertFalse($b['combo']);
+        Http::assertNothingSent();
+    }
+
+    public function test_redesign_accepts_google_match_by_phone_when_names_differ(): void
+    {
+        Http::fake(['https://plomberie-dupont.fr' => Http::response(self::HTML, 200, ['Content-Type' => 'text/html']), '*' => Http::response('', 404)]);
+        $g = ['place_id' => 'ChIJsarl', 'name' => 'SARL DUPONT SERVICES', 'address' => '12 rue de la République, 69002 Lyon', 'city' => 'Lyon', 'phone' => '+33 4 78 12 34 56', 'rating' => 4.5, 'reviews_count' => 10, 'reviews' => [], 'photos' => [], 'maps_url' => null, 'lat' => null, 'lng' => null, 'types' => ['plumber'], 'primary_type' => 'Plombier', 'opening_hours' => [], 'website' => null];
+        $this->mock(GooglePlaces::class, function ($m) use ($g) {
+            $m->shouldReceive('lookup')->with('Plomberie Dupont Lyon')->once()->andReturn($g);
+            $m->shouldReceive('lookup')->with('ChIJsarl')->once()->andReturn($g);
+        });
+        $this->mock(SectorDetector::class)->shouldReceive('detect')->andReturn('plombier');
+        $site = Site::create(['slug' => 'plomberie-dupont-ef56', 'name' => 'Plomberie Dupont', 'sector' => 'service', 'status' => 'generating', 'source' => 'refonte', 'site_data' => ['import' => ['url' => 'https://plomberie-dupont.fr', 'host' => 'plomberie-dupont.fr']]]);
+
+        $b = app(BusinessSource::class)->resolve($site);
+
+        $this->assertSame('ChIJsarl', $site->fresh()->place_id);
+        $this->assertSame('refonte', $b['source']);
+        $this->assertTrue($b['combo']);
+    }
+
     public function test_intake_store_creates_site_and_dispatches_generation(): void
     {
         $this->mock(SectorDetector::class)->shouldReceive('detect')->andReturn('plombier');

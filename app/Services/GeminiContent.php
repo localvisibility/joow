@@ -119,7 +119,13 @@ TXT;
             return "REFONTE DU SITE EXISTANT ({$b['website']})\n- Nom : {$b['name']}\n- Métier : ".($b['primary_type'] ?: $sectorLabel)." · types : {$types}\n- Adresse : {$b['address']}\n- Horaires : {$hours}\n{$gl}{$ownerBlock}\n\nCONTENU ACTUEL DU SITE (matière première : conserve tous les faits — prestations, prix, noms, chiffres, histoire, zone — et réécris-les en mieux ; n'ajoute aucun fait absent) :\n{$pages}";
         }
 
-        return "FICHE GOOGLE\n- Nom : {$b['name']}\n- Type principal : {$primary} · types : {$types}\n- Adresse : {$b['address']}\n- Note : {$b['rating']}/5 ({$b['reviews_count']} avis)\n- Horaires : {$hours}\n- Avis clients (matière première : réutilise les mots des clients, les détails concrets, jamais de citation inventée) :\n{$reviews}{$ownerBlock}";
+        $existing = '';
+        if (! empty($b['existing']['pages'])) {
+            $pages = collect($b['existing']['pages'])->map(fn ($p) => '### '.($p['title'] ?? $p['url'] ?? 'Page')."\n".Str::limit(trim((string) ($p['text'] ?? '')), 1500))->take(6)->implode("\n\n");
+            $existing = "\n\nSITE ACTUEL DE L'ÉTABLISSEMENT ({$b['website']}) — matière première complémentaire : reprends les faits (prestations, prix, histoire, équipe, zone, garanties, marques), jamais les formulations creuses ; en cas de contradiction, la fiche Google et les avis priment pour les coordonnées et horaires :\n{$pages}";
+        }
+
+        return "FICHE GOOGLE\n- Nom : {$b['name']}\n- Type principal : {$primary} · types : {$types}\n- Adresse : {$b['address']}\n- Note : {$b['rating']}/5 ({$b['reviews_count']} avis)\n- Horaires : {$hours}\n- Avis clients (matière première : réutilise les mots des clients, les détails concrets, jamais de citation inventée) :\n{$reviews}{$ownerBlock}{$existing}";
     }
 
     private function fallback(array $business, string $sectorLabel): array
