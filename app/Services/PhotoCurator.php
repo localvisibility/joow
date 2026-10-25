@@ -45,8 +45,11 @@ class PhotoCurator
         $cats = implode('|', self::CATEGORIES);
         $parts[] = ['text' => <<<TXT
 Tu es directeur artistique pour le site web de « {$businessName} » ({$sectorLabel}). Analyse les {$n} photos ci-dessus (issues de sa fiche Google).
-Réponds UNIQUEMENT en JSON : {"photos":[{"i":1,"category":"{$cats}","quality":1-5,"landscape":true|false,"people":true|false,"text_overlay":true|false,"description":"ce que l'on voit, en français, 6 à 14 mots, concret (lieu, lumière, matière, ambiance)","subject":"mot-clé court du sujet principal"}, …]}
-Règles de notation : quality 5 = photo pro nette, bien exposée, cadrée large, exploitable en plein écran ; 1 = floue, sombre, logo/texte, capture d'écran, photo de menu/affiche, selfie. Pénalise fortement les photos avec du texte incrusté, les logos, les documents, les photos verticales serrées. « exterieur » = façade/devanture/terrasse ; « interieur » = salle/cabinet/atelier/boutique ; « plat » = nourriture/boisson ; « produit » = objet vendu ; « equipe » = personnes qui travaillent ; « travail » = geste métier/chantier/soin ; « detail » = gros plan matière/déco.
+Réponds UNIQUEMENT en JSON : {"photos":[{"i":1,"category":"{$cats}","quality":1-5,"landscape":true|false,"people":true|false,"text_overlay":true|false,"description":"ce que l'on voit, en français, 6 à 14 mots, concret (lieu, lumière, matière, ambiance)","subject":"mot-clé court du sujet principal","keywords":["3 à 5 mots-clés du sujet (objets, gestes, lieu)"],"fit":{"hero":1-5,"about":1-5,"service":1-5},"duplicate_of":0}, …]}
+Règles de notation : quality 5 = photo pro nette, bien exposée, cadrée large, exploitable en plein écran ; 1 = floue, sombre, logo/texte, capture d'écran, photo de menu/affiche, selfie. Pénalise fortement les photos avec du texte incrusté, les logos, les documents, les photos verticales serrées.
+« fit » = adéquation à un rôle : hero = image d'ambiance plein écran qui donne envie (lieu, large, lumineuse, le sujet du métier visible) ; about = montre qui travaille ou le lieu de travail (artisan, équipe, atelier, cabinet) ; service = illustre une prestation concrète (geste, produit, résultat).
+« duplicate_of » = numéro d'une photo précédente quasi identique (même cadrage), sinon 0.
+« exterieur » = façade/devanture/terrasse ; « interieur » = salle/cabinet/atelier/boutique ; « plat » = nourriture/boisson ; « produit » = objet vendu ; « equipe » = personnes qui travaillent ; « travail » = geste métier/chantier/soin ; « detail » = gros plan matière/déco.
 TXT];
 
         $res = Gemini::generate([
@@ -76,10 +79,13 @@ TXT];
                 'text_overlay' => (bool) ($r['text_overlay'] ?? false),
                 'description'  => trim((string) ($r['description'] ?? '')),
                 'subject'      => trim((string) ($r['subject'] ?? '')),
+                'keywords'     => array_values(array_filter(array_map(fn ($k) => trim((string) $k), (array) ($r['keywords'] ?? [])))),
+                'fit'          => ['hero' => (int) ($r['fit']['hero'] ?? 0), 'about' => (int) ($r['fit']['about'] ?? 0), 'service' => (int) ($r['fit']['service'] ?? 0)],
+                'duplicate'    => (int) ($r['duplicate_of'] ?? 0) > 0 && (int) ($r['duplicate_of'] ?? 0) < $i + 1,
             ];
         }
         foreach ($kept as $i => $url) {
-            $meta[$i] ??= ['url' => $url, 'category' => 'autre', 'quality' => 3, 'landscape' => true, 'people' => false, 'text_overlay' => false, 'description' => '', 'subject' => ''];
+            $meta[$i] ??= ['url' => $url, 'category' => 'autre', 'quality' => 3, 'landscape' => true, 'people' => false, 'text_overlay' => false, 'description' => '', 'subject' => '', 'keywords' => [], 'fit' => ['hero' => 0, 'about' => 0, 'service' => 0], 'duplicate' => false];
         }
         ksort($meta);
         $meta = array_values($meta);
@@ -90,9 +96,10 @@ TXT];
     /** Attribution des rôles : hero (large, ambiance, sans texte), about (équipe/intérieur), services (travail/produit/plat), galerie (le reste, qualité ≥ 3). */
     private function assign(array $meta): array
     {
-        $usable = array_values(array_filter($meta, fn ($p) => ! $p['text_overlay'] && $p['quality'] >= 2));
+        $usable = array_values(array_filter($meta, fn ($p) => ! $p['text_overlay'] && $p['quality'] >= 2 && empty($p['duplicate'])));
         $used = [];
-        $pick = function (array $prefCats, bool $needLandscape = false, int $minQ = 3) use (&$usable, &$used) {
+        // Score = adéquation au rôle notée par l'IA (si disponible) + catégorie attendue + qualité
+        $pick = function (array $prefCats, string $role, bool $needLandscape = false, int $minQ = 3, int $minFit = 0) use (&$usable, &$used) {
             $best = null;
             $bestScore = -1;
             foreach ($usable as $p) {
@@ -102,8 +109,12 @@ TXT];
                 if ($needLandscape && ! $p['landscape']) {
                     continue;
                 }
+                $fit = (int) ($p['fit'][$role] ?? 0);
+                if ($fit && $fit < $minFit) {
+                    continue;
+                }
                 $rank = array_search($p['category'], $prefCats, true);
-                $score = ($rank === false ? 0 : (count($prefCats) - $rank) * 10) + $p['quality'];
+                $score = $fit * 12 + ($rank === false ? 0 : (count($prefCats) - $rank) * 4) + $p['quality'] * 2;
                 if ($score > $bestScore) {
                     $bestScore = $score;
                     $best = $p;
@@ -116,13 +127,14 @@ TXT];
             return $best['url'] ?? null;
         };
 
-        $hero = $pick(['exterieur', 'interieur', 'plat', 'travail', 'detail', 'produit'], true, 4)
-            ?? $pick(['exterieur', 'interieur', 'plat', 'travail', 'detail', 'produit', 'equipe'], true, 3)
-            ?? $pick(['exterieur', 'interieur', 'plat', 'travail', 'detail', 'produit', 'equipe', 'autre'], false, 2);
-        $about = $pick(['equipe', 'interieur', 'travail', 'exterieur', 'detail'], false, 3)
-            ?? $pick(['equipe', 'interieur', 'travail', 'exterieur', 'detail', 'plat', 'produit', 'autre'], false, 2);
-        $services = $pick(['travail', 'plat', 'produit', 'detail', 'interieur'], false, 3)
-            ?? $pick(['travail', 'plat', 'produit', 'detail', 'interieur', 'exterieur', 'autre'], false, 2);
+        // Hero : seulement une vraie image d'ambiance (adéquation ≥ 3) ; sinon null → banque d'images
+        $hero = $pick(['exterieur', 'interieur', 'plat', 'travail', 'detail', 'produit'], 'hero', true, 4, 3)
+            ?? $pick(['exterieur', 'interieur', 'plat', 'travail', 'detail', 'produit', 'equipe'], 'hero', true, 3, 3)
+            ?? $pick(['exterieur', 'interieur', 'plat', 'travail', 'detail', 'produit', 'equipe', 'autre'], 'hero', false, 3, 2);
+        $about = $pick(['equipe', 'interieur', 'travail', 'exterieur', 'detail'], 'about', false, 3, 3)
+            ?? $pick(['equipe', 'interieur', 'travail', 'exterieur', 'detail', 'plat', 'produit', 'autre'], 'about', false, 2, 2);
+        $services = $pick(['travail', 'plat', 'produit', 'detail', 'interieur'], 'service', false, 3, 3)
+            ?? $pick(['travail', 'plat', 'produit', 'detail', 'interieur', 'exterieur', 'autre'], 'service', false, 2, 2);
 
         $gallery = [];
         foreach ($usable as $p) {
@@ -150,7 +162,7 @@ TXT];
             if ($p['description'] === '') {
                 continue;
             }
-            $lines[] = sprintf('- Photo %d (%s, qualité %d/5) : %s', $i + 1, $p['category'], $p['quality'], $p['description']);
+            $lines[] = sprintf('- Photo %d (%s, qualité %d/5%s) : %s', $i + 1, $p['category'], $p['quality'], ! empty($p['keywords']) ? ', mots-clés : '.implode(', ', array_slice($p['keywords'], 0, 4)) : '', $p['description']);
         }
 
         return implode("\n", $lines);
@@ -159,7 +171,7 @@ TXT];
     private function fallback(array $photos): array
     {
         return [
-            'photos' => array_map(fn ($u) => ['url' => $u, 'category' => 'autre', 'quality' => 3, 'landscape' => true, 'people' => false, 'text_overlay' => false, 'description' => '', 'subject' => ''], $photos),
+            'photos' => array_map(fn ($u) => ['url' => $u, 'category' => 'autre', 'quality' => 3, 'landscape' => true, 'people' => false, 'text_overlay' => false, 'description' => '', 'subject' => '', 'keywords' => [], 'fit' => ['hero' => 0, 'about' => 0, 'service' => 0], 'duplicate' => false], $photos),
             'images' => ['hero' => $photos[0] ?? null, 'about' => $photos[1] ?? null, 'services' => $photos[2] ?? null, 'gallery' => array_slice($photos, 3, 6)],
             'notes'  => '',
         ];

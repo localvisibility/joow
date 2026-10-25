@@ -42,6 +42,13 @@ return [
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),
     ],
+    // Banques d'images pour les sujets sans photo (clés gratuites ; Openverse fonctionne sans clé)
+    'stock' => [
+        'pexels'    => env('PEXELS_API_KEY'),
+        'pixabay'   => env('PIXABAY_API_KEY'),
+        'unsplash'  => env('UNSPLASH_ACCESS_KEY'),
+        'openverse' => (bool) env('STOCK_OPENVERSE', true),
+    ],
     'sites_path' => env('SITES_PATH', '/var/www/sites'),
     // Durée de vie (jours) d'un aperçu créé sans email ni compte : passé ce délai, il est supprimé automatiquement.
     'preview_ttl_days' => (int) env('PREVIEW_TTL_DAYS', 7),

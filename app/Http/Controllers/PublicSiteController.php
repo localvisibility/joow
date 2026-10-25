@@ -121,7 +121,7 @@ class PublicSiteController extends Controller
             'old_url'  => $site->site_data['import']['url'] ?? null,
             'combo'    => (bool) ($site->place_id && ! empty($site->site_data['import']['pages'])),
             'step'     => $progress['step'] ?? null,
-            'progress' => \Illuminate\Support\Arr::only($progress, ['step', 'source', 'name', 'city', 'rating', 'reviews_count', 'sector', 'color', 'font', 'photos', 'photo_notes', 'hero', 'hero_title', 'tagline', 'services', 'pages', 'timing', 'website', 'site_pages', 'site_images']),
+            'progress' => \Illuminate\Support\Arr::only($progress, ['step', 'source', 'name', 'city', 'rating', 'reviews_count', 'sector', 'color', 'font', 'photos', 'photo_notes', 'hero', 'hero_title', 'tagline', 'services', 'pages', 'timing', 'website', 'site_pages', 'site_images', 'stock_slots', 'stock_filled']),
             'ready'    => in_array($site->status, ['preview', 'paid', 'published'], true),
             'failed'   => $site->status === 'failed',
             'live_url' => 'https://'.$site->slug.'.joow.fr',

@@ -88,6 +88,8 @@ const runScript = () => {
     if (d.photos?.length) say('photos', srcKey === 'google' ? `${d.photos.length} photos récupérées sur la fiche` : (srcKey === 'refonte' ? `${d.photos.length} images récupérées sur votre site` : `${d.photos.length} photos reçues`), 'ok');
     if (d.step && d.step !== 'lookup' && !d.photos?.length && srcKey !== 'google') say('stock', 'Aucune photo fournie : sélection de visuels professionnels du métier', 'ok');
     (d.photo_notes || []).forEach((n, i) => { if (n.description) say('note' + i, `Photo ${i + 1} · ${n.category} · ${n.description}`); });
+    if (d.stock_slots) say('stock', `${d.stock_slots} sujet${d.stock_slots > 1 ? 's' : ''} sans photo : recherche d'images précises en banque d'images, tri par l'IA…`);
+    if (d.stock_filled) say('stockok', `${d.stock_filled} visuel${d.stock_filled > 1 ? 's' : ''} choisi${d.stock_filled > 1 ? 's' : ''} pour illustrer exactement chaque sujet`, 'ok');
     if (d.hero) say('hero', 'Visuel principal sélectionné pour le haut de page', 'ok');
     if (d.hero_title) say('title', `Accroche : « ${d.hero_title} »`, 'ok');
     (d.services || []).slice(0, 4).forEach((s, i) => say('svc' + i, `Prestation rédigée : ${s}`));

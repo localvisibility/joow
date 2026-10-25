@@ -74,17 +74,62 @@ class GenerateSiteJob implements ShouldQueue
             $progress(['step' => 'content']);
             $content = $gemini->generate($b, $sector, $cfg['label'], $notes, (string) ($cfg['brief'] ?? ''));
             $progress(['hero_title' => $content['hero_title'] ?? null, 'tagline' => $content['tagline'] ?? null, 'services' => array_values(array_filter(array_map(fn ($s) => $s['name'] ?? null, array_slice($content['services'] ?? [], 0, 6))))]);
-            // Image par service : l'IA désigne la photo (1..N) qui illustre chaque prestation
+            // Image par service : l'IA désigne la photo (1..N) qui illustre chaque prestation.
+            // On ne garde que les photos nettes, sans texte, jugées aptes à illustrer une prestation ; une photo par service.
             $usedImgs = [];
             foreach ($content['services'] ?? [] as $i => $s) {
                 $pi = (int) ($s['photo'] ?? 0) - 1;
-                $url = $cur['photos'][$pi]['url'] ?? null;
-                // Une photo n'illustre qu'un seul service (sinon la même image se répète sur plusieurs cartes)
+                $ph = $cur['photos'][$pi] ?? null;
+                $ok = $ph && ($ph['quality'] ?? 3) >= 3 && empty($ph['text_overlay']) && empty($ph['duplicate']) && (int) ($ph['fit']['service'] ?? 3) >= 2;
+                $url = $ok ? $ph['url'] : null;
                 $content['services'][$i]['image'] = ($url && ! in_array($url, $usedImgs, true)) ? $url : null;
                 if ($content['services'][$i]['image']) {
                     $usedImgs[] = $url;
                 }
                 unset($content['services'][$i]['photo']);
+            }
+
+            // 2c) Sujets sans photo : la bonne image depuis une banque d'images (requêtes IA, choix par vision)
+            //     — haut de page, à propos, chaque prestation sans visuel, galerie trop courte.
+            $images0 = array_filter($prev['images'] ?? []) ?: array_filter($cur['images'], fn ($v) => $v !== null && $v !== []);
+            $slots = [];
+            if (empty($images0['hero'])) {
+                $slots['hero'] = ['subject' => ($content['hero_title'] ?? '').' — '.$cfg['label'].' à '.($b['city'] ?? 'France'), 'role' => 'hero', 'pick' => true];
+            }
+            if (empty($images0['about'])) {
+                $slots['about'] = ['subject' => ($content['about_title'] ?? 'Qui sommes-nous').' — '.$cfg['label'].' au travail', 'role' => 'about', 'pick' => true];
+            }
+            foreach ($content['services'] ?? [] as $i => $s) {
+                if (empty($s['image']) && ! empty($s['name'])) {
+                    $slots["service_$i"] = ['subject' => $s['name'].(! empty($s['desc']) ? ' — '.$s['desc'] : ''), 'role' => 'prestation', 'pick' => $i < 3];
+                }
+            }
+            $galleryNow = array_values((array) ($images0['gallery'] ?? []));
+            for ($g = count($galleryNow); $g < 4; $g++) {
+                $slots["gallery_$g"] = ['subject' => $cfg['label'].' — '.(['ambiance du lieu', 'geste du métier', 'détail de matière ou produit', 'accueil des clients'][$g] ?? 'ambiance'), 'role' => 'galerie', 'pick' => false];
+            }
+            if ($slots) {
+                $progress(['substep' => 'stock', 'stock_slots' => count($slots)]);
+                $already = array_values(array_filter(array_merge([$images0['hero'] ?? null, $images0['about'] ?? null, $images0['services'] ?? null], $galleryNow, $usedImgs)));
+                $filled = app(\App\Services\StockPhotos::class)->fill($slots, $cfg['label'], (string) ($cfg['brief'] ?? ''), $already, $cfg['stock'] ?? []);
+                $credits = [];
+                foreach ($filled as $key => $pick) {
+                    if (str_starts_with($key, 'service_')) {
+                        $content['services'][(int) substr($key, 8)]['image'] = $pick['url'];
+                    } elseif (str_starts_with($key, 'gallery_')) {
+                        $galleryNow[] = $pick['url'];
+                    } else {
+                        $images0[$key] = $pick['url'];
+                    }
+                    if ($pick['credit']) {
+                        $credits[$pick['url']] = $pick['credit'];
+                    }
+                }
+                $images0['gallery'] = array_values(array_unique($galleryNow));
+                if ($credits) {
+                    $images0['credits'] = array_merge((array) ($images0['credits'] ?? []), $credits);
+                }
+                $progress(['stock_filled' => count($filled), 'hero' => isset($images0['hero']) ? $small($images0['hero']) : null]);
             }
 
             // 2b) Refonte : les pages internes du site existant deviennent des pages Joow (une fois)
@@ -97,7 +142,7 @@ class GenerateSiteJob implements ShouldQueue
 
             // 3) Modules par défaut du métier (première génération seulement) et images choisies
             $modules = $this->site->modules ?: ($cfg['modules'] ?? ['booking' => true]);
-            $images = array_filter($prev['images'] ?? []) ?: array_filter($cur['images'], fn ($v) => $v !== null && $v !== []);
+            $images = array_filter($images0, fn ($v) => $v !== null && $v !== []);
 
             // Snapshot structuré (source de vérité pour l'éditeur) — on préserve
             // les réglages existants (couleur, images, sections) lors d'une régénération.
