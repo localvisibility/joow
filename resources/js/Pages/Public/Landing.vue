@@ -22,6 +22,9 @@ const URL_RE = /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i;
 const siteUrl = computed(() => { const v = q.value.trim(); return !selected.value && URL_RE.test(v) && !/\s/.test(v) ? v : ''; });
 const siteHost = computed(() => siteUrl.value.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0]);
 const redesign = useForm({ url: '', email: '' });
+// Trois parcours, un seul champ : la fiche Google reste le chemin principal
+const mode = ref('google'); // 'google' | 'site'
+const setMode = (m) => { mode.value = m; reset(); stopTypewriter(); setTimeout(() => document.getElementById('search-input')?.focus({ preventScroll: true }), 50); };
 const startRedesign = () => { redesign.url = siteUrl.value; redesign.email = form.email; redesign.post(route('redesign.start')); };
 // Aucun résultat après recherche : on propose le questionnaire
 const noResult = ref(false);
@@ -272,18 +275,24 @@ onUnmounted(() => {
                         </p>
 
                         <form @submit.prevent="submit" class="reveal mx-auto mt-5 max-w-xl sm:mt-8 lg:mx-0">
+                            <!-- Choix du point de départ : la fiche Google d'abord, le site existant ensuite, le questionnaire sinon -->
+                            <div v-show="!selected" class="mb-3 flex flex-wrap items-center justify-center gap-1.5 lg:justify-start" role="tablist" aria-label="Point de départ">
+                                <button type="button" role="tab" :aria-selected="mode==='google'" @click="setMode('google')" class="rounded-full border px-3 py-1.5 text-xs font-semibold transition" :class="mode==='google' ? 'border-brand-400 bg-brand-500/20 text-white' : 'border-white/10 text-slate-400 hover:border-white/30 hover:text-white'">📍 J'ai une fiche Google <span class="hidden sm:inline text-[10px] font-bold uppercase tracking-wider" :class="mode==='google' ? 'text-emerald-300' : 'text-slate-500'">· recommandé</span></button>
+                                <button type="button" role="tab" :aria-selected="mode==='site'" @click="setMode('site')" class="rounded-full border px-3 py-1.5 text-xs font-semibold transition" :class="mode==='site' ? 'border-brand-400 bg-brand-500/20 text-white' : 'border-white/10 text-slate-400 hover:border-white/30 hover:text-white'">🌐 J'ai déjà un site</button>
+                                <Link :href="intakeUrl" class="rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:border-white/30 hover:text-white">✎ Ni l'un ni l'autre</Link>
+                            </div>
                             <label v-show="!selected" for="search-input" class="mb-2 flex items-center justify-center gap-2 text-sm font-semibold text-white lg:justify-start">
                                 <span class="grid h-6 w-6 place-items-center rounded-full bg-brand-gradient text-[11px] font-bold">1</span>
-                                Tapez le nom de votre établissement
-                                <span class="hidden font-normal text-slate-500 sm:inline">· tel qu'il apparaît sur Google</span>
+                                <template v-if="mode==='site'">Collez l'adresse de votre site actuel<span class="hidden font-normal text-slate-500 sm:inline">· on le lit et on le refait</span></template>
+                                <template v-else>Tapez le nom de votre établissement<span class="hidden font-normal text-slate-500 sm:inline">· tel qu'il apparaît sur Google</span></template>
                             </label>
                             <div class="search-shell" v-show="!selected">
                                 <svg class="pointer-events-none absolute left-4 top-1/2 z-10 h-5 w-5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path :d="icons.search"/></svg>
                                 <!-- Machine à écrire : exemples tapés en blanc, stoppée au premier clic -->
-                                <div v-if="showTypewriter" class="typewriter pointer-events-none absolute inset-y-0 left-12 right-32 flex items-center text-base text-white" aria-hidden="true">
+                                <div v-if="showTypewriter && mode!=='site'" class="typewriter pointer-events-none absolute inset-y-0 left-12 right-32 flex items-center text-base text-white" aria-hidden="true">
                                     <span class="truncate">{{ typed }}</span><span class="tw-cursor"></span>
                                 </div>
-                                <input id="search-input" v-model="q" type="text" autocomplete="off" class="field !rounded-2xl !border-white/20 !bg-white/[0.06] !py-4 pl-12 pr-32 text-base text-white" :placeholder="twStopped || focused ? 'Nom de votre établissement…' : ''" @focus="focused = true; stopTypewriter(); open = results.length > 0" @blur="focused = false" @input="stopTypewriter" />
+                                <input id="search-input" v-model="q" type="text" autocomplete="off" class="field !rounded-2xl !border-white/20 !bg-white/[0.06] !py-4 pl-12 pr-32 text-base text-white" :placeholder="mode==='site' ? 'www.mon-site.fr' : (twStopped || focused ? 'Nom de votre établissement…' : '')" @focus="focused = true; stopTypewriter(); open = results.length > 0" @blur="focused = false" @input="stopTypewriter" />
                                 <button type="button" @click="q.trim().length >= 3 ? null : scrollToSearch()" class="absolute right-2 top-1/2 hidden -translate-y-1/2 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold text-white sm:block">Rechercher</button>
                                 <div v-if="searching" class="absolute right-28 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-white/20 border-t-brand-500"></div>
                                 <div v-if="open && !siteUrl" class="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-white/10 bg-ink-800 text-left shadow-2xl">
@@ -300,6 +309,7 @@ onUnmounted(() => {
                                     </Link>
                                 </div>
                             </div>
+                            <p v-if="mode==='site' && !siteUrl && q.trim().length >= 4" class="mt-2 text-xs text-amber-200/80">Collez l'adresse complète de votre site, par exemple <span class="font-semibold">www.mon-site.fr</span>.</p>
                             <!-- URL collée : refonte du site existant -->
                             <div v-if="siteUrl" class="glass mt-3 rounded-2xl border-brand-500/30 p-4 text-left">
                                 <p class="flex items-center gap-2 text-sm font-semibold text-white"><span class="grid h-7 w-7 place-items-center rounded-lg bg-brand-gradient text-xs">↻</span> Refaire le site <span class="truncate text-brand-300">{{ siteHost }}</span></p>
@@ -322,11 +332,7 @@ onUnmounted(() => {
                             <p class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-slate-500 lg:justify-start">
                                 <span>✓ Gratuit</span><span>✓ Sans carte bancaire</span><span>✓ Aperçu immédiat</span><span>✓ Modifiable en 2 clics</span>
                             </p>
-                            <p v-if="!selected" class="mt-3 text-center text-xs text-slate-500 lg:text-left">
-                                <Link :href="intakeUrl" class="font-semibold text-slate-400 underline-offset-2 hover:text-white hover:underline">Pas de fiche Google ?</Link>
-                                <span class="mx-2 text-slate-700">·</span>
-                                <span>Vous avez déjà un site ? Collez son adresse ci-dessus pour une refonte.</span>
-                            </p>
+                            <p v-if="!selected && mode==='google'" class="mt-3 text-center text-xs text-slate-500 lg:text-left">Pas sûr d'avoir une fiche Google ? Tapez votre nom : si elle existe, elle apparaît. Sinon, choisissez « Ni l'un ni l'autre ».</p>
                         </form>
 
                         <div class="reveal mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-slate-400 lg:justify-start">

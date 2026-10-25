@@ -25,6 +25,16 @@ class SectorDetector
         $bestScore = $scores[$best] ?? 0;
         $second = $scores[$ranked[1] ?? ''] ?? 0;
 
+        // Sans types Google mais avec un texte descriptif (questionnaire, site existant) : le nom seul trompe
+        // (« Green Mandarin Design » n'est pas un fleuriste), l'IA lit la description et tranche.
+        $described = mb_strlen(trim((string) ($context['description'] ?? ''))) >= 40;
+        if (! array_diff($types, self::GENERIC) && $described) {
+            $ai = $this->classify($name, $types, $context, array_keys($sectors));
+            if ($ai) {
+                return $ai;
+            }
+        }
+
         // Résultat net : signal suffisant et sans égalité
         if ($bestScore >= 2 && $bestScore > $second) {
             return $best;
@@ -83,13 +93,15 @@ class SectorDetector
             'Type principal Google' => $context['primary_type'] ?? null,
             'Types Google' => implode(', ', $types),
             'Adresse' => $context['address'] ?? null,
-            'Description' => isset($context['description']) ? Str::limit((string) $context['description'], 400) : null,
+            'Description / contenu' => isset($context['description']) ? Str::limit(trim((string) $context['description']), 1200) : null,
             'Extraits d\'avis' => collect($context['reviews'] ?? [])->take(3)->map(fn ($r) => Str::limit((string) ($r['text'] ?? ''), 160))->implode(' | '),
         ])->filter()->map(fn ($v, $k) => "$k : $v")->implode("\n");
 
         $prompt = <<<TXT
 Classe cet établissement français dans UN métier du catalogue ci-dessous. Réponds uniquement en JSON : {"sector": "<clé>"}.
-Choisis la clé la plus précise ; « service » seulement si rien ne correspond.
+Règles : choisis la clé la plus précise pour l'ACTIVITÉ RÉELLE (ce que l'entreprise vend ou fait), pas pour les mots du nom ;
+une agence qui crée des sites = agence_web (pas informatique) ; un studio graphique = graphiste ; un consultant = conseil ;
+« service » seulement si rien ne correspond vraiment.
 
 Établissement : {$name}
 {$extra}
@@ -101,7 +113,7 @@ TXT;
             $res = Gemini::generate([
                 'contents' => [['parts' => [['text' => $prompt]]]],
                 'generationConfig' => ['temperature' => 0.1, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 64, 'thinkingConfig' => ['thinkingBudget' => 0]],
-            ], 20, 'SectorDetector', fast: true);
+            ], 25, 'SectorDetector', fast: true);
             $key = data_get(json_decode(Gemini::text($res), true), 'sector');
 
             return is_string($key) && in_array($key, $keys, true) ? $key : null;

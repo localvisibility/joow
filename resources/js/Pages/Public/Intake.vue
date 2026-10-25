@@ -52,6 +52,12 @@ const useProfile = (r) => {
     const f = useForm({ query: r.place_id, email: form.email || '' });
     f.post(route('public.generate'));
 };
+// Un site existant ? La refonte (lecture du site + fiche Google) remplace le questionnaire
+const existingUrl = ref('');
+const URL_RE = /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i;
+const existingOk = computed(() => URL_RE.test(existingUrl.value.trim()));
+const redesign = useForm({ url: '', email: '' });
+const startRedesign = () => { redesign.url = existingUrl.value.trim(); redesign.email = form.email || ''; redesign.post(route('redesign.start')); };
 
 /* ── Étape 2 : métier ── */
 const sectorQuery = ref('');
@@ -164,6 +170,17 @@ onMounted(() => { document.querySelector('[data-focus]')?.focus(); if (form.name
                     <button type="button" @click="dismissed = true; matches = []" class="mt-3 text-xs text-slate-400 underline-offset-2 hover:text-white hover:underline">Non, ce n'est pas moi · continuer sans fiche</button>
                 </div>
                 <p v-else-if="matching" class="text-xs text-slate-500">Vérification d'une éventuelle fiche Google…</p>
+
+                <!-- Site existant : on le lit plutôt que de poser des questions -->
+                <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <p class="text-sm font-semibold text-white">Vous avez déjà un site internet ?</p>
+                    <p class="mt-1 text-xs text-slate-400">Collez son adresse : nous lisons vos pages, gardons vos textes et photos, et le refaisons. Plus de questions à répondre.</p>
+                    <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                        <input v-model="existingUrl" type="url" inputmode="url" class="field sm:flex-1" placeholder="www.mon-site.fr" @keydown.enter.prevent="existingOk && startRedesign()" />
+                        <button type="button" :disabled="!existingOk || redesign.processing" @click="startRedesign" class="rounded-xl border border-brand-400/50 bg-brand-500/15 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-500/25 disabled:opacity-40">{{ redesign.processing ? 'Analyse…' : 'Refaire mon site →' }}</button>
+                    </div>
+                    <p v-if="redesign.errors.url" class="mt-2 text-xs text-rose-300">{{ redesign.errors.url }}</p>
+                </div>
             </section>
 
             <!-- 2. Métier -->

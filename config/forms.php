@@ -15,7 +15,50 @@ $contact = ['title' => 'Vos coordonnées', 'icon' => 'fa-user', 'contact' => tru
 $slots = ['type' => 'chips', 'key' => 'creneaux', 'label' => 'Vos disponibilités', 'required' => false,
     'options' => ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Matin', 'Après-midi', 'Soir']];
 
-return [
+// Projet digital / créatif (agence web, communication, design, développement, imprimerie)
+$projet = [
+    'type' => 'devis', 'cta' => 'Envoyer ma demande', 'delay' => 'Réponse sous 24h ouvrées',
+    'success' => 'Merci ! Nous étudions votre projet et revenons vers vous avec un premier retour.',
+    'steps' => [
+        ['title' => 'Votre projet', 'icon' => 'fa-rocket', 'fields' => [
+            ['type' => 'cards', 'key' => 'projet', 'label' => 'De quoi avez-vous besoin ?', 'required' => true, 'options' => [
+                ['value' => 'creation', 'label' => 'Créer', 'desc' => 'Site, app, identité…', 'icon' => 'fa-wand-magic-sparkles'],
+                ['value' => 'refonte', 'label' => 'Refaire / moderniser', 'desc' => 'L\'existant ne convient plus', 'icon' => 'fa-rotate'],
+                ['value' => 'visibilite', 'label' => 'Être plus visible', 'desc' => 'SEO, réseaux, publicité', 'icon' => 'fa-bullhorn'],
+                ['value' => 'accompagnement', 'label' => 'Un accompagnement', 'desc' => 'Suivi, maintenance, conseil', 'icon' => 'fa-handshake'],
+            ]],
+            ['type' => 'toggle', 'key' => 'budget', 'label' => 'Budget envisagé', 'options' => ['Moins de 1 000 €', '1 000 – 3 000 €', '3 000 – 10 000 €', 'Plus de 10 000 €', 'Je ne sais pas encore']],
+            ['type' => 'toggle', 'key' => 'delai', 'label' => 'Échéance', 'options' => ['Urgent', 'Dans le mois', 'Dans le trimestre', 'Pas de date']],
+            ['type' => 'textarea', 'key' => 'details', 'label' => 'Décrivez votre projet', 'required' => false, 'placeholder' => 'Activité, objectifs, exemples que vous aimez, site actuel…'],
+        ]],
+        $contact,
+    ],
+];
+
+// Recrutement & RH : deux publics
+$rh = [
+    'type' => 'devis', 'cta' => 'Envoyer ma demande', 'delay' => 'Réponse sous 24h',
+    'success' => 'Merci ! Un consultant vous recontacte très vite.',
+    'steps' => [
+        ['title' => 'Votre demande', 'icon' => 'fa-people-group', 'fields' => [
+            ['type' => 'cards', 'key' => 'profil', 'label' => 'Vous êtes…', 'required' => true, 'options' => [
+                ['value' => 'entreprise', 'label' => 'Une entreprise', 'desc' => 'Je recrute ou cherche un renfort', 'icon' => 'fa-building'],
+                ['value' => 'candidat', 'label' => 'Un candidat', 'desc' => 'Je cherche un poste', 'icon' => 'fa-user-tie'],
+            ]],
+            ['type' => 'toggle', 'key' => 'type', 'label' => 'Type de besoin', 'options' => ['CDI / CDD', 'Intérim', 'Freelance', 'Conseil RH', 'Autre']],
+            ['type' => 'textarea', 'key' => 'details', 'label' => 'Poste, secteur, délai…', 'required' => false, 'placeholder' => 'Décrivez le poste ou votre profil'],
+        ]],
+        $contact,
+    ],
+];
+
+$forms = [
+    'agence_web'    => $projet,
+    'communication' => $projet,
+    'graphiste'     => $projet,
+    'developpeur'   => $projet,
+    'imprimerie'    => $projet,
+    'rh'            => $rh,
     'default' => [
         'type' => 'devis', 'cta' => 'Envoyer ma demande', 'delay' => 'Réponse sous 24h',
         'success' => 'Merci ! Votre demande est bien envoyée, nous revenons vers vous très vite.',
@@ -363,3 +406,10 @@ return [
         ],
     ],
 ];
+
+// Alias : même formulaire
+$forms['coach'] = $forms['conseil'];
+$forms['nutrition'] = $forms['sante'];
+$forms['animaux'] = $forms['beaute'] ?? $forms['default'];
+
+return $forms;

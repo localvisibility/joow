@@ -21,6 +21,7 @@ $shop = ['about', 'services', 'gallery', 'reviews', 'faq', 'booking', 'cta', 'co
 $care = ['services', 'about', 'process', 'reviews', 'faq', 'booking', 'cta', 'contact'];                   // santé / bien-être : soins → praticien → rassurance
 $food = ['menu', 'services', 'gallery', 'about', 'reviews', 'booking', 'faq', 'cta', 'contact'];           // restauration : la carte et l'ambiance
 $stay = ['rooms', 'gallery', 'services', 'about', 'reviews', 'booking', 'faq', 'cta', 'contact'];          // hébergement : chambres et lieu
+$b2b  = ['services', 'gallery', 'process', 'about', 'reviews', 'faq', 'booking', 'cta', 'contact'];        // agences & prestataires B2B : offre → réalisations → méthode
 
 $bookingOn = ['booking' => true, 'bot' => ['enabled' => true], 'reviews' => ['enabled' => true, 'min_rating' => 4, 'count' => 6]];
 $tableOn = ['booking' => true, 'restaurant' => ['enabled' => true], 'bot' => ['enabled' => true], 'reviews' => ['enabled' => true, 'min_rating' => 4, 'count' => 6]];
@@ -125,7 +126,7 @@ return [
 
     'veterinaire' => ['label' => 'Clinique vétérinaire', 'color' => '#16a34a', 'icon' => 'fa-paw', 'cta' => 'Prendre rendez-vous',
         'font' => 'Manrope', 'theme' => 'light', 'hero' => 'split', 'order' => $care, 'modules' => $bookingOn,
-        'keywords' => ['veterinaire', 'vétérinaire', 'veterinary', 'clinique vet', 'animaux', 'pet', 'toilettage', 'pet_store', 'animalerie', 'pension canine', 'educateur canin', 'éducateur canin'],
+        'keywords' => ['veterinaire', 'vétérinaire', 'veterinary', 'veterinary_care', 'clinique vet', 'cabinet vet', 'animal_hospital'],
         'brief' => "Vétérinaire (ou toilettage, pension, éducateur) : consultations, vaccins, chirurgie, urgences, imagerie, dentisterie, NAC, conseils nutrition, toilettage. FAQ : urgences et horaires, première visite, tarifs indicatifs ou devis, assurance animaux, stérilisation, transport de l'animal. Ton : empathique (le visiteur est inquiet pour son compagnon), pratique.",
         'stock' => [$u('1548767797-d8c844163c4c'), $u('1548199973-03cce0bbc87b'), $u('1583337130417-3346a1be7dee'), $u('1450778869180-41d0601e046e')]],
 
@@ -301,7 +302,7 @@ return [
 
     'conseil' => ['label' => 'Conseil & formation', 'color' => '#7c3aed', 'icon' => 'fa-lightbulb', 'cta' => 'Prendre contact',
         'font' => 'Manrope', 'theme' => 'light', 'hero' => 'center', 'order' => $svc, 'modules' => $bookingOn,
-        'keywords' => ['conseil', 'consulting', 'consultant', 'coaching', 'formation', 'formateur', 'training', 'marketing', 'communication', 'agence web', 'web agency', 'digital', 'recrutement', 'ressources humaines', 'traduct', 'redact', 'rédact', 'bureau d\'etudes', 'bureau d\'études'],
+        'keywords' => ['conseil', 'consulting', 'consultant', 'formation', 'formateur', 'training', 'bureau d\'etudes', 'bureau d\'études', 'business_management_consultant', 'management', 'strategie', 'stratégie', 'expert-conseil', 'audit'],
         'brief' => "Conseil, coaching, formation ou agence : offres claires (audit, accompagnement, formation, abonnement), pour qui (TPE, PME, particuliers), méthode et livrables, résultats attendus formulés prudemment, références/témoignages. FAQ : premier échange gratuit, tarifs et formats, distanciel/présentiel, financement (OPCO, CPF, Qualiopi si indiqué), durée. Ton : expert, direct, orienté résultats concrets.",
         'stock' => [$u('1600880292203-757bb62b4baf'), $u('1552664730-d307ca884978'), $u('1556761175-b413da4baf72'), $u('1522071820081-009f0129c71c')]],
 
@@ -334,6 +335,113 @@ return [
         'keywords' => ['funeraire', 'funéraire', 'pompes funebres', 'pompes funèbres', 'funeral', 'marbrerie', 'marbrier', 'obseques', 'obsèques', 'cremat', 'crémat', 'chambre funeraire', 'chambre funéraire'],
         'brief' => "Pompes funèbres : disponibilité 24h/24, organisation complète des obsèques (inhumation, crémation), démarches administratives, chambre funéraire, marbrerie, contrats de prévoyance, fleurs. Parcours = premier appel → rendez-vous → organisation → cérémonie → après. FAQ : que faire en premier, délais légaux, coût et devis, prévoyance, transport du défunt, démarches. Ton : digne, apaisé, très clair, sans démarchage commercial.",
         'stock' => [$u('1468327768560-75b778cbb551'), $u('1473448912268-2022ce9509d8'), $u('1455218873509-8097305ee378'), $u('1490750967868-88aa4486c946')]],
+
+
+    /* ───────────── Agences, digital & services aux entreprises ───────────── */
+
+    'agence_web' => ['label' => 'Agence web & digital', 'color' => '#4f46e5', 'icon' => 'fa-code', 'cta' => 'Parler de mon projet',
+        'font' => 'Space Grotesk', 'theme' => 'dark', 'hero' => 'split', 'order' => $b2b, 'modules' => $bookingOn,
+        'keywords' => ['agence web', 'web agency', 'agence digitale', 'digital agency', 'creation de site', 'création de site', 'site internet', 'site web', 'webdesign', 'web design', 'website_designer', 'web_designer', 'internet_marketing_service', 'seo', 'referencement', 'référencement', 'e-commerce', 'ecommerce', 'wordpress', 'shopify', 'webmaster', 'studio digital', 'studio web', 'ux', 'ui design'],
+        'brief' => "Agence web / digitale : on vend des résultats business (visibilité, contacts, ventes) avant de la technique. Services = création de site vitrine, e-commerce, refonte, SEO / référencement local, identité visuelle, maintenance, publicité en ligne ; prix « dès … » ou « sur devis ». Parcours en 3 étapes (échange & cadrage → conception & réalisation → mise en ligne & suivi). La galerie = réalisations / portfolio (titre du type « Nos réalisations »). FAQ : délais, tarifs, propriété du site, hébergement, accompagnement après livraison, référencement. Interdits : jargon creux (« solutions innovantes », « 360° »), promesses de position Google. Ton : expert, concret, orienté client, vouvoiement.",
+        'stock' => [$u('1531403009284-440f080d1e12'), $u('1499951360447-b19be8fe80f5'), $u('1460925895917-afdab827c52f'), $u('1522202176988-66273c2fd55f')]],
+
+    'communication' => ['label' => 'Communication & marketing', 'color' => '#db2777', 'icon' => 'fa-bullhorn', 'cta' => 'Demander un devis',
+        'font' => 'Bricolage Grotesque', 'theme' => 'light', 'hero' => 'center', 'order' => $b2b, 'modules' => $bookingOn,
+        'keywords' => ['communication', 'marketing', 'marketing_agency', 'advertising_agency', 'agence de communication', 'agence de pub', 'publicite', 'publicité', 'community manager', 'reseaux sociaux', 'réseaux sociaux', 'social media', 'relations presse', 'rp', 'branding', 'stratégie de marque', 'strategie de marque', 'public_relations_firm', 'influence', 'contenu', 'content'],
+        'brief' => "Agence ou consultant en communication / marketing : clarté sur les livrables (stratégie, réseaux sociaux, campagnes, relations presse, contenus, publicité, marque). Services = offres packagées ou accompagnements mensuels, avec un ordre de prix si connu. Galerie = campagnes et réalisations. Parcours : brief → stratégie → production → mesure des résultats. FAQ : budget minimum, durée d'engagement, mesure des résultats, secteurs servis. Ton : créatif mais précis, zéro superlatif creux.",
+        'stock' => [$u('1557804506-669a67965ba0'), $u('1504384308090-c894fdcc538d'), $u('1560472354-b33ff0c44a43'), $u('1523240795612-9a054b0db644')]],
+
+    'graphiste' => ['label' => 'Design graphique & identité visuelle', 'color' => '#ea580c', 'icon' => 'fa-pen-nib', 'cta' => 'Demander un devis',
+        'font' => 'Fraunces', 'theme' => 'light', 'hero' => 'editorial', 'order' => $b2b, 'modules' => $bookingOn,
+        'keywords' => ['graphiste', 'graphic_designer', 'graphisme', 'design graphique', 'designer', 'studio de design', 'studio créatif', 'studio creatif', 'identite visuelle', 'identité visuelle', 'logo', 'illustrat', 'motion design', 'direction artistique', 'da freelance', 'packaging design', 'maquettiste'],
+        'brief' => "Graphiste / studio de design : le portfolio fait vendre, les mots doivent rester sobres. Services = identité visuelle & logo, supports print, packaging, illustration, motion, webdesign, avec des prix « dès … » ou « sur devis ». Galerie = réalisations (titre du type « Sélection de projets »). Parcours : brief → pistes créatives → finalisation & fichiers. FAQ : délais, nombre d'allers-retours, cession des droits, fichiers livrés, impression. Ton : précis, élégant, phrases courtes.",
+        'stock' => [$u('1450101499163-c8848c66ca85'), $u('1504868584819-f8e8b4b6d7e3'), $u('1553877522-43269d4ea984'), $u('1499951360447-b19be8fe80f5')]],
+
+    'developpeur' => ['label' => 'Développement logiciel & applications', 'color' => '#0f766e', 'icon' => 'fa-laptop-code', 'cta' => 'Discuter de mon projet',
+        'font' => 'Manrope', 'theme' => 'dark', 'hero' => 'split', 'order' => $b2b, 'modules' => $bookingOn,
+        'keywords' => ['developpeur', 'développeur', 'developer', 'software_company', 'logiciel', 'software', 'application mobile', 'app mobile', 'applications', 'saas', 'startup', 'start-up', 'esn', 'ssii', 'intégrateur', 'integrateur', 'erp', 'crm', 'automatisation', 'intelligence artificielle', 'data', 'devops', 'cloud', 'freelance dev'],
+        'brief' => "Studio ou freelance en développement : expliquer simplement ce qu'on construit (applications web, mobiles, logiciels métier, intégrations, automatisations, IA) et pour qui. Services = types de projets avec « sur devis » ou tarif jour si connu. Galerie = projets livrés (captures). Parcours : cadrage → développement par itérations → livraison & maintenance. FAQ : méthodologie, délais, propriété du code, maintenance, sécurité, hébergement. Ton : clair, rassurant, sans jargon inutile.",
+        'stock' => [$u('1581091226825-a6a2a5aee158'), $u('1461749280684-dccba630e2f6'), $u('1517245386807-bb43f82c33c4'), $u('1559526324-4b87b5e36e44')]],
+
+    'coach' => ['label' => 'Coaching & développement personnel', 'color' => '#c2410c', 'icon' => 'fa-seedling', 'cta' => 'Réserver un premier échange',
+        'font' => 'Cormorant Garamond', 'theme' => 'light', 'hero' => 'editorial', 'order' => $care, 'modules' => $bookingOn,
+        'keywords' => ['coach', 'coaching', 'life_coach', 'coach de vie', 'coach professionnel', 'developpement personnel', 'développement personnel', 'hypnose', 'hypnotherap', 'sophrolog', 'pnl', 'mentor', 'accompagnement', 'preparateur mental', 'préparateur mental', 'bilan de competences', 'bilan de compétences', 'reconversion', 'confiance en soi'],
+        'brief' => "Coach (vie, professionnel, mental, hypnose, sophrologie) : parler des situations du client (transition, stress, confiance, objectif) avant des méthodes. Services = formats d'accompagnement (séance découverte, pack de séances, programme, atelier) avec prix et durée. Parcours : premier échange offert → séances → autonomie. FAQ : différence coaching/thérapie, nombre de séances, visio ou présentiel, confidentialité, tarifs, remboursement éventuel. Pas de promesse de résultat garanti. Ton : chaleureux, posé, vouvoiement.",
+        'stock' => [$u('1493962853295-0fd70327578a'), $u('1573164713714-d95e436ab8d6'), $u('1507003211169-0a1dd7228f2d'), $u('1522071820081-009f0129c71c')]],
+
+    'rh' => ['label' => 'Recrutement & ressources humaines', 'color' => '#1d4ed8', 'icon' => 'fa-people-group', 'cta' => 'Nous confier un recrutement',
+        'font' => 'Manrope', 'theme' => 'light', 'hero' => 'center', 'order' => $b2b, 'modules' => $bookingOn,
+        'keywords' => ['recrutement', 'cabinet de recrutement', 'employment_agency', 'interim', 'intérim', 'ressources humaines', 'rh', 'chasseur de tete', 'chasseur de têtes', 'portage salarial', 'outplacement', 'paie', 'gestion de la paie', 'talent'],
+        'brief' => "Cabinet de recrutement / RH / intérim : deux publics (entreprises qui recrutent, candidats). Services = recrutement par profil ou secteur, intérim, conseil RH, paie, outplacement, avec modalités (honoraires au succès, délais moyens). Parcours : brief de poste → sourcing & entretiens → intégration & garantie. FAQ : coût, délai moyen, garantie de remplacement, secteurs et régions couverts, confidentialité. Ton : professionnel, direct, humain.",
+        'stock' => [$u('1542744173-8e7e53415bb0'), $u('1553729459-efe14ef6055d'), $u('1522202176988-66273c2fd55f'), $u('1497215728101-856f4ea42174')]],
+
+    'traducteur' => ['label' => 'Traduction & rédaction', 'color' => '#4338ca', 'icon' => 'fa-language', 'cta' => 'Demander un devis',
+        'font' => 'Fraunces', 'theme' => 'light', 'hero' => 'center', 'order' => $svc, 'modules' => $bookingOn,
+        'keywords' => ['traduct', 'translator', 'translation', 'interpret', 'redacteur', 'rédacteur', 'redaction web', 'rédaction web', 'copywrit', 'correcteur', 'relecture', 'ecrivain public', 'écrivain public', 'biographe', 'sous-titrage', 'transcription'],
+        'brief' => "Traducteur, interprète ou rédacteur : langues et domaines de spécialité (juridique, technique, marketing, assermenté), formats (documents, sites, sous-titres, interprétation). Services avec tarif au mot, à l'heure ou sur devis. Parcours : envoi du document → devis sous 24 h → livraison relue. FAQ : délais, traduction assermentée, confidentialité, langues, formats acceptés. Ton : précis, sobre, fiable.",
+        'stock' => [$u('1544717305-2782549b5136'), $u('1455390582262-044cdead277a'), $u('1454165804606-c3d57bc86b40'), $u('1497366216548-37526070297c')]],
+
+    'imprimerie' => ['label' => 'Imprimerie & signalétique', 'color' => '#0369a1', 'icon' => 'fa-print', 'cta' => 'Demander un devis',
+        'font' => 'Bricolage Grotesque', 'theme' => 'light', 'hero' => 'split', 'order' => $svc, 'modules' => $bookingOn,
+        'keywords' => ['imprimerie', 'imprimeur', 'print_shop', 'commercial_printer', 'reprographie', 'copy', 'impression', 'signaletique', 'signalétique', 'enseigne', 'enseigniste', 'flocage', 'serigraphie', 'sérigraphie', 'broderie', 'objets publicitaires', 'goodies', 'covering', 'marquage vehicule', 'marquage véhicule', 'stickers', 'adhesif', 'adhésif'],
+        'brief' => "Imprimerie, enseigniste, flocage : produits concrets (cartes, flyers, affiches, bâches, enseignes, vitrophanie, textile, covering véhicule) avec délais et quantités. Services = familles de produits « dès … ». Galerie = réalisations. Parcours : fichier ou création → BAT → fabrication & livraison. FAQ : formats de fichiers, délais express, pose, quantités minimum, création graphique possible. Ton : pratique, rapide, rassurant sur la qualité.",
+        'stock' => [$u('1590650153855-d9e808231d41'), $u('1450101499163-c8848c66ca85'), $u('1504868584819-f8e8b4b6d7e3'), $u('1472851294608-062f824d29cc')]],
+
+    'securite' => ['label' => 'Sécurité & gardiennage', 'color' => '#334155', 'icon' => 'fa-shield-halved', 'cta' => 'Demander un devis',
+        'font' => 'Manrope', 'theme' => 'dark', 'hero' => 'center', 'order' => $svc, 'modules' => $bookingOn,
+        'keywords' => ['securite privee', 'sécurité privée', 'gardiennage', 'security_guard_service', 'security_service', 'agent de securite', 'agent de sécurité', 'surveillance', 'telesurveillance', 'télésurveillance', 'alarme', 'videosurveillance', 'vidéosurveillance', 'controle d\'acces', 'contrôle d\'accès', 'ssiap', 'securite incendie', 'sécurité incendie', 'rondes', 'protection rapprochée', 'maître-chien', 'maitre-chien'],
+        'brief' => "Société de sécurité : sérieux, agréments (CNAPS), réactivité 24h/24. Services = gardiennage, rondes, événementiel, télésurveillance, alarme & vidéo, sécurité incendie, avec « sur devis ». Parcours : audit du site → dispositif proposé → mise en place & reporting. FAQ : agréments, délai de mise en place, zone d'intervention, astreinte, tarifs. Ton : sobre, ferme, fiable.",
+        'stock' => [$u('1542838132-92c53300491e'), $u('1497215728101-856f4ea42174'), $u('1553729459-efe14ef6055d'), $u('1556745757-8d76bdb6984b')]],
+
+    /* ───────────── Autres métiers de proximité ───────────── */
+
+    'voyage' => ['label' => 'Agence de voyages', 'color' => '#0891b2', 'icon' => 'fa-plane-departure', 'cta' => 'Préparer mon voyage',
+        'font' => 'Playfair Display', 'theme' => 'dark', 'hero' => 'editorial', 'order' => $shop, 'modules' => $bookingOn,
+        'keywords' => ['agence de voyage', 'agence de voyages', 'travel_agency', 'tour_operator', 'voyagiste', 'voyages', 'sejour', 'séjour', 'circuit', 'croisiere', 'croisière', 'billetterie', 'tourisme', 'tour_agency', 'guide touristique', 'tourist_information_center'],
+        'brief' => "Agence de voyages : faire rêver avec des destinations concrètes et rassurer (accompagnement, garanties, assistance). Services = types de voyages (sur mesure, circuits, séjours, croisières, voyages de noces, groupes) avec « à partir de … ». Galerie = destinations. Parcours : envies & budget → proposition personnalisée → départ serein. FAQ : garanties et assurances, modification/annulation, acompte, formalités, assistance sur place. Ton : évocateur mais précis.",
+        'stock' => [$u('1507525428034-b723cf961d3e'), $u('1476514525535-07fb3b4ae5f1'), $u('1500530855697-b586d89ba3ee'), $u('1469474968028-56623f02e42e')]],
+
+    'agricole' => ['label' => 'Producteur, ferme & terroir', 'color' => '#4d7c0f', 'icon' => 'fa-wheat-awn', 'cta' => 'Commander / nous rendre visite',
+        'font' => 'Fraunces', 'theme' => 'light', 'hero' => 'editorial', 'order' => $shop, 'modules' => $bookingOn,
+        'keywords' => ['ferme', 'farm', 'producteur', 'maraich', 'maraîch', 'agricult', 'eleveur', 'éleveur', 'vigneron', 'domaine viticole', 'winery', 'vineyard', 'cave cooperative', 'fromager', 'fromagerie', 'apicult', 'miel', 'cueillette', 'vente directe', 'amap', 'circuit court', 'brasserie artisanale', 'brewery', 'distillerie', 'distillery', 'huile d\'olive', 'moulin'],
+        'brief' => "Producteur / ferme / domaine : le lieu, les saisons, la méthode (bio, raisonné, élevage plein air), les produits et où les trouver (vente à la ferme, marchés, livraison, paniers). Services = produits et formules (paniers, visites, dégustations, événements). Galerie = ferme, animaux, produits. FAQ : horaires de vente, commandes, labels, visites, livraison. Ton : authentique, concret, sans folklore.",
+        'stock' => [$u('1500382017468-9049fed747ef'), $u('1464226184884-fa280b87c399'), $u('1500937386664-56d1dfef3854'), $u('1574943320219-553eb213f72d')]],
+
+    'animaux' => ['label' => 'Toilettage, pension & services animaliers', 'color' => '#b45309', 'icon' => 'fa-paw', 'cta' => 'Prendre rendez-vous',
+        'font' => 'Bricolage Grotesque', 'theme' => 'light', 'hero' => 'split', 'order' => $care, 'modules' => $bookingOn,
+        'keywords' => ['toilett', 'pet_groomer', 'pension canine', 'pension pour chien', 'pension pour chat', 'pet_boarding', 'dog_day_care', 'educateur canin', 'éducateur canin', 'dog_trainer', 'comportementaliste', 'pet sitter', 'petsitt', 'garde d\'animaux', 'promenade de chien', 'dog walker', 'animalerie', 'pet_store', 'elevage canin', 'élevage canin', 'chatterie', 'osteopathe animalier', 'ostéopathe animalier'],
+        'brief' => "Services animaliers (toilettage, pension, éducation, garde) : bien-être et sécurité de l'animal, hygiène, douceur, photos des pensionnaires. Services = prestations par taille/race ou par formule avec prix. Parcours : prise de contact → rencontre & évaluation → prestation & suivi. FAQ : vaccins exigés, durée, tarifs, animaux acceptés, urgences, horaires de dépôt. Ton : affectueux et professionnel.",
+        'stock' => [$u('1548199973-03cce0bbc87b'), $u('1587300003388-59208cc962cb'), $u('1601758228041-f3b2795255f1'), $u('1516627145497-ae6968895b74')]],
+
+    'musique' => ['label' => 'Musique & arts du spectacle', 'color' => '#7e22ce', 'icon' => 'fa-music', 'cta' => 'Réserver / nous contacter',
+        'font' => 'Space Grotesk', 'theme' => 'dark', 'hero' => 'editorial', 'order' => $svc, 'modules' => $bookingOn,
+        'keywords' => ['musique', 'music', 'ecole de musique', 'école de musique', 'music_school', 'professeur de piano', 'cours de guitare', 'cours de chant', 'studio d\'enregistrement', 'recording_studio', 'dj', 'groupe de musique', 'orchestre', 'musicien', 'band', 'theatre', 'théâtre', 'performing_arts_theater', 'compagnie', 'ecole de danse', 'école de danse', 'dance_school', 'cirque', 'conservatoire', 'luthier', 'magasin de musique'],
+        'brief' => "Musique / spectacle (école, professeur, studio, artiste, troupe, DJ) : l'univers artistique d'abord, puis l'offre concrète (cours par niveau et instrument, enregistrement, prestations événementielles, représentations). Services avec prix et durée. Galerie = scènes, studio, élèves. FAQ : niveau requis, instruments, tarifs, essai gratuit, déplacements, matériel fourni. Ton : vivant, précis, accessible.",
+        'stock' => [$u('1511379938547-c1f69419868d'), $u('1507838153414-b4b713384a76'), $u('1529333166437-7750a6dd5a70'), $u('1517457373958-b7bdd4587205')]],
+
+    'loisirs' => ['label' => 'Loisirs, culture & activités', 'color' => '#059669', 'icon' => 'fa-ticket', 'cta' => 'Réserver une activité',
+        'font' => 'Bricolage Grotesque', 'theme' => 'light', 'hero' => 'split', 'order' => $shop, 'modules' => $bookingOn,
+        'keywords' => ['escape game', 'escape_room', 'laser game', 'bowling', 'karting', 'paintball', 'accrobranche', 'parc de loisirs', 'amusement_park', 'amusement_center', 'trampoline', 'aire de jeux', 'playground', 'centre equestre', 'centre équestre', 'equitation', 'équitation', 'club nautique', 'voile', 'plongee', 'plongée', 'surf', 'location de velo', 'location de vélo', 'bike_rental', 'canoe', 'canoë', 'musee', 'musée', 'museum', 'galerie d\'art', 'art_gallery', 'atelier creatif', 'atelier créatif', 'poterie', 'cours de cuisine', 'oenologie', 'œnologie', 'tourist_attraction'],
+        'brief' => "Loisirs et activités : donner envie et répondre vite aux questions pratiques (âge minimum, durée, prix, réservation, groupes, anniversaires, météo). Services = activités / formules avec prix par personne. Galerie = l'expérience vécue. Parcours : réservation → accueil & briefing → l'activité. FAQ : âges, tenue, annulation, accessibilité, parking. Ton : enthousiaste, net, orienté réservation.",
+        'stock' => [$u('1582213782179-e0d53f98f2ca'), $u('1528605248644-14dd04022da1'), $u('1529156069898-49953e39b3ac'), $u('1476514525535-07fb3b4ae5f1')]],
+
+    'association' => ['label' => 'Association & club', 'color' => '#2563eb', 'icon' => 'fa-hands-holding-circle', 'cta' => 'Nous rejoindre',
+        'font' => 'Manrope', 'theme' => 'light', 'hero' => 'center', 'order' => $svc, 'modules' => $bookingOn,
+        'keywords' => ['association', 'asso', 'club', 'club de sport', 'sports_club', 'football club', 'rugby', 'tennis club', 'judo', 'ong', 'non_profit', 'benevol', 'bénévol', 'solidarite', 'solidarité', 'entraide', 'caritatif', 'fondation', 'collectif', 'comite des fetes', 'comité des fêtes', 'amicale', 'mjc', 'maison de quartier', 'community_center'],
+        'brief' => "Association ou club : la mission et les gens d'abord, puis comment participer (adhérer, s'inscrire, donner, bénévolat). Services = activités / sections / programmes avec horaires, publics et cotisation. Parcours : découvrir → essayer (séance d'essai) → adhérer. Galerie = la vie de l'association. FAQ : inscription, tarifs et aides, âges, lieux et créneaux, bénévolat, dons et reçus fiscaux. Ton : chaleureux, inclusif, concret.",
+        'stock' => [$u('1529156069898-49953e39b3ac'), $u('1556155092-490a1ba16284'), $u('1522202176988-66273c2fd55f'), $u('1582213782179-e0d53f98f2ca')]],
+
+    'nutrition' => ['label' => 'Diététique & nutrition', 'color' => '#16a34a', 'icon' => 'fa-apple-whole', 'cta' => 'Prendre rendez-vous',
+        'font' => 'Manrope', 'theme' => 'light', 'hero' => 'split', 'order' => $care, 'modules' => $bookingOn,
+        'keywords' => ['dietet', 'diétét', 'nutrition', 'nutritionist', 'dietitian', 'naturopath', 'micronutrition', 'reequilibrage alimentaire', 'rééquilibrage alimentaire', 'perte de poids', 'coach alimentaire', 'troubles alimentaires'],
+        'brief' => "Diététicien / nutritionniste / naturopathe : approche bienveillante, personnalisée, sans régime miracle. Services = bilan, suivi, programmes (sport, grossesse, pathologies, enfants), ateliers, avec prix et durée. Parcours : bilan → plan personnalisé → suivi. FAQ : différence diététicien/nutritionniste, remboursement mutuelle, visio, durée du suivi, tarifs. Pas de promesse chiffrée de perte de poids. Ton : rassurant, concret, vouvoiement.",
+        'stock' => [$u('1512621776951-a57141f2eefd'), $u('1490645935967-10de6ba17061'), $u('1498837167922-ddd27525d352'), $u('1543362906-acfc16c67564')]],
+
+    'pressing' => ['label' => 'Pressing, retouche & cordonnerie', 'color' => '#0e7490', 'icon' => 'fa-shirt', 'cta' => 'Nous déposer un article',
+        'font' => 'Bricolage Grotesque', 'theme' => 'light', 'hero' => 'split', 'order' => $svc, 'modules' => $bookingOn,
+        'keywords' => ['pressing', 'dry_cleaner', 'laverie', 'laundry', 'blanchisserie', 'retouche', 'retoucherie', 'couturi', 'tailleur', 'tailor', 'cordonn', 'shoe_repair', 'cles minute', 'clés minute', 'repassage', 'nettoyage a sec', 'nettoyage à sec'],
+        'brief' => "Pressing, retoucherie, cordonnerie : rapidité, soin, prix clairs. Services = prestations avec tarifs unitaires (nettoyage, repassage, ourlets, cuir, clés) et délais (express, 48 h). Parcours : dépôt → traitement → retrait ou livraison. FAQ : délais, textiles délicats, tarifs, horaires, collecte à domicile. Ton : pratique, net, de confiance.",
+        'stock' => [$u('1489987707025-afc232f7ea0f'), $u('1517445312882-bc9910d016b7'), $u('1558618666-fcd25c85cd64'), $u('1472851294608-062f824d29cc')]],
 
     'artisan' => ['label' => 'Artisan multiservices', 'color' => '#f59e0b', 'icon' => 'fa-screwdriver-wrench', 'cta' => 'Demander un devis',
         'font' => 'Sora', 'theme' => 'light', 'hero' => 'split', 'order' => $svc, 'modules' => $bookingOn,
