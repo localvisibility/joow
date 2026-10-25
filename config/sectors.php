@@ -228,7 +228,7 @@ return [
 
     'commerce' => ['label' => 'Boutique & commerce', 'color' => '#16a34a', 'icon' => 'fa-store', 'cta' => 'Nous rendre visite',
         'font' => 'Outfit', 'theme' => 'light', 'hero' => 'split', 'order' => $shop, 'modules' => $bookingOn,
-        'keywords' => ['store', 'boutique', 'magasin', 'shop', 'epicerie', 'épicerie', 'primeur', 'fromag', 'boucher', 'charcut', 'poissonn', 'marche', 'supermarket', 'convenience', 'tabac', 'presse', 'librairie', 'book_store', 'jouet', 'toy', 'decoration', 'home_goods', 'furniture', 'meuble', 'electronics', 'hardware', 'quincaillerie', 'bricolage', 'sport shop', 'velo', 'vélo', 'bicycle'],
+        'keywords' => ['boutique', 'magasin', 'marche', 'supermarket', 'convenience', 'jouet', 'toy', 'electronics', 'sport shop', 'sporting_goods', 'cadeaux', 'gift', 'concept store', 'general_store', 'department_store'],
         'brief' => "Commerce de proximité : l'univers et la sélection (produits, marques, provenance), le conseil en boutique, les services (commande, retrait, livraison locale, cartes cadeaux, ateliers), horaires. Services = rayons/gammes et services plutôt que prestations. FAQ : horaires, livraison/click & collect, paiement, retours, commandes spéciales, parking. Ton : accueillant, concret, fier des produits.",
         'stock' => [$u('1441986300917-64674bd600d8'), $u('1472851294608-062f824d29cc'), $u('1556742049-0cfed4f6a45d'), $u('1534452203293-494d7ddbf7e0')]],
 
@@ -442,6 +442,39 @@ return [
         'keywords' => ['pressing', 'dry_cleaner', 'laverie', 'laundry', 'blanchisserie', 'retouche', 'retoucherie', 'couturi', 'tailleur', 'tailor', 'cordonn', 'shoe_repair', 'cles minute', 'clés minute', 'repassage', 'nettoyage a sec', 'nettoyage à sec'],
         'brief' => "Pressing, retoucherie, cordonnerie : rapidité, soin, prix clairs. Services = prestations avec tarifs unitaires (nettoyage, repassage, ourlets, cuir, clés) et délais (express, 48 h). Parcours : dépôt → traitement → retrait ou livraison. FAQ : délais, textiles délicats, tarifs, horaires, collecte à domicile. Ton : pratique, net, de confiance.",
         'stock' => [$u('1489987707025-afc232f7ea0f'), $u('1517445312882-bc9910d016b7'), $u('1558618666-fcd25c85cd64'), $u('1472851294608-062f824d29cc')]],
+
+
+    /* ───────────── Commerces alimentaires & de détail spécialisés ───────────── */
+
+    'boucherie' => ['label' => 'Boucherie, charcuterie & poissonnerie', 'color' => '#b91c1c', 'icon' => 'fa-drumstick-bite', 'cta' => 'Commander / réserver',
+        'font' => 'Fraunces', 'theme' => 'light', 'hero' => 'split', 'order' => $shop, 'modules' => $bookingOn,
+        'keywords' => ['boucher', 'boucherie', 'butcher', 'butcher_shop', 'charcut', 'traiteur boucher', 'volaill', 'rotisserie', 'rôtisserie', 'poissonn', 'seafood', 'fish_store', 'ecailler', 'écailler', 'tripier', 'viande', 'halal'],
+        'brief' => "Boucherie / charcuterie / poissonnerie : l'origine et la sélection (élevages, labels, pêche du jour), le savoir-faire (découpe, maturation, préparations maison), les conseils de cuisson, les commandes pour les fêtes et les événements (barbecue, plateaux, pièces à rôtir). Services = rayons et préparations avec prix au kilo quand c'est pertinent, commandes spéciales, plateaux traiteur. FAQ : commande à l'avance, provenance, horaires, paiement, conservation. Ton : généreux, précis, fier du produit.",
+        'stock' => [$u('1607623814075-e51df1bdc82f'), $u('1603048297172-c92544798d5a'), $u('1588168333986-5078d3ae3976'), $u('1551218808-94e220e084d2')]],
+
+    'primeur' => ['label' => 'Primeur, épicerie & produits frais', 'color' => '#15803d', 'icon' => 'fa-carrot', 'cta' => 'Commander / nous rendre visite',
+        'font' => 'Bricolage Grotesque', 'theme' => 'light', 'hero' => 'split', 'order' => $shop, 'modules' => $bookingOn,
+        'keywords' => ['primeur', 'fruits et legumes', 'fruits et légumes', 'greengrocer', 'epicerie', 'épicerie', 'grocery_store', 'grocery', 'fromager', 'fromagerie', 'cheese', 'cremerie', 'crèmerie', 'produits frais', 'bio', 'organic', 'vrac', 'marche couvert', 'marché couvert', 'halles', 'superette', 'supérette', 'alimentation generale', 'alimentation générale'],
+        'brief' => "Primeur, épicerie, fromagerie, magasin bio : la fraîcheur et la saison, les producteurs partenaires, les arrivages, le vrac, les paniers et commandes, la livraison locale. Services = rayons (fruits et légumes de saison, fromages affinés, épicerie fine, vrac, paniers hebdomadaires, plateaux). FAQ : arrivages, bio ou local, commandes et paniers, livraison, horaires, paiement. Ton : chaleureux, concret, gourmand sans excès.",
+        'stock' => [$u('1542838132-92c53300491e'), $u('1488459716781-31db52582fe9'), $u('1506617420156-8e4536971650'), $u('1534723452862-4c874018d66d')]],
+
+    'librairie' => ['label' => 'Librairie, papeterie & presse', 'color' => '#92400e', 'icon' => 'fa-book-open', 'cta' => 'Commander / réserver un livre',
+        'font' => 'Cormorant Garamond', 'theme' => 'light', 'hero' => 'editorial', 'order' => $shop, 'modules' => $bookingOn,
+        'keywords' => ['librairie', 'book_store', 'bookstore', 'libraire', 'papeterie', 'stationery', 'presse', 'tabac', 'tabac presse', 'bureau de tabac', 'loto', 'française des jeux', 'bd', 'bande dessinee', 'bande dessinée', 'comics', 'manga', 'jeux de societe', 'jeux de société', 'ludotheque', 'ludothèque'],
+        'brief' => "Librairie / papeterie / tabac-presse : la sélection et les coups de cœur, les commandes de livres (délais), les rencontres et dédicaces, les services (presse, jeux, colis, cadeaux), les horaires étendus. Services = univers (littérature, jeunesse, BD, papeterie, presse, jeux) et services pratiques. FAQ : commande d'un titre, délais, horaires, click & collect, cartes cadeaux, événements. Ton : cultivé mais simple, accueillant.",
+        'stock' => [$u('1507842217343-583bb7270b66'), $u('1512820790803-83ca734da794'), $u('1521587760476-6c12a4b040da'), $u('1481627834876-b7833e8f5570')]],
+
+    'cycles' => ['label' => 'Vélo, cycles & mobilité douce', 'color' => '#0f766e', 'icon' => 'fa-bicycle', 'cta' => 'Prendre rendez-vous atelier',
+        'font' => 'Space Grotesk', 'theme' => 'light', 'hero' => 'split', 'order' => $svc, 'modules' => $bookingOn,
+        'keywords' => ['velo', 'vélo', 'bicycle', 'bicycle_store', 'bike shop', 'cycles', 'cycliste', 'vtt', 'vae', 'velo electrique', 'vélo électrique', 'trottinette', 'reparation velo', 'réparation vélo', 'atelier velo', 'atelier vélo', 'location de velo', 'location de vélo'],
+        'brief' => "Magasin et atelier vélo : vente (ville, VTT, route, électrique, enfants), réparation et entretien avec délais, location, essais, accessoires et sécurité, conseils de taille et d'usage. Services = prestations d'atelier avec prix (révision, crevaison, freins, transmission, diagnostic VAE) et gammes de vélos. FAQ : délais atelier, rendez-vous, garantie, aides à l'achat VAE, location, essais. Ton : passionné, pratique, rassurant.",
+        'stock' => [$u('1485965120184-e220f721d03e'), $u('1571068316344-75bc76f77890'), $u('1532298229144-0ec0c57515c7'), $u('1511994298241-608e28f14fde')]],
+
+    'maison' => ['label' => 'Décoration, ameublement & bricolage', 'color' => '#a16207', 'icon' => 'fa-couch', 'cta' => 'Nous rendre visite',
+        'font' => 'Outfit', 'theme' => 'light', 'hero' => 'editorial', 'order' => $shop, 'modules' => $bookingOn,
+        'keywords' => ['decoration', 'décoration', 'home_goods_store', 'furniture_store', 'meuble', 'ameublement', 'literie', 'luminaire', 'cuisiniste', 'cuisines', 'salle de bain', 'carrelage', 'tile', 'quincaillerie', 'hardware_store', 'bricolage', 'droguerie', 'encadrement', 'antiquaire', 'brocante', 'antique'],
+        'brief' => "Décoration, ameublement, cuisiniste, bricolage : l'univers et le style, les marques et le sur-mesure, le conseil et la prise de mesures, la livraison et la pose, le service après-vente. Services = univers produits et services (conseil déco, devis cuisine, livraison, montage, retouche). FAQ : délais de livraison, sur-mesure, devis, pose, retours, financement. Ton : inspirant, précis, serviable.",
+        'stock' => [$u('1555041469-a586c61ea9bc'), $u('1484101403633-562f891dc89a'), $u('1493663284031-b7e3aefcae8e'), $u('1524758631624-e2822e304c36')]],
 
     'artisan' => ['label' => 'Artisan multiservices', 'color' => '#f59e0b', 'icon' => 'fa-screwdriver-wrench', 'cta' => 'Demander un devis',
         'font' => 'Sora', 'theme' => 'light', 'hero' => 'split', 'order' => $svc, 'modules' => $bookingOn,

@@ -42,16 +42,30 @@ class StockPhotos
         $used = array_fill_keys($exclude, true);
         $out = [];
 
+        // Toutes les recherches en parallèle : d'abord la requête précise de chaque emplacement,
+        // puis la requête large pour ceux qui ont moins de 2 candidates.
+        $results = [];
+        foreach ([0, 1] as $round) {
+            $batch = [];
+            foreach ($slots as $key => $slot) {
+                $qs = $queries[$key] ?? [$this->naiveQuery($slot['subject'] ?? $sectorLabel)];
+                $q = $qs[$round] ?? null;
+                if ($q && ($round === 0 || count($results[$key] ?? []) < 2)) {
+                    $batch[$key] = [$q, $slot['orientation'] ?? 'landscape'];
+                }
+            }
+            foreach ($this->searchMany($batch) as $key => $found) {
+                foreach ($found as $c) {
+                    $results[$key][] = $c;
+                }
+            }
+        }
+
         foreach ($slots as $key => $slot) {
             $cands = [];
-            foreach ($queries[$key] ?? [$this->naiveQuery($slot['subject'] ?? $sectorLabel)] as $q) {
-                foreach ($this->search($q, 6, $slot['orientation'] ?? 'landscape') as $c) {
-                    if (! isset($used[$c['url']]) && ! collect($cands)->contains('url', $c['url'])) {
-                        $cands[] = $c + ['query' => $q];
-                    }
-                }
-                if (count($cands) >= 5) {
-                    break;
+            foreach ($results[$key] ?? [] as $c) {
+                if (! isset($used[$c['url']]) && ! collect($cands)->contains('url', $c['url'])) {
+                    $cands[] = $c;
                 }
             }
             if (! $cands) {
@@ -123,6 +137,63 @@ TXT;
         });
     }
 
+    /**
+     * Plusieurs recherches en une fois, en parallèle, chez le fournisseur prioritaire ; les requêtes sans
+     * résultat retombent sur les fournisseurs suivants via search(). Retourne [clé => candidates (avec 'query')].
+     *
+     * @param  array  $batch  [clé => [requête, orientation]]
+     */
+    public function searchMany(array $batch): array
+    {
+        $out = [];
+        $primary = $this->providers()[0] ?? null;
+        $pending = [];
+        foreach ($batch as $key => [$q, $orientation]) {
+            $cacheKey = $primary ? "joow:stock:$primary:".md5("$q|6|$orientation") : null;
+            if ($cacheKey && Cache::has($cacheKey)) {
+                $out[$key] = array_map(fn ($c) => $c + ['query' => $q], Cache::get($cacheKey));
+            } else {
+                $pending[$key] = [$q, $orientation];
+            }
+        }
+        if ($pending && $primary && method_exists($this, $primary.'Request')) {
+            try {
+                $responses = Http::pool(fn ($pool) => array_map(
+                    fn ($key) => $this->{$primary.'Request'}($pool->as((string) $key), $pending[$key][0], 6, $pending[$key][1]),
+                    array_keys($pending)
+                ));
+            } catch (\Throwable $e) {
+                Log::info("StockPhotos pool $primary : ".$e->getMessage());
+                $responses = [];
+            }
+            foreach ($pending as $key => [$q, $orientation]) {
+                $r = $responses[(string) $key] ?? null;
+                $found = $r instanceof \Illuminate\Http\Client\Response ? $this->{$primary.'Parse'}($r) : [];
+                if ($found) {
+                    Cache::put("joow:stock:$primary:".md5("$q|6|$orientation"), $found, now()->addDays(7));
+                    $out[$key] = array_map(fn ($c) => $c + ['query' => $q], $found);
+                    unset($pending[$key]);
+                }
+            }
+        }
+        // Reste : fournisseurs suivants, un par un
+        foreach ($pending as $key => [$q, $orientation]) {
+            $out[$key] = array_map(fn ($c) => $c + ['query' => $q], $this->search($q, 6, $orientation));
+        }
+
+        return $out;
+    }
+
+    private function providers(): array
+    {
+        return array_values(array_filter([
+            config('services.stock.pexels') ? 'pexels' : null,
+            config('services.stock.pixabay') ? 'pixabay' : null,
+            config('services.stock.unsplash') ? 'unsplash' : null,
+            config('services.stock.openverse', true) ? 'openverse' : null,
+        ]));
+    }
+
     /** Recherche chez le premier fournisseur qui répond (résultats mis en cache 7 jours). */
     public function search(string $query, int $n = 6, string $orientation = 'landscape'): array
     {
@@ -130,13 +201,7 @@ TXT;
         if ($query === '') {
             return [];
         }
-        $providers = array_filter([
-            config('services.stock.pexels') ? 'pexels' : null,
-            config('services.stock.pixabay') ? 'pixabay' : null,
-            config('services.stock.unsplash') ? 'unsplash' : null,
-            config('services.stock.openverse', true) ? 'openverse' : null,
-        ]);
-        foreach ($providers as $p) {
+        foreach ($this->providers() as $p) {
             $res = Cache::remember("joow:stock:$p:".md5("$query|$n|$orientation"), now()->addDays(7), function () use ($p, $query, $n, $orientation) {
                 try {
                     return $this->$p($query, $n, $orientation);
@@ -216,9 +281,18 @@ TXT];
 
     private function pexels(string $q, int $n, string $orientation): array
     {
-        $r = Http::timeout(12)->withHeaders(['Authorization' => config('services.stock.pexels'), 'User-Agent' => self::UA])
+        return $this->pexelsParse($this->pexelsRequest(Http::timeout(12), $q, $n, $orientation));
+    }
+
+    private function pexelsRequest($http, string $q, int $n, string $orientation)
+    {
+        return $http->withHeaders(['Authorization' => config('services.stock.pexels'), 'User-Agent' => self::UA])
             ->get('https://api.pexels.com/v1/search', ['query' => $q, 'per_page' => $n, 'orientation' => $orientation, 'size' => 'large', 'locale' => 'fr-FR']);
-        if (! $r->successful()) {
+    }
+
+    private function pexelsParse($r): array
+    {
+        if (! $r instanceof \Illuminate\Http\Client\Response || ! $r->successful()) {
             return [];
         }
 
@@ -252,9 +326,18 @@ TXT];
 
     private function unsplash(string $q, int $n, string $orientation): array
     {
-        $r = Http::timeout(12)->withHeaders(['Authorization' => 'Client-ID '.config('services.stock.unsplash'), 'Accept-Version' => 'v1', 'User-Agent' => self::UA])
+        return $this->unsplashParse($this->unsplashRequest(Http::timeout(12), $q, $n, $orientation));
+    }
+
+    private function unsplashRequest($http, string $q, int $n, string $orientation)
+    {
+        return $http->withHeaders(['Authorization' => 'Client-ID '.config('services.stock.unsplash'), 'Accept-Version' => 'v1', 'User-Agent' => self::UA])
             ->get('https://api.unsplash.com/search/photos', ['query' => $q, 'per_page' => $n, 'orientation' => $orientation, 'content_filter' => 'high']);
-        if (! $r->successful()) {
+    }
+
+    private function unsplashParse($r): array
+    {
+        if (! $r instanceof \Illuminate\Http\Client\Response || ! $r->successful()) {
             return [];
         }
 

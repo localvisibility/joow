@@ -10,7 +10,7 @@ class SectorCatalogTest extends TestCase
     public function test_catalog_entries_are_complete(): void
     {
         $sectors = config('sectors');
-        $this->assertGreaterThanOrEqual(68, count($sectors));
+        $this->assertGreaterThanOrEqual(73, count($sectors));
         foreach ($sectors as $key => $cfg) {
             foreach (['label', 'color', 'icon', 'cta', 'font', 'theme', 'hero', 'order', 'modules', 'keywords', 'brief', 'stock'] as $f) {
                 $this->assertArrayHasKey($f, $cfg, "$key.$f");
@@ -35,6 +35,12 @@ class SectorCatalogTest extends TestCase
         $this->assertSame('pressing', $d->detect('Pressing de la Gare', ['dry_cleaner']));
         $this->assertSame('securite', $d->detect('Vigil Sécurité Privée', ['security_guard_service']));
         $this->assertSame('imprimerie', $d->detect('Imprimerie Moderne', ['print_shop']));
+        $this->assertSame('boucherie', $d->detect('Boucherie Zorglub', ['butcher_shop']));
+        $this->assertSame('boucherie', $d->detect('Poissonnerie de la Criée', []));
+        $this->assertSame('primeur', $d->detect('Au Panier Frais', ['grocery_store']));
+        $this->assertSame('librairie', $d->detect('Librairie des Halles', ['book_store']));
+        $this->assertSame('cycles', $d->detect('Cycles Martin', ['bicycle_store']));
+        $this->assertSame('maison', $d->detect('Déco & Co', ['furniture_store']));
     }
 
     public function test_forms_exist_for_new_trades(): void
