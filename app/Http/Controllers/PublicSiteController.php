@@ -112,11 +112,14 @@ class PublicSiteController extends Controller
 
     public function status(string $slug)
     {
-        $site = Site::where('slug', $slug)->firstOrFail(['status', 'slug']);
+        $site = Site::where('slug', $slug)->firstOrFail(['status', 'slug', 'place_id', 'site_data']);
         $progress = GenerationJob::where('site_slug', $slug)->latest('id')->value('result') ?? [];
 
         return response()->json([
             'status'   => $site->status,
+            // Découverts pendant la génération : site lu, combinaison fiche + site
+            'old_url'  => $site->site_data['import']['url'] ?? null,
+            'combo'    => (bool) ($site->place_id && ! empty($site->site_data['import']['pages'])),
             'step'     => $progress['step'] ?? null,
             'progress' => \Illuminate\Support\Arr::only($progress, ['step', 'source', 'name', 'city', 'rating', 'reviews_count', 'sector', 'color', 'font', 'photos', 'photo_notes', 'hero', 'hero_title', 'tagline', 'services', 'pages', 'timing', 'website', 'site_pages', 'site_images']),
             'ready'    => in_array($site->status, ['preview', 'paid', 'published'], true),
