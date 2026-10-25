@@ -38,9 +38,12 @@ class StockPhotos
         if (! $slots) {
             return [];
         }
+        $t0 = microtime(true);
         $queries = $this->queriesFor($slots, $sectorLabel, $sectorBrief);
+        $tQueries = round(microtime(true) - $t0, 1);
         $used = array_fill_keys($exclude, true);
         $out = [];
+        $toNotify = [];
 
         // Toutes les recherches en parallèle : d'abord la requête précise de chaque emplacement,
         // puis la requête large pour ceux qui ont moins de 2 candidates.
@@ -60,6 +63,7 @@ class StockPhotos
                 }
             }
         }
+        $tSearch = round(microtime(true) - $t0 - $tQueries, 1);
 
         foreach ($slots as $key => $slot) {
             $cands = [];
@@ -83,10 +87,14 @@ class StockPhotos
             $best = ($slot['pick'] ?? false) && count($cands) > 1 ? $this->pick($cands, $slot['subject'] ?? '', $sectorLabel) : $cands[0];
             $out[$key] = ['url' => $best['url'], 'credit' => $best['credit'], 'provider' => $best['provider'], 'query' => $best['query'] ?? null];
             $used[$best['url']] = true;
-            $this->notifyUse($best);
+            if (($best['provider'] ?? '') === 'unsplash' && ! empty($best['download'])) {
+                $toNotify[] = $best['download'];
+            }
         }
+        $tPick = round(microtime(true) - $t0 - $tQueries - $tSearch, 1);
+        $this->notifyUses($toNotify);
 
-        Log::info('StockPhotos : '.count($out).'/'.count($slots).' emplacement(s) comblé(s) — '.collect($out)->map(fn ($v, $k) => "$k:{$v['provider']}")->implode(', '));
+        Log::info(sprintf('StockPhotos : %d/%d emplacement(s) comblé(s) — %s · requêtes %ss, recherche %ss, choix %ss, total %ss', count($out), count($slots), collect($out)->map(fn ($v, $k) => "$k:{$v['provider']}")->implode(', '), $tQueries, $tSearch, $tPick, round(microtime(true) - $t0, 1)));
 
         return $out;
     }
@@ -264,14 +272,14 @@ TXT];
         }
     }
 
-    /** Unsplash exige un appel à download_location quand une photo est réellement utilisée. */
-    private function notifyUse(array $photo): void
+    /** Unsplash exige un appel à download_location quand une photo est réellement utilisée (en parallèle, non bloquant). */
+    private function notifyUses(array $urls): void
     {
-        if (($photo['provider'] ?? '') !== 'unsplash' || empty($photo['download'])) {
+        if (! $urls) {
             return;
         }
         try {
-            Http::timeout(5)->withHeaders(['Authorization' => 'Client-ID '.config('services.stock.unsplash'), 'Accept-Version' => 'v1', 'User-Agent' => self::UA])->get($photo['download']);
+            Http::pool(fn ($pool) => array_map(fn ($u) => $pool->timeout(4)->withHeaders(['Authorization' => 'Client-ID '.config('services.stock.unsplash'), 'Accept-Version' => 'v1', 'User-Agent' => self::UA])->get($u), $urls));
         } catch (\Throwable) {
             // non bloquant
         }

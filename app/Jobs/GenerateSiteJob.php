@@ -108,7 +108,9 @@ class GenerateSiteJob implements ShouldQueue
             for ($g = count($galleryNow); $g < 4; $g++) {
                 $slots["gallery_$g"] = ['subject' => $cfg['label'].' — '.(['ambiance du lieu', 'geste du métier', 'détail de matière ou produit', 'accueil des clients'][$g] ?? 'ambiance'), 'role' => 'galerie', 'pick' => false];
             }
+            $tStock = 0;
             if ($slots) {
+                $tS = microtime(true);
                 $progress(['substep' => 'stock', 'stock_slots' => count($slots)]);
                 $already = array_values(array_filter(array_merge([$images0['hero'] ?? null, $images0['about'] ?? null, $images0['services'] ?? null], $galleryNow, $usedImgs)));
                 $filled = app(\App\Services\StockPhotos::class)->fill($slots, $cfg['label'], (string) ($cfg['brief'] ?? ''), $already, $cfg['stock'] ?? []);
@@ -129,6 +131,7 @@ class GenerateSiteJob implements ShouldQueue
                 if ($credits) {
                     $images0['credits'] = array_merge((array) ($images0['credits'] ?? []), $credits);
                 }
+                $tStock = round(microtime(true) - $tS, 1);
                 $progress(['stock_filled' => count($filled), 'hero' => isset($images0['hero']) ? $small($images0['hero']) : null]);
             }
 
@@ -184,7 +187,7 @@ class GenerateSiteJob implements ShouldQueue
             $job?->update([
                 'status' => 'completed',
                 'completed_at' => now(),
-                'result' => array_merge($job?->fresh()->result ?? [], ['step' => 'done', 'bytes' => strlen($html), 'url' => 'https://'.$this->site->slug.'.joow.fr', 'timing' => ['photos' => $tPhotos, 'content' => $tContent, 'total' => round(microtime(true) - $t0, 1)]]),
+                'result' => array_merge($job?->fresh()->result ?? [], ['step' => 'done', 'bytes' => strlen($html), 'url' => 'https://'.$this->site->slug.'.joow.fr', 'timing' => ['photos' => $tPhotos, 'content' => round($tContent - $tStock, 1), 'stock' => $tStock, 'total' => round(microtime(true) - $t0, 1)]]),
             ]);
         } catch (\Throwable $e) {
             // Dernière tentative épuisée => statut 'failed' (évite un site 'preview' cassé).
