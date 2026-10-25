@@ -49,9 +49,12 @@ class BusinessSource
 
             // Combo : la fiche Google indique un site → on le lit aussi (textes, pages, photos, logo)
             if (! $import && ! empty($b['website']) && $this->crawlable($b['website']) && empty($d['import_skipped'])) {
-                $progress && $progress(['step' => 'lookup', 'source' => 'google', 'name' => $b['name'], 'city' => $b['city'] ?? null, 'website' => parse_url($b['website'], PHP_URL_HOST)]);
+                // Sans les paramètres de suivi ajoutés par Google (utm_…)
+                $siteUrl = preg_replace('/[?#].*$/', '', $b['website']);
+                $b['website'] = $siteUrl;
+                $progress && $progress(['step' => 'lookup', 'source' => 'google', 'name' => $b['name'], 'city' => $b['city'] ?? null, 'website' => preg_replace('/^www\./', '', (string) parse_url($siteUrl, PHP_URL_HOST))]);
                 try {
-                    $import = $this->readSite(['url' => $b['website'], 'host' => parse_url($b['website'], PHP_URL_HOST), 'auto' => true], $site);
+                    $import = $this->readSite(['url' => $siteUrl, 'host' => parse_url($siteUrl, PHP_URL_HOST), 'auto' => true], $site);
                     $progress && $progress(['site_pages' => count($import['pages'] ?? []), 'site_images' => count($import['images'] ?? [])]);
                     $site->site_data = array_merge($site->site_data ?? [], ['import' => $import]);
                     $site->save();

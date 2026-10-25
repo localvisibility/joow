@@ -8,7 +8,7 @@ const props = defineProps({ site: Object, email: { type: String, default: '' }, 
 // Mis à jour pendant la génération (le site indiqué sur la fiche Google est découvert en cours de route)
 const oldUrl = ref(props.old_url);
 const combo = ref(props.combo);
-const oldHost = computed(() => (oldUrl.value || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, ''));
+const oldHost = computed(() => (oldUrl.value || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').split(/[?#]/)[0].replace(/\/.*$/, ''));
 
 // ── Email : indispensable pour retrouver le site et ouvrir le Studio ──
 const hasEmail = ref(props.has_email);
