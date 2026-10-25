@@ -75,7 +75,9 @@ TXT;
         }
 
         $url = fn ($n) => is_numeric($n) && (int) $n >= 1 ? ($photos[(int) $n - 1]['url'] ?? null) : null;
+        $allPhotos = array_values(array_filter(array_map(fn ($ph) => $ph['url'] ?? null, $photos)));
         $out = [];
+        $log = [];
         foreach (array_slice($pages, 0, self::MAX_PAGES) as $p) {
             if (! is_array($p)) {
                 continue;
@@ -83,23 +85,40 @@ TXT;
             $hero = is_array($p['hero'] ?? null) ? $p['hero'] : [];
             $hero['image'] = $url($hero['photo'] ?? 0);
             $blocks = [];
-            foreach ((array) ($p['blocks'] ?? []) as $bl) {
+            $raw = (array) ($p['blocks'] ?? ($p['sections'] ?? []));
+            foreach ($raw as $bl) {
                 if (! is_array($bl)) {
                     continue;
                 }
-                if (($bl['type'] ?? '') === 'text') {
+                $type = (string) ($bl['type'] ?? '');
+                if ($type === 'text') {
                     $bl['image'] = $url($bl['photo'] ?? 0);
                 }
-                if (($bl['type'] ?? '') === 'gallery') {
-                    $bl['images'] = array_values(array_filter(array_map($url, (array) ($bl['photos'] ?? []))));
+                if ($type === 'gallery') {
+                    $imgs = array_values(array_filter(array_map($url, (array) ($bl['photos'] ?? []))));
+                    // Numéros absents ou hors liste : on garde la galerie avec les photos disponibles
+                    $bl['images'] = $imgs ?: array_slice($allPhotos, 0, 6);
                     if (! $bl['images']) {
                         continue;
                     }
                 }
                 $blocks[] = $bl;
             }
-            $out[] = ['title' => $p['title'] ?? 'Page', 'slug' => $p['slug'] ?? null, 'seo' => $p['seo'] ?? '', 'hero' => $hero, 'blocks' => $blocks];
+            $page = ['title' => $p['title'] ?? 'Page', 'slug' => $p['slug'] ?? null, 'seo' => $p['seo'] ?? '', 'hero' => $hero, 'blocks' => $blocks];
+            $norm = PageSchema::normalizePages([$page])[0] ?? null;
+            $log[] = ($p['title'] ?? '?').' : '.count($raw).' bloc(s) reçus ('.implode(',', array_map(fn ($x) => is_array($x) ? ($x['type'] ?? '?') : '?', $raw)).') → '.count($norm['blocks'] ?? []).' retenus';
+            // Jamais de page vide : repli sur le texte extrait de la page d'origine
+            if (empty($norm['blocks'])) {
+                $src = collect($existing)->first(fn ($e) => Str::contains(Str::lower((string) ($e['title'] ?? '')), Str::lower(Str::limit((string) ($p['title'] ?? ''), 12, '')))) ?? ($existing[count($out)] ?? null);
+                $body = trim(preg_replace('/^#+\s*/m', '', (string) ($src['text'] ?? '')));
+                $page['blocks'] = array_values(array_filter([
+                    $body !== '' ? ['type' => 'text', 'title' => $p['hero']['title'] ?? ($p['title'] ?? ''), 'body' => Str::limit($body, 2500, '…'), 'image' => $allPhotos[0] ?? null] : null,
+                    ['type' => 'cta', 'title' => 'Parlons de votre projet', 'text' => 'Un premier échange gratuit, sans engagement.', 'button' => ''],
+                ]));
+            }
+            $out[] = $page;
         }
+        Log::info('PageImporter '.$b['name'].' : '.implode(' | ', $log));
 
         return PageSchema::normalizePages($out);
     }

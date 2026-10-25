@@ -36,7 +36,7 @@ watch(q, (val) => {
     form.query = '';
     noResult.value = false;
     clearTimeout(debounce);
-    if (val.trim().length < 3 || URL_RE.test(val.trim())) { results.value = []; open.value = false; return; }
+    if (val.trim().length < 3 || URL_RE.test(val.trim()) || mode.value === 'site') { results.value = []; open.value = false; searching.value = false; return; }
     searching.value = true;
     debounce = setTimeout(async () => {
         try {
