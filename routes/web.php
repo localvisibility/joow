@@ -79,6 +79,18 @@ Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    // Opérateur : dernières lignes du journal applicatif (diagnostic sans accès SSH)
+    Route::get('/admin/journal', function (\Illuminate\Http\Request $request) {
+        abort_unless($request->user()->isAdmin(), 403);
+        $file = storage_path('logs/laravel.log');
+        $lines = is_file($file) ? array_slice(file($file, FILE_IGNORE_NEW_LINES), -(int) min(2000, max(50, (int) $request->query('n', 300)))) : ['(journal vide)'];
+        $filter = (string) $request->query('q', '');
+        if ($filter !== '') {
+            $lines = array_values(array_filter($lines, fn ($l) => stripos($l, $filter) !== false));
+        }
+
+        return response(implode("\n", $lines), 200, ['Content-Type' => 'text/plain; charset=UTF-8']);
+    })->name('admin.journal');
     Route::get('/sites/create', [SiteCreationController::class, 'create'])->name('sites.create');
     Route::post('/sites/lookup', [SiteCreationController::class, 'lookup'])->name('sites.lookup');
     Route::post('/sites', [SiteCreationController::class, 'store'])->name('sites.store');
