@@ -112,7 +112,8 @@ class BusinessSource
     {
         $import = array_merge($import, $this->importer->crawl($import['url']));
         // Les images de l'ancien site sont rapatriées chez Joow (le nouveau site ne dépend plus de l'ancien)
-        $mirrored = $this->images->mirror(array_merge((array) ($import['images'] ?? []), array_filter([$import['logo'] ?? null])), $site->slug);
+        // Le logo d'abord (il ne doit jamais être coupé par la limite), puis les images
+        $mirrored = $this->images->mirror(array_merge(array_filter([$import['logo'] ?? null]), (array) ($import['images'] ?? [])), $site->slug, 16);
         $import['images_original'] = $import['images'] ?? [];
         $import['images'] = array_values(array_filter(array_map(fn ($u) => $mirrored[$u] ?? null, (array) ($import['images'] ?? []))));
         if (! empty($import['logo']) && isset($mirrored[$import['logo']])) {

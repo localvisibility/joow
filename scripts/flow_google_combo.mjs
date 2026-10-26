@@ -11,7 +11,7 @@ await Promise.all([p.waitForURL(/\/site\//, { timeout: 60000 }), p.click('button
 const slug = p.url().split('/site/')[1].split(/[/?]/)[0]; const t0 = Date.now();
 for (let i = 0; i < 100; i++) { if (await p.$('text=Votre site est prêt') || await p.$('text=La génération a échoué')) break; await p.waitForTimeout(2000); }
 console.log('fin après', Math.round((Date.now() - t0) / 1000), 's'); await p.waitForTimeout(2500);
-await p.screenshot({ path: process.env.OUT + '/combo-ready.png' });
+await p.screenshot({ path: process.env.OUT + '/combo-ready.png' }); await p.screenshot({ path: process.env.OUT + '/combo-ready-full.png', fullPage: true });
 console.log('mention combo :', !!(await p.$('text=Fiche Google et site actuel combinés')));
 const st = await (await fetch(`https://app.joow.fr/site/${slug}/status`, { headers: { Accept: 'application/json' } })).json();
 console.log('status', st.status, '| website', st.progress.website, '| site_pages', st.progress.site_pages, '| images', st.progress.site_images, '| pages', JSON.stringify(st.progress.pages), '| note', st.progress.rating, '| timing', JSON.stringify(st.progress.timing));
