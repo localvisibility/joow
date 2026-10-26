@@ -58,6 +58,7 @@ const retryForm = useForm({});
 const retry = () => retryForm.post(route('public.site.retry', props.site.slug));
 
 const ready = ref(['preview', 'paid', 'published'].includes(props.site.status));
+const device = ref(typeof window !== 'undefined' && window.innerWidth < 640 ? 'mobile' : 'desktop');
 const readying = ref(false);
 const failed = ref(props.site.status === 'failed');
 const liveUrl = props.site.preview_url || `https://${props.site.slug}.joow.fr`;
@@ -159,15 +160,23 @@ onUnmounted(() => timer && clearInterval(timer));
                 </div>
             </div>
 
-            <!-- Fenêtre navigateur -->
-            <div class="glass overflow-hidden rounded-2xl">
-                <div class="flex items-center gap-2 border-b border-white/[0.06] px-4 py-3">
-                    <span class="h-3 w-3 rounded-full bg-rose-400/70"></span>
-                    <span class="h-3 w-3 rounded-full bg-amber-400/70"></span>
-                    <span class="h-3 w-3 rounded-full bg-emerald-400/70"></span>
-                    <span class="ml-3 truncate rounded-md bg-white/5 px-3 py-1 text-xs text-slate-400">{{ site.slug }}.joow.fr</span>
+            <!-- Fenêtre navigateur : dévoilement animé, bascule ordinateur / mobile -->
+            <div class="unveil relative mx-auto transition-[max-width] duration-500" :class="device === 'mobile' ? 'max-w-[420px]' : 'max-w-6xl'">
+                <span v-for="n in 18" :key="n" class="confetti" :style="{ '--x': (Math.random() * 100) + '%', '--d': (0.2 + Math.random() * 0.8) + 's', '--r': (Math.random() * 360) + 'deg', background: ['#a78bfa','#f472b6','#34d399','#fbbf24','#60a5fa'][n % 5] }"></span>
+                <div class="glass overflow-hidden" :class="device === 'mobile' ? 'rounded-[2.2rem] border-[6px] border-ink-800' : 'rounded-2xl'">
+                    <div v-if="device !== 'mobile'" class="flex items-center gap-2 border-b border-white/[0.06] px-4 py-3">
+                        <span class="h-3 w-3 rounded-full bg-rose-400/70"></span>
+                        <span class="h-3 w-3 rounded-full bg-amber-400/70"></span>
+                        <span class="h-3 w-3 rounded-full bg-emerald-400/70"></span>
+                        <span class="ml-3 truncate rounded-md bg-white/5 px-3 py-1 text-xs text-slate-400">{{ site.slug }}.joow.fr</span>
+                        <span class="ml-auto hidden rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 sm:inline">● En direct</span>
+                    </div>
+                    <iframe :src="liveUrl" class="w-full bg-white" :class="device === 'mobile' ? 'h-[78vh]' : 'h-[70vh]'" loading="lazy"></iframe>
                 </div>
-                <iframe :src="liveUrl" class="h-[70vh] w-full bg-white" loading="lazy"></iframe>
+                <div class="mt-3 flex items-center justify-center gap-2 text-xs">
+                    <button type="button" @click="device = 'desktop'" class="rounded-full px-3 py-1.5 font-semibold transition" :class="device === 'desktop' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'">🖥 Ordinateur</button>
+                    <button type="button" @click="device = 'mobile'" class="rounded-full px-3 py-1.5 font-semibold transition" :class="device === 'mobile' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'">📱 Mobile</button>
+                </div>
             </div>
 
             <!-- Choix de la formule -->
@@ -243,3 +252,12 @@ onUnmounted(() => timer && clearInterval(timer));
         </section>
     </div>
 </template>
+
+<style scoped>
+/* Dévoilement du site : montée + ouverture en rideau, puis confettis discrets */
+.unveil { animation: unveil 1.1s cubic-bezier(.22,1,.36,1) both; }
+@keyframes unveil { 0% { opacity: 0; transform: translateY(28px) scale(.96); clip-path: inset(0 50% 0 50% round 1rem); } 55% { opacity: 1; clip-path: inset(0 0 0 0 round 1rem); } 100% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 1rem); } }
+.confetti { position: absolute; top: -6px; left: var(--x); width: 7px; height: 11px; border-radius: 2px; opacity: 0; transform: rotate(var(--r)); animation: confetti 1.9s ease-out var(--d) both; pointer-events: none; z-index: 5; }
+@keyframes confetti { 0% { opacity: 0; transform: translateY(0) rotate(var(--r)); } 12% { opacity: 1; } 100% { opacity: 0; transform: translateY(260px) rotate(calc(var(--r) + 300deg)); } }
+@media (prefers-reduced-motion: reduce) { .unveil, .confetti { animation: none; } .confetti { display: none; } }
+</style>

@@ -143,6 +143,46 @@ class GenerateSiteJob implements ShouldQueue
                 $progress(['pages' => array_map(fn ($p) => $p['title'], $pages)]);
             }
 
+            // 2d) Les photos Google utilisées sont rapatriées chez Joow : plus de facturation à chaque visite,
+            //     clé API absente du HTML, chargement plus rapide. Les autres sources restent telles quelles.
+            $googleUrls = [];
+            $collect = function ($u) use (&$googleUrls) {
+                if (is_string($u) && str_contains($u, 'places.googleapis.com')) {
+                    $googleUrls[] = $u;
+                }
+            };
+            foreach (['hero', 'about', 'services'] as $k) {
+                $collect($images0[$k] ?? null);
+            }
+            foreach ((array) ($images0['gallery'] ?? []) as $u) {
+                $collect($u);
+            }
+            foreach ($content['services'] ?? [] as $s) {
+                $collect($s['image'] ?? null);
+            }
+            if ($googleUrls) {
+                $mirrored = app(\App\Services\ImageStore::class)->mirror(array_values(array_unique($googleUrls)), $this->site->slug, 16);
+                $swap = fn ($u) => is_string($u) && isset($mirrored[$u]) ? $mirrored[$u] : $u;
+                foreach (['hero', 'about', 'services'] as $k) {
+                    if (isset($images0[$k])) {
+                        $images0[$k] = $swap($images0[$k]);
+                    }
+                }
+                $images0['gallery'] = array_map($swap, (array) ($images0['gallery'] ?? []));
+                foreach ($content['services'] ?? [] as $i => $s) {
+                    $content['services'][$i]['image'] = $swap($s['image'] ?? null);
+                }
+                $b['photos'] = array_map($swap, $b['photos'] ?? []);
+                $cur['photos'] = array_map(fn ($ph) => ['url' => $swap($ph['url'])] + $ph, $cur['photos']);
+            }
+
+            // 2e) Couleur d'accent de la marque : logo d'abord, puis photo principale (sauf réglage déjà fait dans le Studio)
+            $accent = $prev['accent'] ?? null;
+            if (! $accent) {
+                $accent = app(\App\Services\Palette::class)->fromSources([$b['logo'] ?? null, $images0['hero'] ?? null]) ?: $cfg['color'];
+                $progress(['color' => $accent, 'brand_color' => $accent !== $cfg['color']]);
+            }
+
             // 3) Modules par défaut du métier (première génération seulement) et images choisies
             $modules = $this->site->modules ?: ($cfg['modules'] ?? ['booking' => true]);
             $images = array_filter($images0, fn ($v) => $v !== null && $v !== []);
@@ -154,7 +194,7 @@ class GenerateSiteJob implements ShouldQueue
                 'business'    => $b,
                 'images'      => $images,
                 'photos_meta' => $cur['photos'],
-                'accent'      => $prev['accent'] ?? $cfg['color'],
+                'accent'      => $accent,
             ] + ($pages ? ['pages' => $pages] : []));
             $this->site->update(['site_data' => $siteData, 'modules' => $modules]);
 

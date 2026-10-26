@@ -145,7 +145,22 @@
 <title>{{ $t('hero_title', $b['name'] ?? '') }} — {{ $b['name'] ?? '' }}{{ !empty($b['city']) ? ', '.$b['city'] : '' }}</title>
 <meta name="description" content="{{ $t('hero_subtitle', $label) }} — {{ $b['name'] ?? '' }}{{ !empty($b['city']) ? ', '.$b['city'] : '' }}. {{ $c['cta_text'] ?? '' }}">
 @endif
-@php $customDomain = $customDomain ?? null; @endphp
+@php
+  $customDomain = $customDomain ?? null;
+  $ogTitle = $page ? $page['title'].' — '.($b['name'] ?? '') : (($b['name'] ?? '').' · '.$t('hero_title', $label));
+  $ogDesc = $page ? ($page['seo'] ?: ($page['hero']['subtitle'] ?? '')) : $t('hero_subtitle', $label);
+  $ogImage = $page ? ($page['hero']['image'] ?: $hero) : $hero;
+  $monogram = mb_strtoupper(mb_substr(trim((string) ($b['name'] ?? 'J')), 0, 1));
+  $favicon = 'data:image/svg+xml,'.rawurlencode('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="'.$color.'"/><text x="32" y="43" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="700" fill="#fff" text-anchor="middle">'.htmlspecialchars($monogram).'</text></svg>');
+@endphp
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ $b['name'] ?? '' }}">
+<meta property="og:title" content="{{ $ogTitle }}">
+<meta property="og:description" content="{{ $ogDesc }}">
+@if($ogImage)<meta property="og:image" content="{{ $ogImage }}"><meta name="twitter:card" content="summary_large_image">@endif
+<meta property="og:locale" content="fr_FR">
+<meta name="theme-color" content="{{ $color }}">
+<link rel="icon" href="{{ !empty($b['logo']) ? $b['logo'] : $favicon }}">
 @if($customDomain && !$editMode)
 <link rel="canonical" href="https://{{ $customDomain }}{{ $page ? '/'.$page['slug'].'/' : '/' }}">
 <script>if(/\.joow\.fr$/.test(location.hostname)){location.replace('https://{{ $customDomain }}'+location.pathname+location.search+location.hash);}</script>
@@ -190,6 +205,15 @@ main{display:flex;flex-direction:column}
 .hero-img{opacity:0;transition:opacity .9s ease}.hero-img.ready{opacity:1}
 @keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
 .stagger>*{animation:rise .85s cubic-bezier(.22,1,.36,1) both}
+/* Titre révélé mot à mot */
+.words{display:inline}.words .w{display:inline-block;margin-right:.26em;opacity:0;transform:translateY(.6em) rotate(1.5deg);filter:blur(6px);animation:wordin .9s cubic-bezier(.22,1,.36,1) forwards;animation-delay:calc(.35s + var(--i,0) * .09s)}
+@keyframes wordin{to{opacity:1;transform:none;filter:blur(0)}}
+/* Grain et halos vivants du haut de page */
+.hero-grain{opacity:.07;mix-blend-mode:overlay;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+@keyframes glow1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-6%,-8%) scale(1.12)}}
+@keyframes glow2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(8%,6%) scale(1.08)}}
+.hero-glow{animation:glow1 14s ease-in-out infinite}.hero-glow-2{animation:glow2 18s ease-in-out infinite}
+.brand-logo{box-shadow:0 6px 18px -8px rgba(0,0,0,.4)}
 .stagger>*:nth-child(1){animation-delay:.15s}.stagger>*:nth-child(2){animation-delay:.3s}.stagger>*:nth-child(3){animation-delay:.45s}.stagger>*:nth-child(4){animation-delay:.6s}.stagger>*:nth-child(5){animation-delay:.75s}.stagger>*:nth-child(6){animation-delay:.9s}.stagger>*:nth-child(7){animation-delay:1.05s}
 .shine{position:relative;overflow:hidden}.shine::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s}.shine:hover::after{transform:translateX(120%)}
 .open-pill{display:inline-flex;align-items:center;gap:.5rem;border-radius:9999px;padding:.35rem .8rem;font-size:.8rem;font-weight:600;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px)}
@@ -201,7 +225,7 @@ main{display:flex;flex-direction:column}
 #joow-curtain span{display:grid;place-items:center;width:64px;height:64px;border-radius:18px;color:#fff;font-size:1.6rem;background:var(--grad);animation:rise .6s both}
 .glow{pointer-events:none;position:absolute;inset:0;background:radial-gradient(520px circle at var(--mx,50%) var(--my,40%),color-mix(in srgb,var(--c) 28%,transparent),transparent 60%);opacity:.9}
 .hero-photo{border-radius:2rem;box-shadow:0 40px 80px -30px rgba(0,0,0,.7)}
-@media (prefers-reduced-motion:reduce){.kb,.stagger>*,#joow-curtain span{animation:none}.hero-img{opacity:1}}
+@media (prefers-reduced-motion:reduce){.kb,.stagger>*,#joow-curtain span,.words .w,.hero-glow,.hero-glow-2{animation:none}.hero-img{opacity:1}.words .w{opacity:1;transform:none;filter:none}}
 /* ── Bandeau de confiance défilant ── */
 .trust{border-top:1px solid rgba(15,23,42,.06);border-bottom:1px solid rgba(15,23,42,.06);overflow:hidden;background:#fff}
 .trust-track{display:flex;width:max-content;gap:2.5rem;padding:.9rem 0;animation:marq 32s linear infinite;white-space:nowrap}
@@ -362,7 +386,7 @@ footer.bg-slate-900{background:#07070b!important}
 <nav id="nav" class="fixed inset-x-0 top-0 z-50 transition-all duration-300">
   <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
     <a href="{{ $home }}#top" class="flex items-center gap-2.5 text-white" id="brand" @if($page) data-page="" @endif>
-      <span class="grid h-10 w-10 place-items-center rounded-xl text-white bg-grad shadow-c"><i class="fa-solid {{ $icon }}"></i></span>
+      @if(!empty($b['logo']))<img src="{{ $b['logo'] }}" alt="{{ $b['name'] ?? '' }}" class="brand-logo h-10 w-auto max-w-[9rem] rounded-lg bg-white/90 object-contain p-1" decoding="async">@else<span class="grid h-10 w-10 place-items-center rounded-xl text-white bg-grad shadow-c"><i class="fa-solid {{ $icon }}"></i></span>@endif
       <span class="font-display text-lg font-bold" data-edit="business.name">{{ $b['name'] ?? '' }}</span>
     </a>
     <div class="hidden items-center gap-6 md:flex" id="links">
@@ -392,7 +416,9 @@ footer.bg-slate-900{background:#07070b!important}
   <div class="hero-ov absolute inset-0"></div>
   <div class="grain absolute inset-0"></div>
   <div class="glow" id="heroglow"></div>
-  <div class="pointer-events-none absolute -bottom-24 right-0 h-96 w-96 rounded-full blur-3xl" style="background:var(--grad);opacity:.28"></div>
+  <div class="pointer-events-none absolute -bottom-24 right-0 h-96 w-96 rounded-full blur-3xl hero-glow" style="background:var(--grad);opacity:.28"></div>
+  <div class="pointer-events-none absolute -top-32 left-[-10%] h-[28rem] w-[28rem] rounded-full blur-3xl hero-glow-2" style="background:var(--c);opacity:.16"></div>
+  <div class="hero-grain pointer-events-none absolute inset-0" aria-hidden="true"></div>
   @if($editMode)<button type="button" class="joow-img-btn" style="right:1.25rem;bottom:1.25rem" data-edit-img="images.hero"><i class="fa-solid fa-image"></i> Changer la photo de fond</button>@endif
 
   @php
@@ -411,7 +437,7 @@ footer.bg-slate-900{background:#07070b!important}
         @if(count($hours))<span class="open-pill" id="open-pill" data-hours="{{ $hoursJson }}" style="display:none"><span class="open-dot"></span><span></span></span>@endif
       </div>
       <p class="mb-3 text-sm font-bold uppercase tracking-[0.3em] accent" data-edit="content.tagline">{{ $t('tagline', $label) }}</p>
-      <h1 class="font-display font-bold {{ $serif ? 'text-[2.9rem] leading-[1.0] sm:text-7xl' : 'text-[2.6rem] leading-[1.03] sm:text-6xl' }} {{ $heroStyle === 'center' ? 'max-w-4xl' : '' }}" data-edit="content.hero_title">{{ $t('hero_title', $b['name'] ?? '') }}</h1>
+      <h1 class="font-display font-bold {{ $serif ? 'text-[2.9rem] leading-[1.0] sm:text-7xl' : 'text-[2.6rem] leading-[1.03] sm:text-6xl' }} {{ $heroStyle === 'center' ? 'max-w-4xl' : '' }}" data-edit="content.hero_title">@if($editMode){{ $t('hero_title', $b['name'] ?? '') }}@else<span class="words">@foreach(preg_split('/\s+/u', trim($t('hero_title', $b['name'] ?? ''))) as $wi => $word)<span class="w" style="--i:{{ $wi }}">{{ $word }}</span>@endforeach</span>@endif</h1>
       <p class="mt-5 max-w-xl text-lg text-white/80 {{ $heroStyle === 'center' ? 'sm:text-xl' : '' }}" data-edit="content.hero_subtitle">{{ $t('hero_subtitle', $tagline) }}</p>
       <div class="mt-9 flex flex-wrap gap-4 {{ $heroStyle === 'center' ? 'justify-center' : '' }}">
         <a href="{{ $ctaHref }}" class="group shine rounded-xl bg-grad px-7 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="content.cta_label">{{ $ctaLabel }}</span> <i class="fa-solid fa-arrow-right ml-1 transition group-hover:translate-x-1"></i></a>
