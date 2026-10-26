@@ -65,7 +65,7 @@ TXT;
             $res = Gemini::generate([
                 'contents' => [['parts' => [['text' => $prompt]]]],
                 'generationConfig' => ['temperature' => 0.5, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 6000, 'thinkingConfig' => ['thinkingBudget' => 0]],
-            ], 70, 'PageImporter');
+            ], 45, 'PageImporter');
             $data = json_decode(Gemini::text($res), true);
             $pages = is_array($data['pages'] ?? null) ? $data['pages'] : [];
         } catch (\Throwable $e) {

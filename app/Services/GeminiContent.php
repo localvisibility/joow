@@ -80,7 +80,7 @@ TXT;
             $res = Gemini::generate([
                 'contents' => [['parts' => [['text' => $prompt]]]],
                 'generationConfig' => ['temperature' => 0.65, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 4096, 'thinkingConfig' => ['thinkingBudget' => 0]],
-            ], 75, 'GeminiContent');
+            ], 50, 'GeminiContent');
             $text = Gemini::text($res);
             $data = $text ? json_decode($text, true) : null;
             if (! is_array($data)) {
