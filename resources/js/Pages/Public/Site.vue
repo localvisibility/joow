@@ -110,11 +110,11 @@ onUnmounted(() => timer && clearInterval(timer));
             <template #capture>
                 <div v-if="can_edit" class="mx-auto mb-6 max-w-2xl">
                     <div v-if="!hasEmail" class="glass rounded-2xl border-brand-500/20 p-4 sm:p-5">
-                        <p class="flex items-center gap-2 text-sm font-semibold text-white"><span class="grid h-6 w-6 place-items-center rounded-full bg-brand-gradient text-xs">✉️</span> Recevez le lien de votre site par email</p>
-                        <p class="mt-1 text-xs text-slate-400">Pour le retrouver sur n'importe quel appareil et le personnaliser dans le Studio. Aucun compte à créer.</p>
+                        <p class="flex items-center gap-2 text-sm font-semibold text-white"><span class="grid h-6 w-6 place-items-center rounded-full bg-brand-gradient text-xs">✉️</span> Recevez votre lien privé et testez l'éditeur</p>
+                        <p class="mt-1 text-xs text-slate-400">Modifiez textes, photos et couleurs en quelques clics, activez réservation, devis ou assistant IA. Gratuit, sans compte, sans carte.</p>
                         <form class="mt-3 flex flex-col gap-2 sm:flex-row" @submit.prevent="saveEmail()">
                             <input ref="leadInput" v-model="lead.email" type="email" inputmode="email" autocomplete="email" class="field sm:flex-1" :class="{ 'border-rose-400 ring-2 ring-rose-400/40': lead.error }" placeholder="prenom@exemple.fr" @input="lead.error = ''" />
-                            <button type="submit" class="btn-brand shrink-0 !px-5 !py-3 text-sm" :disabled="lead.sending">{{ lead.sending ? '…' : 'M\'envoyer le lien' }}</button>
+                            <button type="submit" class="btn-brand shrink-0 !px-5 !py-3 text-sm" :disabled="lead.sending">{{ lead.sending ? '…' : 'Recevoir mon lien' }}</button>
                         </form>
                         <p v-if="lead.error" class="mt-2 text-xs font-medium text-rose-300">{{ lead.error }}</p>
                     </div>
@@ -144,17 +144,40 @@ onUnmounted(() => timer && clearInterval(timer));
                     <p class="mt-3 text-xs text-slate-500">Textes, photos, pages, couleurs, formulaire… tout est modifiable en 2 clics ou avec l'assistant IA. Gratuit, sans compte.</p>
                     <p v-if="lead.sent" class="mt-2 text-xs text-emerald-300">✓ Votre lien privé vient d'être envoyé à {{ lead.email }}.</p>
                 </template>
-                <!-- Studio verrouillé : on demande l'email d'abord -->
-                <div v-else-if="can_edit" class="mx-auto mt-6 max-w-xl text-left">
-                    <div class="glass rounded-2xl p-4 sm:p-5" :class="fromStudio || lead.error ? 'border-brand-400/50' : 'border-brand-500/20'">
-                        <p class="flex items-center gap-2 text-sm font-semibold text-white"><span class="grid h-6 w-6 place-items-center rounded-full bg-brand-gradient text-xs">1</span> Votre email pour ouvrir le Studio</p>
-                        <p class="mt-1 text-xs text-slate-400">{{ fromStudio ? 'Le Studio s\'ouvre dès que votre email est enregistré : ' : '' }}il sert à retrouver votre site et à recevoir votre lien privé. Aucun compte à créer.</p>
-                        <form class="mt-3 flex flex-col gap-2 sm:flex-row" @submit.prevent="saveEmail('studio')">
-                            <input ref="studioInput" v-model="lead.email" type="email" inputmode="email" autocomplete="email" class="field sm:flex-1" :class="{ 'border-rose-400 ring-2 ring-rose-400/40': lead.error }" placeholder="prenom@exemple.fr" @input="lead.error = ''" />
-                            <button type="submit" class="btn-brand shrink-0 !px-6 !py-3 text-sm" :disabled="lead.sending">{{ lead.sending ? 'Ouverture…' : '✨ Ouvrir le Studio' }}</button>
+                <!-- Studio verrouillé : on vend l'éditeur et les modules, l'email ouvre tout -->
+                <div v-else-if="can_edit" class="mx-auto mt-6 max-w-2xl text-left">
+                    <div class="glass relative overflow-hidden rounded-3xl p-5 sm:p-7" :class="fromStudio || lead.error ? 'border-brand-400/50' : 'border-brand-500/25'">
+                        <div class="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand-gradient opacity-20 blur-3xl"></div>
+                        <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold text-emerald-300">Gratuit · sans carte bancaire · sans engagement</p>
+                        <h2 class="mt-3 font-display text-2xl font-bold leading-tight text-white sm:text-3xl">Il vous plaît ? Faites-en <span class="text-shimmer">votre</span> site, en quelques clics.</h2>
+                        <p class="mt-2 text-sm text-slate-300">{{ fromStudio ? 'Le Studio s\'ouvre dès que votre email est enregistré. ' : '' }}Notre éditeur vous laisse tout retoucher directement sur la page, sans aucune compétence technique.</p>
+
+                        <ul class="mt-5 grid gap-3 sm:grid-cols-2">
+                            <li class="flex items-start gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
+                                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-gradient text-base">✏️</span>
+                                <span class="text-sm"><span class="block font-semibold text-white">Cliquez, modifiez, c'est fait</span><span class="text-slate-400">Textes, photos, couleurs et polices se changent directement sur le site.</span></span>
+                            </li>
+                            <li class="flex items-start gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
+                                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-gradient text-base">🗓️</span>
+                                <span class="text-sm"><span class="block font-semibold text-white">Vos modules en un clic</span><span class="text-slate-400">Réservation, rendez-vous ou devis en ligne, avis Google, formulaire intelligent.</span></span>
+                            </li>
+                            <li class="flex items-start gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
+                                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-gradient text-base">🤖</span>
+                                <span class="text-sm"><span class="block font-semibold text-white">Un assistant IA à vos ordres</span><span class="text-slate-400">« Ajoute une page Tarifs », « rends le ton plus chaleureux » : il le fait.</span></span>
+                            </li>
+                            <li class="flex items-start gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
+                                <span class="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-gradient text-base">💬</span>
+                                <span class="text-sm"><span class="block font-semibold text-white">Un chatbot qui répond à vos clients</span><span class="text-slate-400">Horaires, tarifs, prise de contact : il connaît votre activité, 24h/24.</span></span>
+                            </li>
+                        </ul>
+
+                        <form class="mt-5 flex flex-col gap-2 sm:flex-row" @submit.prevent="saveEmail('studio')">
+                            <input ref="studioInput" v-model="lead.email" type="email" inputmode="email" autocomplete="email" class="field sm:flex-1 !py-3.5" :class="{ 'border-rose-400 ring-2 ring-rose-400/40': lead.error }" placeholder="Votre email pour ouvrir l'éditeur" @input="lead.error = ''" />
+                            <button type="submit" class="btn-brand shrink-0 !px-6 !py-3.5 text-sm" :disabled="lead.sending">{{ lead.sending ? 'Ouverture…' : '✨ Tester l\'éditeur gratuitement' }}</button>
                         </form>
                         <p v-if="lead.error" class="mt-2 text-xs font-medium text-rose-300">{{ lead.error }}</p>
-                        <p class="mt-3 text-[11px] text-slate-500">Sans email, cet aperçu est supprimé automatiquement dans {{ expires_in_days }} jour{{ expires_in_days > 1 ? 's' : '' }}.</p>
+                        <p class="mt-3 text-xs text-slate-400">Votre email sert uniquement à vous renvoyer votre lien privé, pour retrouver votre site sur n'importe quel appareil. Aucun compte, aucun mot de passe. Vous ne payez que si vous décidez de le mettre en ligne.</p>
+                        <p class="mt-1.5 text-[11px] text-slate-500">Sans email, cet aperçu est supprimé automatiquement dans {{ expires_in_days }} jour{{ expires_in_days > 1 ? 's' : '' }}.</p>
                     </div>
                     <p class="mt-3 text-center text-xs"><a :href="liveUrl" target="_blank" rel="noopener" class="font-semibold text-slate-400 underline-offset-2 hover:text-white hover:underline">Voir en plein écran ↗</a></p>
                 </div>
@@ -254,6 +277,8 @@ onUnmounted(() => timer && clearInterval(timer));
 </template>
 
 <style scoped>
+.text-shimmer { background: linear-gradient(100deg,#818cf8 20%,#e879f9 40%,#38bdf8 60%,#818cf8 80%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 5s linear infinite; }
+@keyframes shimmer { to { background-position: 200% center; } }
 /* Dévoilement du site : montée + ouverture en rideau, puis confettis discrets */
 .unveil { animation: unveil 1.1s cubic-bezier(.22,1,.36,1) both; }
 @keyframes unveil { 0% { opacity: 0; transform: translateY(28px) scale(.96); clip-path: inset(0 50% 0 50% round 1rem); } 55% { opacity: 1; clip-path: inset(0 0 0 0 round 1rem); } 100% { opacity: 1; transform: none; clip-path: inset(0 0 0 0 round 1rem); } }
