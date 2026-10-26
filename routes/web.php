@@ -26,7 +26,31 @@ Route::prefix('/api/site/{slug}')->middleware('throttle:120,1')->group(function 
 });
 
 // ─── Tunnel public : générer un site depuis sa fiche Google, sans compte ───
-Route::get('/', [PublicSiteController::class, 'landing'])->name('home');
+// Accueil : site vitrine sur joow.fr, page de génération (publicités) sur app.joow.fr
+Route::get('/', function (\Illuminate\Http\Request $request) {
+    return \App\Http\Middleware\MarketingHost::isMarketing($request)
+        ? app(\App\Http\Controllers\MarketingController::class)->home()
+        : app(PublicSiteController::class)->landing();
+})->name('home');
+
+// Site vitrine (rendu serveur, référencement) : accessible sur tous les hôtes, canonique sur joow.fr
+Route::middleware(\App\Http\Middleware\MarketingHost::class)->name('marketing.')->group(function () {
+    Route::get('/decouvrir', [\App\Http\Controllers\MarketingController::class, 'home'])->name('home');
+    Route::get('/fonctionnalites', [\App\Http\Controllers\MarketingController::class, 'features'])->name('features');
+    Route::get('/fonctionnalites/{slug}', [\App\Http\Controllers\MarketingController::class, 'feature'])->name('feature');
+    Route::get('/metiers', [\App\Http\Controllers\MarketingController::class, 'sectors'])->name('sectors');
+    Route::get('/site-internet/{key}', [\App\Http\Controllers\MarketingController::class, 'sector'])->name('sector');
+    Route::get('/tarifs', [\App\Http\Controllers\MarketingController::class, 'pricing'])->name('pricing');
+    Route::get('/exemples', [\App\Http\Controllers\MarketingController::class, 'examples'])->name('examples');
+    Route::get('/blog', [\App\Http\Controllers\MarketingController::class, 'blog'])->name('blog');
+    Route::get('/blog/{slug}', [\App\Http\Controllers\MarketingController::class, 'post'])->name('post');
+    Route::get('/questions-frequentes', [\App\Http\Controllers\MarketingController::class, 'faq'])->name('faq');
+    Route::get('/a-propos', [\App\Http\Controllers\MarketingController::class, 'about'])->name('about');
+    Route::get('/contact', [\App\Http\Controllers\MarketingController::class, 'contact'])->name('contact');
+    Route::post('/contact', [\App\Http\Controllers\MarketingController::class, 'sendContact'])->middleware('throttle:5,10')->name('contact.send');
+    Route::get('/{page}', [\App\Http\Controllers\MarketingController::class, 'legal'])->where('page', 'mentions-legales|confidentialite|cgv')->name('legal');
+    Route::get('/sitemap.xml', [\App\Http\Controllers\MarketingController::class, 'sitemap'])->name('sitemap');
+});
 Route::get('/recherche', [PublicSiteController::class, 'search'])->middleware('throttle:60,1')->name('public.search');
 Route::post('/generer', [PublicSiteController::class, 'generate'])->middleware('throttle:8,1')->name('public.generate');
 // Sans fiche Google : mini-questionnaire → même génération

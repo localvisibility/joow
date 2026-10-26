@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', proxy: { server: process.env.HTTPS_PROXY }, args: ['--ignore-certificate-errors'] });
+const p = await (await b.newContext({ viewport: { width: 1440, height: 900 }, ignoreHTTPSErrors: true })).newPage();
+await p.goto('https://app.joow.fr/login', { waitUntil: 'load', timeout: 60000 }); await p.click('text=Mot de passe'); await p.fill('#email', process.env.JOOW_EMAIL); await p.fill('#password', process.env.JOOW_PASS);
+await Promise.all([p.waitForNavigation({ timeout: 60000 }), p.click('button[type=submit]')]);
+await p.goto('https://app.joow.fr/sites/bouillon-chartier-grands-boulevards-ym0i/editeur?v=' + Date.now(), { waitUntil: 'load', timeout: 60000 });
+await p.waitForSelector('iframe'); await p.waitForTimeout(4000);
+await p.click('text=Mettre en ligne'); await p.waitForTimeout(800);
+await p.screenshot({ path: process.env.OUT + '/publish-modal.png' });
+console.log((await p.textContent('.fixed.inset-0')).replace(/\s+/g, ' ').slice(0, 600));
+await b.close();

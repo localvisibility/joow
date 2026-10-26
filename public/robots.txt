@@ -1,2 +1,9 @@
 User-agent: *
-Disallow:
+Disallow: /site/
+Disallow: /sites/
+Disallow: /dashboard
+Disallow: /connexion/
+Disallow: /emails/
+Disallow: /api/
+
+Sitemap: https://joow.fr/sitemap.xml

@@ -1,0 +1,27 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', proxy: { server: process.env.HTTPS_PROXY }, args: ['--ignore-certificate-errors'] });
+const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, ignoreHTTPSErrors: true });
+const p = await ctx.newPage();
+const logs = [];
+p.on('console', (m) => { if (['error', 'warning'].includes(m.type())) logs.push('[page ' + m.type() + '] ' + m.text().slice(0, 300)); });
+p.on('pageerror', (e) => logs.push('[pageerror] ' + String(e).slice(0, 300)));
+p.on('framenavigated', (f) => logs.push('[nav ' + (f === p.mainFrame() ? 'main' : 'frame') + '] ' + f.url()));
+await p.goto('https://app.joow.fr/login', { waitUntil: 'load', timeout: 60000 }); await p.click('text=Mot de passe'); await p.fill('#email', process.env.JOOW_EMAIL); await p.fill('#password', process.env.JOOW_PASS);
+await Promise.all([p.waitForNavigation({ timeout: 60000 }), p.click('button[type=submit]')]);
+await p.goto('https://app.joow.fr/sites/bouillon-chartier-grands-boulevards-ym0i/editeur', { waitUntil: 'load', timeout: 60000 });
+await p.waitForSelector('iframe'); await p.waitForTimeout(6000);
+const fr = p.frames().find((f) => f.url().includes('/editeur/preview'));
+logs.push('frame found: ' + !!fr);
+const sub = await fr.$('[data-edit="content.hero_subtitle"], [data-edit*="subtitle"], p[data-edit]');
+await sub.click(); await p.waitForTimeout(500); await p.keyboard.type(' Test');
+logs.push('editing… active in frame: ' + await fr.evaluate(() => document.activeElement?.getAttribute('data-edit')));
+// clic en dehors du texte : sur le fond du hero (zone vide)
+await fr.evaluate(() => window.scrollTo(0, 0));
+const box = await (await fr.$('header, section')).boundingBox();
+await fr.click('body', { position: { x: 60, y: 300 } });
+await p.waitForTimeout(1500);
+await p.screenshot({ path: process.env.OUT + '/studio-after-click.png' });
+logs.push('body bg after: ' + await p.evaluate(() => getComputedStyle(document.body).backgroundColor + ' / app children: ' + document.getElementById('app')?.children.length + ' / url ' + location.href));
+logs.push('frame url after: ' + fr.url());
+console.log(logs.join('\n'));
+await b.close();

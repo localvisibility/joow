@@ -1,0 +1,18 @@
+import { chromium } from 'playwright';
+const SLUG = process.env.SLUG;
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', proxy: { server: process.env.HTTPS_PROXY }, args: ['--ignore-certificate-errors'] });
+const p = await (await b.newContext({ viewport: { width: 1440, height: 900 }, ignoreHTTPSErrors: true })).newPage();
+const logs = [];
+p.on('console', (m) => { if (m.type() === 'error' && !m.text().includes('403')) logs.push('[console] ' + m.text().slice(0, 600)); });
+p.on('pageerror', (e) => logs.push('[pageerror] ' + (e.stack || String(e)).slice(0, 900)));
+await p.goto('https://app.joow.fr/login', { waitUntil: 'load', timeout: 60000 }); await p.click('text=Mot de passe'); await p.fill('#email', process.env.JOOW_EMAIL); await p.fill('#password', process.env.JOOW_PASS);
+await Promise.all([p.waitForNavigation({ timeout: 60000 }), p.click('button[type=submit]')]);
+const r = await p.goto(`https://app.joow.fr/sites/${SLUG}/editeur`, { waitUntil: 'load', timeout: 60000 });
+logs.push('status ' + r.status() + ' url ' + p.url());
+await p.waitForTimeout(5000);
+logs.push('text: ' + (await p.evaluate(() => document.body.innerText.slice(0, 400))).replace(/\n+/g, ' | '));
+const st = await p.evaluate(async (slug) => { const r = await fetch(`/sites/${slug}/editeur/state`, { headers: { Accept: 'application/json' } }); return r.status + ' ' + (await r.text()).slice(0, 300); }, SLUG);
+logs.push('state: ' + st);
+await p.screenshot({ path: process.env.OUT + '/studio3.png' });
+console.log(logs.join('\n'));
+await b.close();

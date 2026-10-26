@@ -1,0 +1,11 @@
+import { chromium, devices } from 'playwright';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', proxy: { server: process.env.HTTPS_PROXY }, args: ['--ignore-certificate-errors'] });
+const p = await (await b.newContext({ ...devices['iPhone 13'], deviceScaleFactor: 1, viewport: { width: 390, height: 844 }, ignoreHTTPSErrors: true })).newPage();
+await p.goto('https://app.joow.fr/login', { waitUntil: 'load', timeout: 60000 }); await p.click('text=Mot de passe'); await p.fill('#email', process.env.JOOW_EMAIL); await p.fill('#password', process.env.JOOW_PASS);
+await Promise.all([p.waitForNavigation({ timeout: 60000 }), p.click('button[type=submit]')]);
+await p.goto('https://app.joow.fr/sites/' + process.env.SLUG + '/editeur/preview?v=' + Date.now(), { waitUntil: 'networkidle', timeout: 60000 });
+const r = await p.evaluate(() => { const W = document.getElementById('joow-wizard'); const g = W.parentElement; return { wizard: Math.round(W.getBoundingClientRect().width), grid: Math.round(g.getBoundingClientRect().width), sw: document.documentElement.scrollWidth }; });
+console.log(JSON.stringify(r));
+await p.evaluate(() => document.getElementById('joow-wizard').scrollIntoView({ block: 'start' })); await p.waitForTimeout(900);
+await p.screenshot({ path: process.env.OUT + '/wiz-live.png' });
+await b.close();

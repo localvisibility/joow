@@ -1,0 +1,12 @@
+@extends('marketing.layout')
+@push('jsonld')<script type="application/ld+json">{!! json_encode(['@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => array_map(fn ($f) => ['@type' => 'Question', 'name' => $f['q'], 'acceptedAnswer' => ['@type' => 'Answer', 'text' => $f['a']]], $faq)], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>@endpush
+@section('content')
+@include('marketing.partials.page-head', ['kicker' => 'Tarifs', 'heading' => 'Gratuit jusqu\'à la mise en ligne.<br>Ensuite, deux formules simples.', 'lead' => 'Créez, regardez, modifiez : tout est gratuit, sans carte bancaire. Vous ne payez que le jour où vous décidez de publier. Tous les modules sont inclus dans les deux formules.'])
+<section class="mx-auto max-w-5xl px-5">@include('marketing.partials.pricing', ['pricing' => $pricing])</section>
+<section class="mx-auto max-w-5xl px-5 py-20">
+    <h2 class="reveal text-center font-display text-3xl font-bold text-white">Ce qui est inclus, dans les deux cas</h2>
+    <div class="stagger mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">@foreach([['🌐', 'Hébergement et HTTPS', 'Serveurs en Europe, certificat renouvelé automatiquement, sauvegardes.'], ['🗓️', 'Réservation et devis', 'Formulaires par métier, confirmations, rappels, tableau de bord.'], ['🤖', 'Assistant IA et chatbot', 'Modifications par la parole, réponses à vos clients 24h/24.'], ['⭐', 'Avis Google', 'Note et témoignages intégrés et mis à jour.'], ['📍', 'Référencement local', 'Balises, données structurées, vitesse, mobile.'], ['✉️', 'Support', 'Par email, réponse sous 24 h ouvrées, en français.']] as [$i, $t, $d])<div class="reveal glass rounded-2xl p-5"><span class="text-2xl">{{ $i }}</span><p class="mt-3 font-semibold text-white">{{ $t }}</p><p class="mt-1 text-sm text-slate-400">{{ $d }}</p></div>@endforeach</div>
+</section>
+<section class="mx-auto max-w-3xl px-5 py-10"><h2 class="reveal text-center font-display text-3xl font-bold text-white">Questions sur les tarifs</h2><div class="mt-8 space-y-3">@foreach($faq as $f)<details class="reveal glass group rounded-2xl p-5"><summary class="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-white"><span>{{ $f['q'] }}</span><span class="text-slate-500 transition group-open:rotate-45">+</span></summary><p class="mt-3 text-slate-400">{{ $f['a'] }}</p></details>@endforeach</div></section>
+@include('marketing.partials.cta')
+@endsection

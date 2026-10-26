@@ -1,0 +1,20 @@
+import { chromium, devices } from 'playwright';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', proxy: { server: process.env.HTTPS_PROXY }, args: ['--ignore-certificate-errors'] });
+const ctx = await b.newContext({ ...devices['iPhone 13'], ignoreHTTPSErrors: true });
+const p = await ctx.newPage();
+p.on('pageerror', (e) => console.log('[pageerror]', String(e).slice(0, 200)));
+await p.goto('https://app.joow.fr/login', { waitUntil: 'load', timeout: 60000 }); await p.click('text=Mot de passe'); await p.fill('#email', process.env.JOOW_EMAIL); await p.fill('#password', process.env.JOOW_PASS);
+await Promise.all([p.waitForNavigation({ timeout: 60000 }), p.click('button[type=submit]')]);
+await p.goto('https://app.joow.fr/sites/bouillon-chartier-grands-boulevards-ym0i/editeur?v=' + Date.now(), { waitUntil: 'load', timeout: 60000 });
+await p.waitForSelector('iframe'); await p.waitForTimeout(5000);
+await p.screenshot({ path: process.env.OUT + '/m-studio-1.png' });
+await p.tap('nav.fixed button:has-text("IA")'); await p.waitForTimeout(700);
+await p.screenshot({ path: process.env.OUT + '/m-studio-2.png' });
+await p.tap('nav.fixed button:has-text("Contenu")'); await p.waitForTimeout(700);
+await p.screenshot({ path: process.env.OUT + '/m-studio-3.png' });
+await p.tap('nav.fixed button:has-text("Contenu")'); await p.waitForTimeout(600); // referme
+const fr = p.frames().find((f) => f.url().includes('/editeur/preview'));
+const el = await fr.$('[data-edit="content.hero_title"]'); await el.tap(); await p.waitForTimeout(500);
+console.log('édition dans l\'aperçu :', await fr.evaluate(() => document.activeElement?.getAttribute('data-edit')));
+await p.screenshot({ path: process.env.OUT + '/m-studio-4.png' });
+await b.close();
