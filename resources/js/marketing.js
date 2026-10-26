@@ -57,7 +57,7 @@ $$('[data-generator]').forEach((g) => {
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         const v = input.value.trim(); const email = emailInput?.value.trim() || '';
-        const post = (action, fields) => { const f = document.createElement('form'); f.method = 'POST'; f.action = action; const add = (n, val) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = val; f.appendChild(i); }; add('_token', csrf()); Object.entries(fields).forEach(([k, val]) => add(k, val)); document.body.appendChild(f); f.submit(); };
+        const post = (action, fields) => { const f = document.createElement('form'); f.method = 'POST'; const attr = new URLSearchParams([...new URLSearchParams(location.search)].filter(([k]) => /^(utm_|fbclid|gclid|ref$)/.test(k))).toString(); f.action = action + (attr ? '?' + attr : ''); const add = (n, val) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = val; f.appendChild(i); }; add('_token', csrf()); Object.entries(fields).forEach(([k, val]) => add(k, val)); document.body.appendChild(f); f.submit(); };
         if (URL_RE.test(v) && !/\s/.test(v)) { track('Search', { search_string: v, content_category: 'site_existant' }); post(routes.redesign, { url: v, email }); return; }
         if (selected) { post(routes.generate, { query: selected.place_id, email }); return; }
         if (v.length >= 3 && results.length) { selected = results[0]; post(routes.generate, { query: selected.place_id, email }); return; }

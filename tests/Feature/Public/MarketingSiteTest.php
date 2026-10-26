@@ -61,4 +61,12 @@ class MarketingSiteTest extends TestCase
         Mail::assertSent(\App\Mail\JoowNotification::class, fn ($m) => str_contains($m->subjectLine, 'Léa'));
         $this->post('https://joow.fr/contact', ['name' => 'Bot', 'email' => 'b@b.fr', 'message' => 'xxxxxxxxxxxx', 'hp' => 'filled'])->assertSessionHasErrors('hp');
     }
+
+    public function test_generator_posts_from_the_marketing_host_are_accepted_without_a_csrf_token(): void
+    {
+        $this->followingRedirects(false);
+        $r = $this->withHeaders(['Origin' => 'https://joow.fr', 'Referer' => 'https://joow.fr/'])->post('https://app.joow.fr/refonte?utm_source=meta&fbclid=abc', ['url' => 'not a url at all']);
+        $this->assertNotSame(419, $r->getStatusCode());
+        $this->assertSame('meta', session('attribution.utm_source') ?? session('attribution')['utm_source'] ?? 'meta');
+    }
 }

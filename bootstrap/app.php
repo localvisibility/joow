@@ -27,7 +27,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Endpoints publics dispensés de CSRF :
         // - api/*    : demandes des sites générés (throttle + honeypot)
         // - stripe/* : webhooks Stripe (Cashier), signés côté Stripe
-        $middleware->validateCsrfTokens(except: ['api/*', 'stripe/*']);
+        // generer / creer / refonte : soumis aussi depuis le site vitrine (joow.fr), dont la session est distincte ; ces
+        // routes ne touchent aucun compte connecté, sont limitées en débit et créent seulement un aperçu anonyme.
+        $middleware->validateCsrfTokens(except: ['api/*', 'stripe/*', 'generer', 'creer', 'refonte']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
