@@ -37,27 +37,34 @@ class PreviewEmailTest extends TestCase
             ->assertInertia(fn ($p) => $p->where('can_edit', true)->where('has_email', false)->where('expires_in_days', 5));
     }
 
-    public function test_guest_creator_can_attach_email_and_receives_link_when_ready(): void
+    public function test_guest_creator_can_attach_email_which_creates_an_account_and_sends_the_welcome(): void
     {
+        \Illuminate\Support\Facades\Mail::fake();
         $site = $this->site();
-        $this->mock(Notifier::class)->shouldReceive('editLink')->once()->withArgs(fn ($s, $to) => $s->is($site) && $to === 'pro@exemple.fr');
 
         $this->withSession(['joow_sites' => [$site->slug]])
-            ->postJson(route('public.site.email', $site->slug), ['email' => 'pro@exemple.fr'])
+            ->postJson(route('public.site.email', $site->slug), ['email' => 'Pro@Exemple.fr'])
             ->assertOk()->assertJson(['ok' => true, 'sent' => true]);
 
-        $this->assertSame('pro@exemple.fr', $site->fresh()->owner_email);
+        $site->refresh();
+        $user = User::where('email', 'pro@exemple.fr')->firstOrFail();
+        $this->assertSame($user->id, $site->user_id, 'site rattaché au compte créé');
+        $this->assertSame('pro@exemple.fr', $site->owner_email);
+        $this->assertNull($user->password_set_at);
+        $this->assertSame('site', $user->source);
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\JoowNotification::class, fn (\App\Mail\JoowNotification $m) => $m->hasTo('pro@exemple.fr') && str_contains($m->subjectLine, 'est prêt'));
     }
 
-    public function test_email_during_generation_is_stored_without_sending(): void
+    public function test_email_during_generation_creates_the_account_without_sending_yet(): void
     {
+        \Illuminate\Support\Facades\Mail::fake();
         $site = $this->site(['status' => 'generating']);
-        $this->mock(Notifier::class)->shouldNotReceive('editLink');
 
         $this->withSession(['joow_sites' => [$site->slug]])
             ->postJson(route('public.site.email', $site->slug), ['email' => 'pro@exemple.fr'])
             ->assertOk()->assertJson(['sent' => false]);
-        $this->assertSame('pro@exemple.fr', $site->fresh()->owner_email);
+        $this->assertNotNull($site->fresh()->user_id);
+        \Illuminate\Support\Facades\Mail::assertNothingSent();
     }
 
     public function test_stranger_cannot_attach_email(): void

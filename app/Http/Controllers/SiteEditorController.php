@@ -288,14 +288,9 @@ class SiteEditorController extends Controller
         if (! $site->user_id && (! $site->owner_email || in_array($site->slug, $request->session()->get('joow_sites', []), true))) {
             $site->update(['owner_email' => $data['email']]);
         }
-        if ($user = $request->user()) {
-            Site::claimFor($user, [$site->slug]);
-        }
-        try {
-            app(\App\Services\Notifier::class)->editLink($site, $data['email']);
-        } catch (\Throwable) {
-            // l'envoi d'email ne doit pas bloquer l'enregistrement
-        }
+        $accounts = app(\App\Services\Accounts::class);
+        [$user] = $accounts->ensure($data['email'], array_unique(array_merge($request->session()->get('joow_sites', []), [$site->slug])), 'studio');
+        $accounts->welcome($user, $site->fresh());
 
         return response()->json(['ok' => true, 'owner_email' => $site->fresh()->owner_email, 'edit_link' => route('sites.editor', $site->slug).'?t='.$site->editToken()]);
     }

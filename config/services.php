@@ -49,6 +49,8 @@ return [
         'unsplash'  => env('UNSPLASH_ACCESS_KEY'),
         'openverse' => (bool) env('STOCK_OPENVERSE', true),
     ],
+    // Relances J+1 / J+3 / J+6 (textes dans app/Console/Commands/NurtureLeads.php) : à activer après relecture
+    'nurture' => ['enabled' => (bool) env('NURTURE_ENABLED', false)],
     'sites_path' => env('SITES_PATH', '/var/www/sites'),
     // Durée de vie (jours) d'un aperçu créé sans email ni compte : passé ce délai, il est supprimé automatiquement.
     'preview_ttl_days' => (int) env('PREVIEW_TTL_DAYS', 7),

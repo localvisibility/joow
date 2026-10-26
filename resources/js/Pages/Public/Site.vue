@@ -17,6 +17,7 @@ const leadInput = ref(null);
 const studioInput = ref(null);
 // Renvoyé du Studio sans email (?studio=1) : on explique et on amène sur le champ
 const fromStudio = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('studio') === '1';
+const googleEnabled = !!usePage().props.google_enabled;
 const saveEmail = async (next = null) => {
     const v = (lead.value.email || '').trim();
     if (!emailValid(v)) { lead.value.error = 'Entrez une adresse email valide.'; (next ? studioInput : leadInput).value?.focus(); return; }
@@ -112,6 +113,7 @@ onUnmounted(() => timer && clearInterval(timer));
                     <div v-if="!hasEmail" class="glass rounded-2xl border-brand-500/20 p-4 sm:p-5">
                         <p class="flex items-center gap-2 text-sm font-semibold text-white"><span class="grid h-6 w-6 place-items-center rounded-full bg-brand-gradient text-xs">✉️</span> Recevez votre lien privé et testez l'éditeur</p>
                         <p class="mt-1 text-xs text-slate-400">Modifiez textes, photos et couleurs en quelques clics, activez réservation, devis ou assistant IA. Gratuit, sans compte, sans carte.</p>
+                        <a v-if="googleEnabled" :href="route('google.redirect', { redirect: route('public.site', site.slug) })" class="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"><svg class="h-4 w-4" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.7 24c0-1.6.3-3.1.8-4.6l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg> Continuer avec Google</a>
                         <form class="mt-3 flex flex-col gap-2 sm:flex-row" @submit.prevent="saveEmail()">
                             <input ref="leadInput" v-model="lead.email" type="email" inputmode="email" autocomplete="email" class="field sm:flex-1" :class="{ 'border-rose-400 ring-2 ring-rose-400/40': lead.error }" placeholder="prenom@exemple.fr" @input="lead.error = ''" />
                             <button type="submit" class="btn-brand shrink-0 !px-5 !py-3 text-sm" :disabled="lead.sending">{{ lead.sending ? '…' : 'Recevoir mon lien' }}</button>
@@ -171,12 +173,17 @@ onUnmounted(() => timer && clearInterval(timer));
                             </li>
                         </ul>
 
-                        <form class="mt-5 flex flex-col gap-2 sm:flex-row" @submit.prevent="saveEmail('studio')">
+                        <a v-if="googleEnabled" :href="route('google.redirect', { redirect: route('sites.editor', site.slug) })" class="mt-5 flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white px-4 py-3.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-100">
+                            <svg class="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17z"/><path fill="#FBBC05" d="M10.5 28.6A14.5 14.5 0 0 1 9.7 24c0-1.6.3-3.1.8-4.6l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+                            Continuer avec Google · 1 clic
+                        </a>
+                        <div v-if="googleEnabled" class="my-3 flex items-center gap-3 text-[11px] text-slate-500"><span class="h-px flex-1 bg-white/10"></span>ou avec votre email<span class="h-px flex-1 bg-white/10"></span></div>
+                        <form class="flex flex-col gap-2 sm:flex-row" :class="googleEnabled ? '' : 'mt-5'" @submit.prevent="saveEmail('studio')">
                             <input ref="studioInput" v-model="lead.email" type="email" inputmode="email" autocomplete="email" class="field sm:flex-1 !py-3.5" :class="{ 'border-rose-400 ring-2 ring-rose-400/40': lead.error }" placeholder="Votre email pour ouvrir l'éditeur" @input="lead.error = ''" />
                             <button type="submit" class="btn-brand shrink-0 !px-6 !py-3.5 text-sm" :disabled="lead.sending">{{ lead.sending ? 'Ouverture…' : '✨ Tester l\'éditeur gratuitement' }}</button>
                         </form>
                         <p v-if="lead.error" class="mt-2 text-xs font-medium text-rose-300">{{ lead.error }}</p>
-                        <p class="mt-3 text-xs text-slate-400">Votre email sert uniquement à vous renvoyer votre lien privé, pour retrouver votre site sur n'importe quel appareil. Aucun compte, aucun mot de passe. Vous ne payez que si vous décidez de le mettre en ligne.</p>
+                        <p class="mt-3 text-xs text-slate-400">En continuant, vous créez votre espace Joow : vos sites, vos demandes et vos réservations au même endroit, accessible par Google, par lien envoyé par email, ou avec le mot de passe que vous choisirez. Vous recevrez quelques conseils pour votre site, désinscription en un clic. Vous ne payez que si vous décidez de le mettre en ligne.</p>
                         <p class="mt-1.5 text-[11px] text-slate-500">Sans email, cet aperçu est supprimé automatiquement dans {{ expires_in_days }} jour{{ expires_in_days > 1 ? 's' : '' }}.</p>
                     </div>
                     <p class="mt-3 text-center text-xs"><a :href="liveUrl" target="_blank" rel="noopener" class="font-semibold text-slate-400 underline-offset-2 hover:text-white hover:underline">Voir en plein écran ↗</a></p>

@@ -218,7 +218,9 @@ class GenerateSiteJob implements ShouldQueue
             // Lien privé du Studio envoyé à l'email rattaché (saisi à l'accueil ou pendant l'attente)
             if ($to = $this->site->fresh()->owner_email) {
                 try {
-                    app(\App\Services\Notifier::class)->editLink($this->site, $to);
+                    $accounts = app(\App\Services\Accounts::class);
+                    [$user] = $accounts->ensure($to, [$this->site->slug], $this->site->source === 'questionnaire' ? 'intake' : ($this->site->source === 'refonte' ? 'refonte' : 'site'));
+                    $accounts->welcome($user, $this->site->fresh());
                 } catch (\Throwable $e) {
                     \Illuminate\Support\Facades\Log::warning('Email site prêt : '.$e->getMessage());
                 }

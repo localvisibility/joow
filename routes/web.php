@@ -144,6 +144,7 @@ Route::post('/sites/{slug}/credits/checkout', [\App\Http\Controllers\CreditsCont
 Route::get('/sites/{slug}/credits/retour', [\App\Http\Controllers\CreditsController::class, 'return'])->name('credits.return');
 
 // ─── Connexion sans mot de passe (lien signé) & Google ───
+Route::get('/emails/desinscription/{user}', [\App\Http\Controllers\EmailPreferencesController::class, 'unsubscribe'])->middleware('signed')->name('emails.unsubscribe');
 Route::post('/connexion/lien', [\App\Http\Controllers\Auth\MagicLinkController::class, 'send'])->middleware('throttle:6,1')->name('magic.send');
 Route::get('/connexion/lien/{user}', [\App\Http\Controllers\Auth\MagicLinkController::class, 'login'])->middleware('signed')->name('magic.login');
 Route::get('/auth/google', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])->name('google.redirect');

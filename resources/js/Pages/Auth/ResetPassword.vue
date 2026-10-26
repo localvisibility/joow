@@ -15,6 +15,7 @@ const props = defineProps({
         type: String,
         required: true,
     },
+    set: { type: Boolean, default: false },
 });
 
 const form = useForm({
@@ -33,7 +34,7 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Reset Password" />
+        <Head :title="set ? 'Choisir mon mot de passe' : 'Réinitialiser mon mot de passe'" />
 
         <form @submit.prevent="submit">
             <div>
@@ -93,7 +94,7 @@ const submit = () => {
                     :class="{ 'opacity-25': form.processing }"
                     :disabled="form.processing"
                 >
-                    Reset Password
+                    {{ set ? 'Enregistrer mon mot de passe' : 'Réinitialiser le mot de passe' }}
                 </PrimaryButton>
             </div>
         </form>

@@ -84,6 +84,9 @@ class PublicSiteController extends Controller
 
         // Le visiteur (même sans compte) peut retoucher son site dans le Studio avant de le mettre en ligne.
         $request->session()->push('joow_sites', $slug);
+        if (! empty($data['email'])) {
+            app(\App\Services\Accounts::class)->ensure($data['email'], $request->session()->get('joow_sites', []), 'site');
+        }
 
         return redirect()->route('public.site', $slug);
     }
@@ -133,7 +136,7 @@ class PublicSiteController extends Controller
      * et conditionne l'accès au Studio. Le lien privé part tout de suite si le site est prêt,
      * sinon à la fin de la génération.
      */
-    public function email(Request $request, string $slug, Notifier $notifier)
+    public function email(Request $request, string $slug)
     {
         $site = Site::where('slug', $slug)->firstOrFail();
         $data = $request->validate(['email' => ['required', 'email:rfc', 'max:190']]);
@@ -145,16 +148,14 @@ class PublicSiteController extends Controller
             return response()->json(['message' => 'Ce site est déjà rattaché à un compte.'], 422);
         }
         if (! $site->user_id) {
-            $site->update(['owner_email' => $data['email']]);
+            $site->update(['owner_email' => strtolower($data['email'])]);
         }
+        // Compte créé (sans mot de passe) et sites de la session rattachés
+        [$user] = app(\App\Services\Accounts::class)->ensure($data['email'], array_unique(array_merge($guest, [$slug])), 'site');
 
         $ready = in_array($site->status, ['preview', 'paid', 'published'], true);
         if ($ready) {
-            try {
-                $notifier->editLink($site, $data['email']);
-            } catch (\Throwable) {
-                // l'envoi ne doit pas bloquer l'enregistrement
-            }
+            app(\App\Services\Accounts::class)->welcome($user, $site->fresh());
         }
 
         return response()->json(['ok' => true, 'sent' => $ready, 'studio' => route('sites.editor', $slug)]);

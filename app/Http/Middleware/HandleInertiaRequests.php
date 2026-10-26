@@ -36,6 +36,7 @@ class HandleInertiaRequests extends Middleware
             ],
             // Offre : 0 = paiement à la mise en ligne, N = N jours d'essai gratuit avant le 1er prélèvement
             'trial_days' => (int) config('services.stripe.trial_days', 0),
+            'google_enabled' => \App\Http\Controllers\Auth\GoogleAuthController::enabled(),
         ];
     }
 }

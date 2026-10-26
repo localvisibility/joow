@@ -37,6 +37,9 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
+            'nurture' => 'array',
+            'marketing_optout_at' => 'datetime',
+            'password_set_at' => 'datetime',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];

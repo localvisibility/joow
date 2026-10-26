@@ -44,6 +44,8 @@ Artisan::command('modules:reservation-reminders', function (\App\Services\Notifi
 Schedule::command('modules:ical-sync')->hourly();
 // Aperçus créés sans email : supprimés passé le délai de conservation
 Schedule::command('sites:purge-previews')->dailyAt('04:10');
+// Relances des sites non mis en ligne (désactivées tant que NURTURE_ENABLED n'est pas à true)
+Schedule::command('emails:nurture')->dailyAt('10:20');
 Schedule::command('modules:reservation-reminders')->dailyAt('18:00');
 // Domaines personnalisés : DNS, certificats (agent hôte), export
 Schedule::command('domains:sync')->everyMinute()->withoutOverlapping();

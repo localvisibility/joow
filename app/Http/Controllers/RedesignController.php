@@ -55,6 +55,9 @@ class RedesignController extends Controller
         ]);
         GenerateSiteJob::dispatch($site, $job->id);
         $request->session()->push('joow_sites', $slug);
+        if (! empty($data['email'])) {
+            app(\App\Services\Accounts::class)->ensure($data['email'], $request->session()->get('joow_sites', []), 'refonte');
+        }
 
         return redirect()->route('public.site', $slug);
     }

@@ -22,6 +22,7 @@ class NewPasswordController extends Controller
     public function create(Request $request): Response
     {
         return Inertia::render('Auth/ResetPassword', [
+            'set' => (bool) $request->query('set'),
             'email' => $request->email,
             'token' => $request->route('token'),
         ]);
@@ -59,6 +60,16 @@ class NewPasswordController extends Controller
         // the application's home authenticated view. If there is an error we can
         // redirect them back to where they came from with their error message.
         if ($status == Password::PASSWORD_RESET) {
+            // Mot de passe choisi depuis l'email de bienvenue : connexion directe, sites de la session rattachés
+            if ($user = \App\Models\User::where('email', $request->email)->first()) {
+                $user->forceFill(['password_set_at' => now(), 'email_verified_at' => $user->email_verified_at ?? now()])->save();
+                \Illuminate\Support\Facades\Auth::login($user, remember: true);
+                $request->session()->regenerate();
+                \App\Models\Site::claimFor($user, $request->session()->get('joow_sites', []));
+
+                return redirect()->route('dashboard')->with('status', 'Mot de passe enregistré, vous êtes connecté.');
+            }
+
             return redirect()->route('login')->with('status', __($status));
         }
 
