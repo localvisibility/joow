@@ -9,6 +9,7 @@
 <title>{{ $title }}</title>
 </head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a">
+@if(!empty($preheader))<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">{{ $preheader }}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>@endif
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:32px 12px">
 <tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 40px -20px rgba(15,23,42,.25)">
@@ -16,8 +17,21 @@
     <div style="font-size:12px;letter-spacing:.2em;text-transform:uppercase;opacity:.85">{{ $brand['name'] }}</div>
     <div style="font-size:24px;font-weight:800;margin-top:6px;line-height:1.2">{{ $title }}</div>
   </td></tr>
+  @if(!empty($image))
+  <tr><td style="padding:0;line-height:0;background:#0f172a"><img src="{{ $image }}" alt="" width="560" style="display:block;width:100%;max-height:260px;object-fit:cover"></td></tr>
+  @endif
   <tr><td style="padding:28px 32px 8px">
     @if(!empty($intro))<p style="margin:0 0 18px;font-size:16px;line-height:1.55;color:#334155">{!! nl2br(e($intro)) !!}</p>@endif
+    @if(!empty($bullets))
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:4px 0 18px">
+      @foreach($bullets as $bl)
+      <tr>
+        <td style="width:44px;vertical-align:top;padding:8px 0"><div style="width:36px;height:36px;border-radius:10px;background:{{ $accent }}1a;text-align:center;line-height:36px;font-size:18px">{{ $bl[0] ?? '•' }}</div></td>
+        <td style="vertical-align:top;padding:8px 0 8px 8px"><div style="font-size:15px;font-weight:700;color:#0f172a">{{ $bl[1] ?? '' }}</div><div style="font-size:14px;line-height:1.5;color:#475569">{{ $bl[2] ?? '' }}</div></td>
+      </tr>
+      @endforeach
+    </table>
+    @endif
     @if(count($rows))
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden">
       @foreach($rows as [$label, $value])

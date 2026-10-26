@@ -17,7 +17,7 @@ class JoowNotification extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: $this->subjectLine);
+        return new Envelope(subject: $this->subjectLine, replyTo: [config('mail.from.address', 'contact@joow.fr')]);
     }
 
     public function content(): Content

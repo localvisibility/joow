@@ -85,30 +85,70 @@ class AccountsTest extends TestCase
         $this->get('/emails/desinscription/'.$user->id)->assertStatus(403);
     }
 
-    public function test_nurture_is_off_by_default_and_sends_the_right_step_when_forced(): void
+    public function test_welcome_is_sent_once_per_site_and_after_a_magic_login(): void
     {
         $site = $this->site();
         [$user] = app(Accounts::class)->ensure('pro@exemple.fr', [$site->slug]);
-        $user->forceFill(['created_at' => now()->subDays(4)])->save();
-        $paidSite = $this->site(['status' => 'paid', 'paid_at' => now()]);
-        [$paid] = app(Accounts::class)->ensure('paid@exemple.fr', [$paidSite->slug]);
-        $paid->forceFill(['created_at' => now()->subDays(4)])->save();
-        $optSite = $this->site();
-        [$opt] = app(Accounts::class)->ensure('opt@exemple.fr', [$optSite->slug]);
-        $opt->forceFill(['created_at' => now()->subDays(4), 'marketing_optout_at' => now()])->save();
+        // Connexion par lien (ex. après « Continuer avec Google ») : l'email de bienvenue part
+        $this->get(app(Accounts::class)->magicLink($user, '/dashboard'))->assertRedirect('/dashboard');
+        Mail::assertSent(\App\Mail\JoowNotification::class, 1);
+        $this->assertNotNull($site->fresh()->site_data['emails']['welcome_at']);
+        // Un second passage n'envoie rien de plus
+        $this->assertFalse(app(Accounts::class)->welcome($user, $site->fresh()));
+        Mail::assertSent(\App\Mail\JoowNotification::class, 1);
+    }
 
+    public function test_live_email_after_payment_lists_next_steps(): void
+    {
+        $site = $this->site(['status' => 'paid', 'paid_at' => now(), 'site_data' => ['images' => ['hero' => 'https://x/hero.jpg']]]);
+        [$user] = app(Accounts::class)->ensure('pro@exemple.fr', [$site->slug]);
+        $this->assertTrue(app(Accounts::class)->live($user, $site->fresh(), 'pro'));
+        Mail::assertSent(\App\Mail\JoowNotification::class, function (\App\Mail\JoowNotification $m) use ($site) {
+            $html = $m->render();
+
+            return str_contains($m->subjectLine, 'en ligne') && str_contains($html, 'fiche Google') && str_contains($html, 'https://x/hero.jpg') && str_contains($html, $site->slug.'.joow.fr');
+        });
+        $this->assertFalse(app(Accounts::class)->live($user, $site->fresh(), 'pro'));
+    }
+
+    public function test_nurture_sequence_per_site_and_abandoned_checkout_reminder(): void
+    {
+        $site = $this->site(['created_at' => now()->subDays(4)]);
+        [$user] = app(Accounts::class)->ensure('pro@exemple.fr', [$site->slug]);
+        $paidSite = $this->site(['status' => 'paid', 'paid_at' => now()]);
+        $otherPreview = $this->site(['created_at' => now()->subDays(4)]);
+        [$client] = app(Accounts::class)->ensure('client@exemple.fr', [$paidSite->slug, $otherPreview->slug]);
+        $optSite = $this->site(['created_at' => now()->subDays(4)]);
+        [$opt] = app(Accounts::class)->ensure('opt@exemple.fr', [$optSite->slug]);
+        $opt->forceFill(['marketing_optout_at' => now()])->save();
+
+        config(['services.nurture.enabled' => false]);
         $this->artisan('emails:nurture')->assertSuccessful();
         Mail::assertNothingSent();
 
-        $this->artisan('emails:nurture --force')->assertSuccessful();
-        Mail::assertSent(\App\Mail\JoowNotification::class, fn (\App\Mail\JoowNotification $m) => $m->hasTo('pro@exemple.fr') && str_contains($m->subjectLine, 'Trois choses'));
-        Mail::assertNotSent(\App\Mail\JoowNotification::class, fn (\App\Mail\JoowNotification $m) => $m->hasTo('paid@exemple.fr') || $m->hasTo('opt@exemple.fr'));
-        $this->assertArrayHasKey('j1', $user->fresh()->nurture);
+        config(['services.nurture.enabled' => true]);
+        $this->artisan('emails:nurture')->assertSuccessful();
+        Mail::assertSent(\App\Mail\JoowNotification::class, fn (\App\Mail\JoowNotification $m) => $m->hasTo('pro@exemple.fr') && str_contains($m->subjectLine, 'Trois retouches'));
+        Mail::assertNotSent(\App\Mail\JoowNotification::class, fn (\App\Mail\JoowNotification $m) => $m->hasTo('client@exemple.fr') || $m->hasTo('opt@exemple.fr'));
+        $this->assertArrayHasKey('nurture_j1', $site->fresh()->site_data['emails']);
 
-        // Le lendemain : l'étape suivante (J+3) part, pas J+1 une seconde fois
+        // Même jour : rien de plus. Le lendemain : J+3.
         Mail::fake();
-        $this->artisan('emails:nurture --force')->assertSuccessful();
+        $this->artisan('emails:nurture')->assertSuccessful();
+        Mail::assertNothingSent();
+        $this->travel(1)->days();
+        $this->artisan('emails:nurture')->assertSuccessful();
         Mail::assertSent(\App\Mail\JoowNotification::class, fn (\App\Mail\JoowNotification $m) => $m->hasTo('pro@exemple.fr') && str_contains($m->subjectLine, 'modules'));
-        $this->assertArrayHasKey('j3', $user->fresh()->nurture);
+
+        // Paiement abandonné : prioritaire, une seule fois
+        $this->travel(1)->days();
+        app(Accounts::class)->checkoutStarted($site->fresh(), 'liberte');
+        $this->travel(2)->hours();
+        Mail::fake();
+        $this->artisan('emails:nurture')->assertSuccessful();
+        Mail::assertSent(\App\Mail\JoowNotification::class, function (\App\Mail\JoowNotification $m) {
+            return $m->hasTo('pro@exemple.fr') && str_contains($m->subjectLine, 'une étape') && str_contains($m->render(), '349');
+        });
+        $this->assertArrayHasKey('checkout_reminder_at', $site->fresh()->site_data['emails']);
     }
 }

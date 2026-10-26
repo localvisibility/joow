@@ -50,6 +50,10 @@ class GoogleAuthController extends Controller
         Auth::login($user, remember: true);
         $request->session()->regenerate();
         Site::claimFor($user, $guestSlugs);
+        if (! $user->source) {
+            $user->forceFill(['source' => 'google'])->save();
+        }
+        app(\App\Services\Accounts::class)->afterLogin($user);
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

@@ -66,6 +66,7 @@ class NewPasswordController extends Controller
                 \Illuminate\Support\Facades\Auth::login($user, remember: true);
                 $request->session()->regenerate();
                 \App\Models\Site::claimFor($user, $request->session()->get('joow_sites', []));
+                app(\App\Services\Accounts::class)->afterLogin($user);
 
                 return redirect()->route('dashboard')->with('status', 'Mot de passe enregistré, vous êtes connecté.');
             }

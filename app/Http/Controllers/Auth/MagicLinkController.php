@@ -51,6 +51,8 @@ class MagicLinkController extends Controller
         Auth::login($user, remember: true);
         $request->session()->regenerate();
         Site::claimFor($user, $guestSlugs);
+        $user->forceFill(['email_verified_at' => $user->email_verified_at ?? now()])->save();
+        app(\App\Services\Accounts::class)->afterLogin($user);
 
         $to = (string) $request->query('to');
         if ($to && Str::startsWith($to, '/') && ! Str::startsWith($to, '//')) {

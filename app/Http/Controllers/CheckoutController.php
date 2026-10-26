@@ -47,6 +47,7 @@ class CheckoutController extends Controller
         );
 
         $site->forceFill(['owner_email' => $user->email, 'user_id' => $user->id])->save();
+        app(\App\Services\Accounts::class)->checkoutStarted($site, $plan);
 
         $urls = [
             'success_url' => route('public.paid', $slug).'?plan='.$plan.'&session_id={CHECKOUT_SESSION_ID}',
@@ -105,6 +106,7 @@ class CheckoutController extends Controller
             }
             if ($site->user) {
                 Auth::login($site->user);
+                app(\App\Services\Accounts::class)->live($site->user, $site->fresh(), $plan);
             }
         }
 
