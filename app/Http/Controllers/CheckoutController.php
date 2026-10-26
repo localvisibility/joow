@@ -22,8 +22,9 @@ class CheckoutController extends Controller
         $site = Site::where('slug', $slug)->firstOrFail();
 
         $data = $request->validate([
-            'email' => ['required', 'email'],
-            'plan'  => ['nullable', 'in:pro,liberte'],
+            'email'    => ['required', 'email'],
+            'plan'     => ['nullable', 'in:pro,liberte'],
+            'event_id' => ['nullable', 'string', 'max:64'],
         ]);
         $plan = $data['plan'] ?? 'pro';
 
@@ -48,6 +49,9 @@ class CheckoutController extends Controller
 
         $site->forceFill(['owner_email' => $user->email, 'user_id' => $user->id])->save();
         app(\App\Services\Accounts::class)->checkoutStarted($site, $plan);
+        // InitiateCheckout : le navigateur a déjà envoyé le pixel avec ce même event_id
+        app(\App\Services\MetaConversions::class)->event('InitiateCheckout', ['value' => \App\Services\MetaConversions::PRICES[$plan], 'currency' => 'EUR', 'content_ids' => [$plan], 'content_type' => 'product'], $user->email, $user->id, $data['event_id'] ?? null, $request);
+        \App\Services\Tracking::pull(); // déjà déclenché côté navigateur : ne pas le rejouer
 
         $urls = [
             'success_url' => route('public.paid', $slug).'?plan='.$plan.'&session_id={CHECKOUT_SESSION_ID}',
@@ -108,6 +112,8 @@ class CheckoutController extends Controller
                 Auth::login($site->user);
                 app(\App\Services\Accounts::class)->live($site->user, $site->fresh(), $plan);
             }
+            // Purchase : valeur de la formule, identifiant de commande = session Stripe (dédoublonnage)
+            app(\App\Services\MetaConversions::class)->event('Purchase', ['value' => \App\Services\MetaConversions::PRICES[$plan], 'currency' => 'EUR', 'content_ids' => [$plan], 'content_type' => 'product', 'order_id' => (string) $sessionId], $site->owner_email, $site->user_id, 'purchase-'.$sessionId, $request);
         }
 
         return Inertia::render('Public/Thanks', [

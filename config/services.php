@@ -51,6 +51,12 @@ return [
     ],
     // Relances J+1 / J+3 / J+6 (textes dans app/Console/Commands/NurtureLeads.php) : à activer après relecture
     'nurture' => ['enabled' => filter_var(env('NURTURE_ENABLED', true), FILTER_VALIDATE_BOOL)],
+    // Meta (Facebook / Instagram Ads) : pixel navigateur + API de conversions serveur, dédoublonnés par event_id
+    'meta' => [
+        'pixel_id'        => env('META_PIXEL_ID'),
+        'access_token'    => env('META_CAPI_TOKEN'),
+        'test_event_code' => env('META_TEST_EVENT_CODE'),
+    ],
     'sites_path' => env('SITES_PATH', '/var/www/sites'),
     // Durée de vie (jours) d'un aperçu créé sans email ni compte : passé ce délai, il est supprimé automatiquement.
     'preview_ttl_days' => (int) env('PREVIEW_TTL_DAYS', 7),

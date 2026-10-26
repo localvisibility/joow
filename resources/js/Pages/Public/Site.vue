@@ -3,6 +3,7 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
 import GenerationShow from '@/Components/GenerationShow.vue';
+import { track, fire, uuid } from '@/tracking';
 
 const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false }, has_email: { type: Boolean, default: false }, expires_in_days: { type: Number, default: 7 }, old_url: { type: String, default: null }, combo: { type: Boolean, default: false } });
 // Mis à jour pendant la génération (le site indiqué sur la fiche Google est découvert en cours de route)
@@ -26,7 +27,7 @@ const saveEmail = async (next = null) => {
         const r = await fetch(route('public.site.email', props.site.slug), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '' }, body: JSON.stringify({ email: v }) });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.message || 'Impossible d\'enregistrer cet email.');
-        hasEmail.value = true; lead.value.done = true; lead.value.sent = !!d.sent; checkout.email ||= v;
+        hasEmail.value = true; lead.value.done = true; lead.value.sent = !!d.sent; checkout.email ||= v; fire(d.track);
         if (next === 'studio') router.visit(d.studio || route('sites.editor', props.site.slug));
     } catch (e) { lead.value.error = e.message; }
     finally { lead.value.sending = false; }
@@ -51,7 +52,9 @@ const buy = (plan) => {
     checkout.plan = plan; checkout.processing = true;
     const f = document.createElement('form'); f.method = 'POST'; f.action = route('public.checkout', props.site.slug);
     const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); };
-    add('_token', document.querySelector('meta[name=csrf-token]')?.content || ''); add('email', checkout.email); add('plan', plan);
+    const eventId = uuid();
+    track('InitiateCheckout', { value: plan === 'liberte' ? 349 : 39, currency: 'EUR', content_ids: [plan], content_type: 'product' }, eventId);
+    add('_token', document.querySelector('meta[name=csrf-token]')?.content || ''); add('email', checkout.email); add('plan', plan); add('event_id', eventId);
     document.body.appendChild(f); f.submit();
 };
 
@@ -74,12 +77,13 @@ const poll = async () => {
         if (d.old_url) oldUrl.value = d.old_url;
         if (d.combo) combo.value = true;
         // Prêt : on laisse 1,8 s au spectacle pour afficher « site prêt » puis on bascule sur l'aperçu
-        if (d.ready) { if (timer) clearInterval(timer); progress.value = { ...progress.value, step: 'done' }; readying.value = true; setTimeout(() => { ready.value = true; failed.value = false; }, 1800); }
+        if (d.ready) { if (timer) clearInterval(timer); progress.value = { ...progress.value, step: 'done' }; readying.value = true; track('SiteGenerated', { content_name: props.site.slug, content_category: props.site.sector || '' }); setTimeout(() => { ready.value = true; failed.value = false; }, 1800); }
         else if (d.failed) { failed.value = true; if (timer) clearInterval(timer); }
     } catch (e) { /* retry au prochain tick */ }
 };
 
 onMounted(() => {
+    if (ready.value) track('ViewContent', { content_name: props.site.slug, content_category: props.site.sector || '', content_type: 'site' });
     if (!ready.value && !failed.value) { poll(); timer = setInterval(poll, 1500); }
     if (fromStudio && !hasEmail.value) setTimeout(() => { studioInput.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }); studioInput.value?.focus({ preventScroll: true }); }, 400);
 });

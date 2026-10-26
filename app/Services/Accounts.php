@@ -31,6 +31,13 @@ class Accounts
             ]);
             $user->forceFill(['source' => $source])->save();
             $created = true;
+            // Conversion « Lead » (compte créé) : pixel + API de conversions, même event_id
+            try {
+                app(MetaConversions::class)->event('Lead', ['content_name' => 'compte', 'source' => $source], $email, $user->id);
+                app(MetaConversions::class)->event('CompleteRegistration', ['status' => true, 'source' => $source], $email, $user->id);
+            } catch (\Throwable $e) {
+                Log::info('Tracking Lead : '.$e->getMessage());
+            }
         }
         Site::claimFor($user, $guestSlugs);
 

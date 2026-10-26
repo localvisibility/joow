@@ -16,9 +16,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
 
         $middleware->web(append: [
+            \App\Http\Middleware\CaptureAttribution::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        // Cookies écrits par le navigateur (consentement, pixel Meta) : lus tels quels, non chiffrés
+        $middleware->encryptCookies(except: ['joow_consent', '_fbp', '_fbc']);
 
         // Endpoints publics dispensés de CSRF :
         // - api/*    : demandes des sites générés (throttle + honeypot)

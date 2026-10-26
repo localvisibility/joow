@@ -44,8 +44,9 @@ class RedesignController extends Controller
             'owner_email' => $data['email'] ?? null,
             'source'      => 'refonte',
             'preview_url' => 'https://'.$slug.'.joow.fr',
-            'site_data'   => ['import' => ['url' => $final, 'host' => $host]],
+            'site_data'   => ['import' => ['url' => $final, 'host' => $host], 'attribution' => $request->session()->get('attribution')],
         ]);
+        app(\App\Services\MetaConversions::class)->event('StartGeneration', ['source' => 'refonte'], $data['email'] ?? null, null, null, $request);
 
         $job = GenerationJob::create([
             'status'    => 'pending',

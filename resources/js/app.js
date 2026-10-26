@@ -1,7 +1,9 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
+import { initPixel, pageView, fire } from './tracking';
+import ConsentBanner from './Components/ConsentBanner.vue';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
@@ -44,7 +46,19 @@ createInertiaApp({
     setup({ el, App, props, plugin }) {
         const app = createApp({ render: () => h(App, props) });
         app.config.errorHandler = (err, instance, info) => reportError(err, 'vue:' + info);
-        return app.use(plugin).use(ZiggyVue).mount(el);
+        const mounted = app.use(plugin).use(ZiggyVue).mount(el);
+
+        /* Mesure publicitaire : pixel si consentement, bannière sinon, événements serveur à chaque page */
+        const pixelId = props.initialPage?.props?.meta_pixel_id;
+        if (pixelId) {
+            initPixel(pixelId);
+            fire(props.initialPage.props.track);
+            const host = document.createElement('div');
+            document.body.appendChild(host);
+            createApp(ConsentBanner, { pixelId }).use(ZiggyVue).mount(host);
+            router.on('navigate', (event) => { pageView(); fire(event.detail.page.props.track); });
+        }
+        return mounted;
     },
     progress: {
         color: '#4B5563',

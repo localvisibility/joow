@@ -2,6 +2,7 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
+import { track } from '@/tracking';
 
 const props = defineProps({
     stats: { type: Object, default: () => ({ sites: 0, rating: 4.8, sectors: 0 }) },
@@ -25,7 +26,7 @@ const redesign = useForm({ url: '', email: '' });
 // Trois parcours, un seul champ : la fiche Google reste le chemin principal
 const mode = ref('google'); // 'google' | 'site'
 const setMode = (m) => { mode.value = m; reset(); stopTypewriter(); setTimeout(() => document.getElementById('search-input')?.focus({ preventScroll: true }), 50); };
-const startRedesign = () => { redesign.url = siteUrl.value; redesign.email = form.email; redesign.post(route('redesign.start')); };
+const startRedesign = () => { redesign.url = siteUrl.value; redesign.email = form.email; track('Search', { search_string: siteHost.value, content_category: 'site_existant' }); redesign.post(route('redesign.start')); };
 // Aucun résultat après recherche : on propose le questionnaire
 const noResult = ref(false);
 const intakeUrl = computed(() => route('intake.create', { q: q.value.trim(), email: form.email || undefined }));
@@ -50,7 +51,7 @@ watch(q, (val) => {
     }, 300);
 });
 
-const pick = (r) => { selected.value = r; form.query = r.place_id; q.value = r.main; open.value = false; results.value = []; };
+const pick = (r) => { selected.value = r; form.query = r.place_id; q.value = r.main; open.value = false; results.value = []; track('Search', { search_string: r.main, content_category: 'fiche_google' }); };
 const reset = () => { selected.value = null; form.query = ''; q.value = ''; results.value = []; open.value = false; };
 const submit = () => { if (form.query) form.post(route('public.generate')); };
 

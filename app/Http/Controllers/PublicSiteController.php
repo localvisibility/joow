@@ -71,7 +71,9 @@ class PublicSiteController extends Controller
             'owner_email'   => $data['email'] ?? null,
             'source'        => 'joow-public',
             'preview_url'   => 'https://'.$slug.'.joow.fr',
+            'site_data'     => ['attribution' => $request->session()->get('attribution')],
         ]);
+        app(\App\Services\MetaConversions::class)->event('StartGeneration', ['source' => 'google', 'sector' => $sector], $data['email'] ?? null, null, null, $request);
 
         $job = GenerationJob::create([
             'status'    => 'pending',
@@ -158,7 +160,7 @@ class PublicSiteController extends Controller
             app(\App\Services\Accounts::class)->welcome($user, $site->fresh());
         }
 
-        return response()->json(['ok' => true, 'sent' => $ready, 'studio' => route('sites.editor', $slug)]);
+        return response()->json(['ok' => true, 'sent' => $ready, 'studio' => route('sites.editor', $slug), 'track' => \App\Services\Tracking::pull()]);
     }
 
     /** Relance la génération d'un site en échec. */
