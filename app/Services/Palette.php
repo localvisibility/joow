@@ -29,6 +29,9 @@ class Palette
 
     public function fromBytes(string $bytes): ?string
     {
+        if (preg_match('/^\s*(<\?xml[^>]*>\s*)?(<!--.*?-->\s*)*(<!DOCTYPE[^>]*>\s*)?<svg\b/is', $bytes)) {
+            return $this->fromSvg($bytes);
+        }
         if (! function_exists('imagecreatefromstring')) {
             return null;
         }
@@ -83,6 +86,60 @@ class Palette
         $b = (int) round($best['b'] / $best['w']);
 
         return $this->readable($r, $g, $b);
+    }
+
+    /** Logo vectoriel : la couleur vive la plus présente dans les attributs fill / stroke / stop-color / style. */
+    public function fromSvg(string $svg): ?string
+    {
+        preg_match_all('/(?:fill|stroke|stop-color)\s*[:=]\s*["\']?\s*(#[0-9a-f]{3,8}|rgb\([^)]+\))/i', $svg, $m);
+        $counts = [];
+        foreach ($m[1] as $raw) {
+            $rgb = $this->parseColor($raw);
+            if (! $rgb) {
+                continue;
+            }
+            [$h, $sat, $l] = $this->hsl(...$rgb);
+            if ($sat < 0.28 || $l < 0.12 || $l > 0.85) {
+                continue;
+            }
+            $key = (int) floor($h / 12);
+            $counts[$key] ??= ['n' => 0, 'rgb' => $rgb, 'w' => 0];
+            $w = $sat * (1 - abs($l - 0.45));
+            $counts[$key]['n']++;
+            if ($w > $counts[$key]['w']) {
+                $counts[$key]['w'] = $w;
+                $counts[$key]['rgb'] = $rgb;
+            }
+        }
+        if (! $counts) {
+            return null;
+        }
+        uasort($counts, fn ($a, $b) => $b['n'] <=> $a['n']);
+        $best = reset($counts);
+
+        return $this->readable(...$best['rgb']);
+    }
+
+    /** @return array{0:int,1:int,2:int}|null */
+    private function parseColor(string $raw): ?array
+    {
+        $raw = trim($raw);
+        if (str_starts_with($raw, '#')) {
+            $hex = substr($raw, 1);
+            if (strlen($hex) === 3 || strlen($hex) === 4) {
+                $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+            }
+            if (strlen($hex) >= 6 && ctype_xdigit(substr($hex, 0, 6))) {
+                return [hexdec(substr($hex, 0, 2)), hexdec(substr($hex, 2, 2)), hexdec(substr($hex, 4, 2))];
+            }
+
+            return null;
+        }
+        if (preg_match('/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/', $raw, $c)) {
+            return [(int) $c[1], (int) $c[2], (int) $c[3]];
+        }
+
+        return null;
     }
 
     /** Assombrit si besoin pour garantir un contraste suffisant avec du texte blanc (≈ 4.5:1). */

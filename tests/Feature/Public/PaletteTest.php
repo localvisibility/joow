@@ -33,6 +33,15 @@ class PaletteTest extends TestCase
         $this->assertLessThan(0.19, 0.2126 * $lin($r) + 0.7152 * $lin($g) + 0.0722 * $lin($b));
     }
 
+    public function test_svg_logo_colours_are_read_from_fills(): void
+    {
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect fill="#ffffff" width="10" height="10"/><path fill="#c8102e" d="M0 0h5v5H0z"/><path fill="#C8102E" d="M5 5h5v5H5z"/><text fill="#222">x</text></svg>';
+        $hex = app(Palette::class)->fromBytes($svg);
+        $this->assertNotNull($hex);
+        [$r, $g, $b] = sscanf($hex, '#%02x%02x%02x');
+        $this->assertGreaterThan($g + 60, $r, 'rouge dominant conservé');
+    }
+
     public function test_grey_images_yield_no_colour(): void
     {
         $bytes = $this->png(fn ($img) => imagefill($img, 0, 0, imagecolorallocate($img, 128, 128, 128)));

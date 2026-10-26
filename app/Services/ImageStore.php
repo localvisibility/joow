@@ -78,7 +78,20 @@ class ImageStore
         $out = [];
         foreach ($urls as $u) {
             $r = $responses[$u] ?? null;
-            if (! $r instanceof \Illuminate\Http\Client\Response || ! $r->successful() || strlen($r->body()) < 1000) {
+            if (! $r instanceof \Illuminate\Http\Client\Response || ! $r->successful() || strlen($r->body()) < 300) {
+                continue;
+            }
+            // Logo vectoriel : conservé en SVG (nettoyé de tout script), sans passer par GD
+            if ($this->isSvg($r->body(), (string) $r->header('Content-Type'))) {
+                $svg = preg_replace('#<script\b[^>]*>.*?</script>#is', '', $r->body());
+                $svg = preg_replace('/\son\w+\s*=\s*("[^"]*"|\'[^\']*\')/i', '', $svg);
+                $name = Str::lower(Str::random(10)).'-'.time().'.svg';
+                $this->write("uploads/$dir/$name", $svg);
+                $out[$u] = rtrim(config('app.url'), '/')."/media/$dir/$name";
+
+                continue;
+            }
+            if (strlen($r->body()) < 1000) {
                 continue;
             }
             $info = @getimagesizefromstring($r->body());
@@ -91,6 +104,11 @@ class ImageStore
         }
 
         return $out;
+    }
+
+    public function isSvg(string $bytes, string $contentType = ''): bool
+    {
+        return str_contains(strtolower($contentType), 'svg') || preg_match('/^\s*(<\?xml[^>]*>\s*)?(<!--.*?-->\s*)*(<!DOCTYPE[^>]*>\s*)?<svg\b/is', $bytes) === 1;
     }
 
     /** Déplace les photos d'un dossier temporaire vers le dossier définitif du site. */

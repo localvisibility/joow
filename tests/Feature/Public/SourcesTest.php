@@ -61,6 +61,19 @@ HTML;
         $this->assertNotEmpty($imp['hours']);
     }
 
+    public function test_mirror_keeps_svg_logos_as_svg_without_scripts(): void
+    {
+        Http::fake(['https://old.site/logo.svg' => Http::response('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><script>alert(1)</script><rect onclick="x()" fill="#c8102e" width="10" height="10"/></svg>'.str_repeat(' ', 300), 200, ['Content-Type' => 'image/svg+xml'])]);
+        $out = app(\App\Services\ImageStore::class)->mirror(['https://old.site/logo.svg'], 'demo-svg');
+        $this->assertCount(1, $out);
+        $this->assertStringEndsWith('.svg', $out['https://old.site/logo.svg']);
+        $file = basename($out['https://old.site/logo.svg']);
+        $svg = Storage::disk('local')->get("uploads/demo-svg/$file");
+        $this->assertStringNotContainsString('<script', $svg);
+        $this->assertStringNotContainsString('onclick', $svg);
+        $this->assertStringContainsString('#c8102e', $svg);
+    }
+
     public function test_business_source_builds_profile_from_intake(): void
     {
         $site = Site::create([
