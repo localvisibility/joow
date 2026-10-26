@@ -174,7 +174,8 @@ class MarketingController extends Controller
         }
         $urls[] = ['loc' => $base.route('marketing.legal', 'confidentialite', false), 'priority' => '0.2', 'freq' => 'yearly'];
 
-        return response()->view('marketing.sitemap', ['urls' => $urls])->header('Content-Type', 'application/xml; charset=UTF-8');
+        // Prologue passé en variable : avec short_open_tag actif, un « <?xml » littéral dans un Blade est lu comme du PHP
+        return response()->view('marketing.sitemap', ['urls' => $urls, 'xml' => '<'.'?xml version="1.0" encoding="UTF-8"?'.'>'])->header('Content-Type', 'application/xml; charset=UTF-8');
     }
 
     /** Famille d'argumentaire selon l'ordre des sections du métier. */
