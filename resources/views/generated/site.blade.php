@@ -723,7 +723,7 @@ footer.bg-slate-900{background:#07070b!important}
       </div>
       <div class="reveal overflow-hidden rounded-[2rem] shadow-xl">
         <iframe class="h-full min-h-[380px] w-full" style="border:0" loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"
-          src="https://www.google.com/maps/embed/v1/place?key={{ $mapsKey }}&q={{ urlencode(($b['address'] ?? '').' '.($b['city'] ?? '')) }}&zoom=15"></iframe>
+          src="https://www.google.com/maps?q={{ urlencode(trim((!empty($b['name']) ? $b['name'].', ' : '').($b['address'] ?? '').' '.($b['city'] ?? ''))) }}&z=15&output=embed" title="Plan d'accès"></iframe>
       </div>
     </div>
   </div>

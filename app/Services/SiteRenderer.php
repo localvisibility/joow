@@ -83,7 +83,6 @@ class SiteRenderer
             'menuItems' => $site->moduleEnabled('menu') ? $site->menuItems()->where('available', true)->get() : collect(),
             'rooms'    => $site->moduleEnabled('rooms') ? $site->rooms()->where('active', true)->get() : collect(),
             'legalHtml' => $site->moduleEnabled('legal') ? app(\App\Services\Modules\LegalGenerator::class)->html($site) : null,
-            'mapsKey'  => (string) config('services.google_places.key'),
             'slug'     => $site->slug,
             'editMode' => $editMode,
             // Domaine personnalisé actif : canonical + redirection depuis <slug>.joow.fr
