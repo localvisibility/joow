@@ -1,9 +1,9 @@
 <script setup>
 import { ref } from 'vue';
-import { consent, setConsent, initPixel } from '@/tracking';
-const props = defineProps({ pixelId: String });
-const show = ref(!!props.pixelId && consent() === '');
-const accept = () => { setConsent('all'); initPixel(props.pixelId); show.value = false; };
+import { consent, setConsent, initPixel, initGtm } from '@/tracking';
+const props = defineProps({ pixelId: String, gtmId: String });
+const show = ref((!!props.pixelId || !!props.gtmId) && consent() === '');
+const accept = () => { setConsent('all'); initPixel(props.pixelId); initGtm(props.gtmId); show.value = false; };
 const refuse = () => { setConsent('essential'); show.value = false; };
 </script>
 

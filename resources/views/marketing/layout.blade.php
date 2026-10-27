@@ -12,11 +12,12 @@
     $track = \App\Services\Tracking::pull();
 @endphp
 <!DOCTYPE html>
-<html lang="fr" class="scroll-smooth" data-app="{{ $appUrl }}" data-pixel="{{ config('services.meta.pixel_id') }}" data-track='@json($track)'>
+<html lang="fr" class="scroll-smooth" data-app="{{ $appUrl }}" data-pixel="{{ config('services.meta.pixel_id') }}" data-gtm="{{ config('services.gtm.id') }}" data-track='@json($track)'>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="csrf-token" content="{{ csrf_token() }}">
+@include('partials.gtag')
 <title>{{ $title }}</title>
 <meta name="description" content="{{ $description }}">
 <link rel="canonical" href="{{ $canonical }}">

@@ -57,6 +57,8 @@ return [
         'access_token'    => env('META_CAPI_TOKEN'),
         'test_event_code' => env('META_TEST_EVENT_CODE'),
     ],
+    // Google Tag Manager (GA4, Google Ads) : chargé uniquement après consentement, Consent Mode v2
+    'gtm' => ['id' => env('GTM_ID')],
     'sites_path' => env('SITES_PATH', '/var/www/sites'),
     // Durée de vie (jours) d'un aperçu créé sans email ni compte : passé ce délai, il est supprimé automatiquement.
     'preview_ttl_days' => (int) env('PREVIEW_TTL_DAYS', 7),

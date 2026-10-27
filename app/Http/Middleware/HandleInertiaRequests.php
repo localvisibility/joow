@@ -39,6 +39,7 @@ class HandleInertiaRequests extends Middleware
             'google_enabled' => \App\Http\Controllers\Auth\GoogleAuthController::enabled(),
             // Mesure publicitaire : identifiant du pixel Meta et événements à déclencher sur cette page
             'meta_pixel_id' => config('services.meta.pixel_id'),
+            'gtm_id' => config('services.gtm.id'),
             'track' => fn () => \App\Services\Tracking::pull(),
         ];
     }

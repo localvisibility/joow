@@ -7,6 +7,34 @@ export const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'e-' + Date
 
 let pixelId = null;
 let loaded = false;
+/* Google Tag Manager (GA4, Google Ads) : chargé après consentement, événements poussés dans dataLayer avec les noms GA4 */
+let gtmId = null;
+const GA4 = { ViewContent: 'view_item', Search: 'search', Lead: 'generate_lead', CompleteRegistration: 'sign_up', InitiateCheckout: 'begin_checkout', Purchase: 'purchase', StartGeneration: 'start_generation', SiteGenerated: 'site_generated', Contact: 'contact' };
+export const initGtm = (id) => {
+    gtmId = id || gtmId;
+    if (!gtmId || consent() !== 'all') return false;
+    window.dataLayer = window.dataLayer || [];
+    if (window.__gtmLoaded) return true;
+    if (typeof window.gtag === 'function') window.gtag('consent', 'update', { ad_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted', analytics_storage: 'granted' });
+    window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+    const s = document.createElement('script'); s.async = true; s.src = 'https://www.googletagmanager.com/gtm.js?id=' + gtmId; document.head.appendChild(s);
+    window.__gtmLoaded = true;
+    return true;
+};
+const toDataLayer = (name, params = {}, eventId = null) => {
+    if (!window.__gtmLoaded || !GA4[name]) return;
+    const p = { ...(params || {}) };
+    const out = { event: GA4[name], event_id: eventId || undefined };
+    if (p.search_string) out.search_term = p.search_string;
+    if (p.value !== undefined) { out.value = Number(p.value); out.currency = p.currency || 'EUR'; }
+    if (name === 'Purchase') out.transaction_id = p.order_id || p.transaction_id || eventId || undefined;
+    if (p.content_name) out.item_name = p.content_name;
+    if (p.content_category) out.item_category = p.content_category;
+    if (p.source) out.source = p.source;
+    if (p.sector) out.sector = p.sector;
+    if (p.plan) out.plan = p.plan;
+    window.dataLayer.push(out);
+};
 export const initPixel = (id) => {
     pixelId = id || pixelId;
     if (!pixelId || loaded || consent() !== 'all') return false;
@@ -19,11 +47,15 @@ export const initPixel = (id) => {
 };
 const STANDARD = new Set(['PageView', 'ViewContent', 'Search', 'Lead', 'CompleteRegistration', 'InitiateCheckout', 'Purchase', 'Contact', 'Subscribe', 'StartTrial', 'AddToCart']);
 export const track = (name, params = {}, eventId = null) => {
+    toDataLayer(name, params, eventId);
     if (!loaded || !window.fbq) return;
     const opts = eventId ? { eventID: eventId } : undefined;
     window.fbq(STANDARD.has(name) ? 'track' : 'trackCustom', name, params || {}, opts);
 };
-export const pageView = () => { if (loaded && window.fbq) window.fbq('track', 'PageView'); };
+export const pageView = () => {
+    if (loaded && window.fbq) window.fbq('track', 'PageView');
+    if (window.__gtmLoaded) window.dataLayer.push({ event: 'virtual_page_view', page_location: location.href, page_title: document.title });
+};
 /* Événements remis par le serveur (prop partagée « track » ou réponse JSON) */
 const seen = new Set();
 export const fire = (events) => {

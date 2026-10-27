@@ -1,6 +1,6 @@
 /* Site vitrine joow.fr : générateur embarqué, animations, consentement + pixel, menus. */
 import '../css/app.css';
-import { consent, setConsent, initPixel, track, fire } from './tracking';
+import { consent, setConsent, initPixel, initGtm, track, fire } from './tracking';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -74,12 +74,14 @@ $$('[data-generator]').forEach((g) => {
 
 /* ── Consentement + pixel Meta ── */
 const pixelId = document.documentElement.dataset.pixel || '';
-if (pixelId) {
+const gtmId = document.documentElement.dataset.gtm || '';
+if (pixelId || gtmId) {
     initPixel(pixelId);
+    initGtm(gtmId);
     const banner = $('#consent');
     if (banner && consent() === '') {
         banner.classList.remove('hidden');
-        $('[data-consent=all]', banner).addEventListener('click', () => { setConsent('all'); initPixel(pixelId); banner.remove(); });
+        $('[data-consent=all]', banner).addEventListener('click', () => { setConsent('all'); initPixel(pixelId); initGtm(gtmId); banner.remove(); });
         $('[data-consent=essential]', banner).addEventListener('click', () => { setConsent('essential'); banner.remove(); });
     }
     try { fire(JSON.parse(document.documentElement.dataset.track || '[]')); } catch {}

@@ -87,4 +87,14 @@ class MetaTrackingTest extends TestCase
         $this->artisan('meta:test --code=TEST123')->assertSuccessful()->expectsOutputToContain('events_received');
         Http::assertSent(fn ($req) => ($req['test_event_code'] ?? null) === 'TEST123');
     }
+
+    public function test_google_tag_manager_is_injected_only_when_configured_and_loads_after_consent(): void
+    {
+        config(['services.gtm.id' => null, 'marketing.host' => 'joow.fr']);
+        $this->get('https://joow.fr/')->assertOk()->assertDontSee('googletagmanager');
+        config(['services.gtm.id' => 'GTM-TEST123']);
+        $html = $this->get('https://joow.fr/')->assertOk()->assertSee('data-gtm="GTM-TEST123"', false)->assertSee("gtag('consent','default'", false)->getContent();
+        $this->assertStringContainsString('joow_consent=all', $html);
+        $this->get('https://app.joow.fr/')->assertOk()->assertSee("gtm.js?id='+i", false);
+    }
 }

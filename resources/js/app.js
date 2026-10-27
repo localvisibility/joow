@@ -2,7 +2,7 @@ import '../css/app.css';
 import './bootstrap';
 
 import { createInertiaApp, router } from '@inertiajs/vue3';
-import { initPixel, pageView, fire } from './tracking';
+import { initPixel, initGtm, pageView, fire } from './tracking';
 import ConsentBanner from './Components/ConsentBanner.vue';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
@@ -50,12 +50,14 @@ createInertiaApp({
 
         /* Mesure publicitaire : pixel si consentement, bannière sinon, événements serveur à chaque page */
         const pixelId = props.initialPage?.props?.meta_pixel_id;
-        if (pixelId) {
+        const gtmId = props.initialPage?.props?.gtm_id;
+        if (pixelId || gtmId) {
             initPixel(pixelId);
+            initGtm(gtmId);
             fire(props.initialPage.props.track);
             const host = document.createElement('div');
             document.body.appendChild(host);
-            createApp(ConsentBanner, { pixelId }).use(ZiggyVue).mount(host);
+            createApp(ConsentBanner, { pixelId, gtmId }).use(ZiggyVue).mount(host);
             router.on('navigate', (event) => { pageView(); fire(event.detail.page.props.track); });
         }
         return mounted;
