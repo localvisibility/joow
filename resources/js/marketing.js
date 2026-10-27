@@ -6,7 +6,8 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const csrf = () => $('meta[name=csrf-token]')?.content || '';
 const APP = document.documentElement.dataset.app || '';
-const routes = { search: APP + '/recherche', generate: APP + '/generer', intake: APP + '/creer', redesign: APP + '/refonte' };
+// La recherche se fait sur l'hôte courant (même application, pas de CORS) ; les soumissions partent vers l'app
+const routes = { search: '/recherche', generate: APP + '/generer', intake: APP + '/creer', redesign: APP + '/refonte' };
 
 /* ── Navigation : fond au défilement, menu mobile ── */
 const nav = $('#mnav');
