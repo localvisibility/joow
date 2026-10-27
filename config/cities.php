@@ -12,7 +12,7 @@
 */
 
 return [
-    'paris' => ['name' => 'Paris', 'prep' => 'à', 'gentile' => 'Parisiens', 'dept' => '75', 'dept_name' => 'Paris', 'dept_art' => '', 'region' => 'Île-de-France', 'pop' => '2,1 millions', 'traits' => ['metropole', 'touristique', 'patrimoine', 'etudiante'],
+    'paris' => ['name' => 'Paris', 'prep' => 'à', 'gentile' => 'Parisiens', 'dept' => '75', 'dept_name' => 'Paris', 'dept_art' => '', 'region' => 'Île-de-France', 'pop' => '2 100 000', 'traits' => ['metropole', 'touristique', 'patrimoine', 'etudiante'],
         'quartiers' => ['le Marais', 'Montmartre', 'Bastille', 'les Batignolles', 'Belleville', 'le 15e'], 'voisines' => ['Boulogne-Billancourt', 'Montreuil', 'Saint-Denis', 'Vincennes', 'Issy-les-Moulineaux', 'Levallois-Perret']],
     'marseille' => ['name' => 'Marseille', 'prep' => 'à', 'gentile' => 'Marseillais', 'dept' => '13', 'dept_name' => 'Bouches-du-Rhône', 'dept_art' => 'les', 'region' => 'Provence-Alpes-Côte d\'Azur', 'pop' => '870 000', 'traits' => ['metropole', 'littoral', 'portuaire', 'climat_chaud', 'touristique'],
         'quartiers' => ['le Vieux-Port', 'le Panier', 'la Joliette', 'Castellane', 'Endoume', 'la Pointe-Rouge'], 'voisines' => ['Aubagne', 'Allauch', 'La Ciotat', 'Vitrolles', 'Marignane', 'Cassis']],
