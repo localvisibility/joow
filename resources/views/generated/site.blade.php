@@ -377,6 +377,10 @@ footer.bg-slate-900{background:#07070b!important}
 .joow-img-btn{position:absolute;z-index:30;display:inline-flex;align-items:center;gap:.4rem;background:#fff;color:#0f172a;font:600 12px 'Plus Jakarta Sans',sans-serif;padding:.55rem .8rem;border-radius:999px;box-shadow:0 10px 30px -10px rgba(0,0,0,.6);cursor:pointer;border:0}
 .joow-img-btn:hover{background:#eef2ff}
 @endif
+/* Menu sur fond blanc (après défilement) : liens et survol lisibles, page active soulignée */
+#nav.solid #links a:not(.bg-grad){color:#0f172a !important}
+#nav.solid #links a:not(.bg-grad):hover{color:var(--accent,#334155) !important;opacity:1}
+#nav:not(.solid) #links a:not(.bg-grad):hover{color:#fff !important}
 </style>
 </head>
 <body class="bg-white text-slate-800 antialiased">
@@ -796,7 +800,7 @@ footer.bg-slate-900{background:#07070b!important}
 <script>
 const nav=document.getElementById('nav'),brand=document.getElementById('brand'),hero=document.getElementById('heroimg');
 const onScroll=()=>{const s=scrollY>40;
-  nav.classList.toggle('bg-white/95',s);nav.classList.toggle('backdrop-blur-lg',s);nav.classList.toggle('shadow-lg',s);
+  nav.classList.toggle('solid',s);nav.classList.toggle('bg-white/95',s);nav.classList.toggle('backdrop-blur-lg',s);nav.classList.toggle('shadow-lg',s);
   brand.classList.toggle('text-slate-900',s);brand.classList.toggle('text-white',!s);
   document.querySelectorAll('#links a:not(.bg-grad)').forEach(a=>{a.classList.toggle('text-slate-700',s);a.classList.toggle('text-white/90',!s)});
   if(hero) hero.style.transform='translateY('+Math.min(scrollY*.28,180)+'px)';
