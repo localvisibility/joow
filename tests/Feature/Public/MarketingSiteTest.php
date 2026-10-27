@@ -34,6 +34,9 @@ class MarketingSiteTest extends TestCase
         foreach (['/fonctionnalites', '/fonctionnalites/studio', '/metiers', '/site-internet/plombier', '/site-internet/restaurant', '/site-internet/agence_web', '/tarifs', '/exemples', '/blog', '/questions-frequentes', '/a-propos', '/contact', '/mentions-legales', '/confidentialite', '/cgv'] as $path) {
             $this->get('https://joow.fr'.$path)->assertOk();
         }
+        $this->get('https://joow.fr/mentions-legales')->assertSee('882 334 733')->assertSee('70 rue Damrémont');
+        $this->get('https://joow.fr/cgv')->assertSee('GMD COM')->assertSee('39 € HT')->assertSee('349 € HT');
+        $this->get('https://joow.fr/confidentialite')->assertSee('joow_consent')->assertSee('article 28');
         $this->get('https://joow.fr/site-internet/service')->assertNotFound();
         $this->get('https://joow.fr/fonctionnalites/inconnue')->assertNotFound();
     }
