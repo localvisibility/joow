@@ -19,6 +19,7 @@
             <ul class="mt-4 space-y-2 text-sm">
                 @foreach($popular as $s)<li><a href="{{ route('marketing.sector', $s['key']) }}" class="text-slate-300 hover:text-white">Site pour {{ lcfirst($s['label']) }}</a></li>@endforeach
                 <li><a href="{{ route('marketing.sectors') }}" class="font-semibold text-brand-400 hover:text-white">Tous les métiers →</a></li>
+                <li><a href="{{ route('marketing.cities') }}" class="font-semibold text-brand-400 hover:text-white">Par ville →</a></li>
             </ul>
         </div>
         <div>

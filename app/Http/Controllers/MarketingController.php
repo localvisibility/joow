@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Mail\JoowNotification;
 use App\Models\Site;
 use App\Services\Content;
+use App\Services\LocalPages;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
@@ -74,9 +75,10 @@ class MarketingController extends Controller
         $related = collect(config('sectors'))->except([$key, 'service'])->filter(fn ($c) => $this->family($c) === $family)->take(6)->map(fn ($c, $k) => $c + ['key' => $k])->all();
 
         $posts = app(Content::class)->forSector($key, array_keys($related));
+        $cities = in_array($key, LocalPages::SECTORS, true) ? app(LocalPages::class)->cities() : [];
 
         return view('marketing.pages.sector', [
-            'key' => $key, 'cfg' => $cfg, 'family' => config("marketing.families.$family"), 'services' => $services, 'related' => $related, 'posts' => $posts,
+            'key' => $key, 'cfg' => $cfg, 'family' => config("marketing.families.$family"), 'services' => $services, 'related' => $related, 'posts' => $posts, 'cities' => $cities,
             'seo' => ['title' => 'Site internet pour '.lcfirst($cfg['label']).' : créé par IA en 90 secondes — Joow', 'description' => 'Créez le site de votre activité ('.lcfirst($cfg['label']).') à partir de votre fiche Google : textes, photos, avis, '.strtolower($cfg['cta']).' en ligne. Gratuit jusqu\'à la mise en ligne.'],
         ]);
     }
@@ -161,6 +163,41 @@ class MarketingController extends Controller
         return view('marketing.pages.legal-'.$page, ['seo' => ['title' => $titles[$page].' — Joow', 'description' => $titles[$page].' du service Joow.', 'noindex' => $page !== 'confidentialite']]);
     }
 
+    /** Page locale « site internet pour <métier> à <ville> ». */
+    public function local(LocalPages $local, Content $content, string $sector, string $city)
+    {
+        $page = $local->page($sector, $city);
+        abort_unless($page, 404);
+        $family = $this->family($page['cfg']);
+        $related = collect(config('sectors'))->except([$sector, 'service'])->filter(fn ($c) => $this->family($c) === $family)->keys()->all();
+
+        return view('marketing.pages.local', $page + [
+            'services' => $this->servicesFromBrief($page['cfg']['brief'] ?? ''),
+            'family' => config("marketing.families.$family"),
+            'posts' => $content->forSector($sector, $related),
+            'others' => $local->otherSectors($sector),
+            'nearby' => $local->nearbyCities($city),
+            'seo' => ['title' => $page['title'], 'description' => $page['description']],
+        ]);
+    }
+
+    /** Hub d'une ville : les métiers couverts. */
+    public function city(LocalPages $local, string $city)
+    {
+        $c = $local->city($city);
+        abort_unless($c, 404);
+
+        return view('marketing.pages.city', [
+            'city' => $c, 'sectors' => $local->sectors(), 'nearby' => $local->nearbyCities($city, 6),
+            'seo' => ['title' => 'Site internet '.$c['loc'].' : créez le vôtre en 90 secondes, par métier — Joow', 'description' => 'Commerçants, artisans et indépendants '.$c['loc'].' : un site professionnel généré par IA à partir de votre fiche Google, avec les modules de votre métier. Gratuit jusqu\'à la mise en ligne.'],
+        ]);
+    }
+
+    public function cities(LocalPages $local)
+    {
+        return view('marketing.pages.cities', ['cities' => $local->cities(), 'sectors' => $local->sectors(), 'seo' => ['title' => 'Un site internet pour votre ville : 30 villes, 15 métiers — Joow', 'description' => 'Paris, Lyon, Marseille, Toulouse, Nantes, Bordeaux… Joow crée le site des commerces, artisans et indépendants de votre ville, pensé pour la recherche locale.']]);
+    }
+
     public function sitemap(Content $content)
     {
         $base = 'https://'.config('marketing.host', 'joow.fr');
@@ -178,6 +215,14 @@ class MarketingController extends Controller
         }
         foreach ($content->posts() as $p) {
             $urls[] = ['loc' => $base.route('marketing.post', $p['slug'], false), 'priority' => '0.6', 'freq' => 'monthly', 'lastmod' => $p['date']];
+        }
+        $local = app(LocalPages::class);
+        $urls[] = ['loc' => $base.route('marketing.cities', [], false), 'priority' => '0.6', 'freq' => 'monthly'];
+        foreach (array_keys($local->cities()) as $c) {
+            $urls[] = ['loc' => $base.route('marketing.city', $c, false), 'priority' => '0.6', 'freq' => 'monthly'];
+            foreach (LocalPages::SECTORS as $s) {
+                $urls[] = ['loc' => $base.route('marketing.local', [$s, $c], false), 'priority' => '0.5', 'freq' => 'monthly'];
+            }
         }
         $urls[] = ['loc' => $base.route('marketing.legal', 'confidentialite', false), 'priority' => '0.2', 'freq' => 'yearly'];
 

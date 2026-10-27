@@ -38,6 +38,15 @@ class MarketingSiteTest extends TestCase
         $this->get('https://joow.fr/cgv')->assertSee('GMD COM')->assertSee('39 € HT')->assertSee('349 € HT');
         $this->get('https://joow.fr/confidentialite')->assertSee('joow_consent')->assertSee('article 28');
         $this->get('https://joow.fr/site-internet/service')->assertNotFound();
+        // Pages locales métier × ville
+        $this->get('https://joow.fr/villes')->assertOk()->assertSee('Lyon')->assertSee('/villes/lyon', false);
+        $this->get('https://joow.fr/villes/lyon')->assertOk()->assertSee('/site-internet/plombier/lyon', false)->assertSee('Villeurbanne');
+        $lyon = $this->get('https://joow.fr/site-internet/plombier/lyon')->assertOk()->assertSee('plombier à Lyon')->assertSee('"@type":"FAQPage"', false)->assertSee('/site-internet/electricien/lyon', false)->assertSee('/site-internet/plombier/saint-etienne', false)->getContent();
+        $havre = $this->get('https://joow.fr/site-internet/plombier/le-havre')->assertOk()->assertSee('au Havre')->getContent();
+        $this->assertNotSame(strip_tags($lyon), strip_tags($havre));
+        $this->get('https://joow.fr/site-internet/plombier/atlantis')->assertNotFound();
+        $this->get('https://joow.fr/site-internet/fleuriste/lyon')->assertNotFound();
+        $this->get('https://joow.fr/site-internet/plombier')->assertSee('/site-internet/plombier/lyon', false);
         $this->get('https://joow.fr/fonctionnalites/inconnue')->assertNotFound();
     }
 
@@ -60,6 +69,8 @@ class MarketingSiteTest extends TestCase
         $this->assertStringContainsString('<loc>https://joow.fr/</loc>', $xml);
         $this->assertStringContainsString('<loc>https://joow.fr/site-internet/plombier</loc>', $xml);
         $this->assertStringContainsString('<loc>https://joow.fr/blog/fiche-google-business-10-optimisations</loc>', $xml);
+        $this->assertStringContainsString('<loc>https://joow.fr/site-internet/coiffeur/bordeaux</loc>', $xml);
+        $this->assertGreaterThan(580, substr_count($xml, '<loc>'));
         $this->assertStringNotContainsString('/site-internet/service<', $xml);
     }
 

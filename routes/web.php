@@ -40,6 +40,9 @@ Route::middleware(\App\Http\Middleware\MarketingHost::class)->name('marketing.')
     Route::get('/fonctionnalites/{slug}', [\App\Http\Controllers\MarketingController::class, 'feature'])->name('feature');
     Route::get('/metiers', [\App\Http\Controllers\MarketingController::class, 'sectors'])->name('sectors');
     Route::get('/site-internet/{key}', [\App\Http\Controllers\MarketingController::class, 'sector'])->name('sector');
+    Route::get('/site-internet/{sector}/{city}', [\App\Http\Controllers\MarketingController::class, 'local'])->name('local');
+    Route::get('/villes', [\App\Http\Controllers\MarketingController::class, 'cities'])->name('cities');
+    Route::get('/villes/{city}', [\App\Http\Controllers\MarketingController::class, 'city'])->name('city');
     Route::get('/tarifs', [\App\Http\Controllers\MarketingController::class, 'pricing'])->name('pricing');
     Route::get('/exemples', [\App\Http\Controllers\MarketingController::class, 'examples'])->name('examples');
     Route::get('/blog', [\App\Http\Controllers\MarketingController::class, 'blog'])->name('blog');

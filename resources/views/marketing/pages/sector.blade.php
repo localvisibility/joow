@@ -54,5 +54,8 @@
 @if(count($related))
 <section class="mx-auto max-w-7xl px-5 py-10"><p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Métiers proches</p><div class="mt-4 flex flex-wrap gap-2">@foreach($related as $r)<a href="{{ route('marketing.sector', $r['key']) }}" class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 hover:border-brand-400/60 hover:text-white">{{ $r['label'] }}</a>@endforeach</div></section>
 @endif
+@if(count($cities))
+<section class="mx-auto max-w-7xl px-5 py-10"><p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Votre ville</p><div class="mt-4 flex flex-wrap gap-2">@foreach($cities as $c)<a href="{{ route('marketing.local', [$key, $c['slug']]) }}" class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 hover:border-brand-400/60 hover:text-white">{{ $c['name'] }}</a>@endforeach</div></section>
+@endif
 @include('marketing.partials.cta', ['title' => 'Votre site de '.$label.', maintenant.', 'text' => 'Tapez votre nom, regardez le résultat dans 90 secondes. Gratuit jusqu\'à la mise en ligne.'])
 @endsection
