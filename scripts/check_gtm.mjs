@@ -1,0 +1,14 @@
+import { chromium, devices } from 'playwright';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', proxy: { server: process.env.HTTPS_PROXY }, args: ['--ignore-certificate-errors'] });
+const ctx = await browser.newContext({ ...devices['iPhone 13'], ignoreHTTPSErrors: true });
+const page = await ctx.newPage();
+const hits = [];
+page.on('request', (r) => { const u = r.url(); if (/googletagmanager|google-analytics|facebook\.net|facebook\.com\/tr/.test(u)) hits.push(u.split('?')[0]); });
+await page.goto('https://joow.fr/', { waitUntil: 'networkidle' }); await page.waitForTimeout(800);
+console.log('avant consentement :', hits.length ? hits : 'aucune requête tierce');
+await page.click('button.btn-brand:has-text("Accepter")'); await page.waitForTimeout(2500);
+console.log('après Accepter :', [...new Set(hits)]);
+await page.fill('.search-shell input', 'Bouillon Chartier'); await page.waitForSelector('.gen-results:not(.hidden) button', { timeout: 15000 }); await page.click('.gen-results button'); await page.waitForTimeout(600);
+const dl = await page.evaluate(() => (window.dataLayer || []).filter((e) => e && typeof e.event === 'string' && !e.event.startsWith('gtm.')).map((e) => e.event + (e.search_term ? ' (' + e.search_term + ')' : '')));
+console.log('dataLayer :', dl);
+await browser.close();

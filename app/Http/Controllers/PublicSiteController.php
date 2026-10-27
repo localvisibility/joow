@@ -87,7 +87,8 @@ class PublicSiteController extends Controller
         // Le visiteur (même sans compte) peut retoucher son site dans le Studio avant de le mettre en ligne.
         $request->session()->push('joow_sites', $slug);
         if (! empty($data['email'])) {
-            app(\App\Services\Accounts::class)->ensure($data['email'], $request->session()->get('joow_sites', []), 'site');
+            [$u, $c] = app(\App\Services\Accounts::class)->ensure($data['email'], $request->session()->get('joow_sites', []), 'site');
+            app(\App\Services\Accounts::class)->signInIfNew($u, $c);
         }
 
         return redirect()->route('public.site', $slug);
@@ -153,7 +154,8 @@ class PublicSiteController extends Controller
             $site->update(['owner_email' => strtolower($data['email'])]);
         }
         // Compte créé (sans mot de passe) et sites de la session rattachés
-        [$user] = app(\App\Services\Accounts::class)->ensure($data['email'], array_unique(array_merge($guest, [$slug])), 'site');
+        [$user, $created] = app(\App\Services\Accounts::class)->ensure($data['email'], array_unique(array_merge($guest, [$slug])), 'site');
+        app(\App\Services\Accounts::class)->signInIfNew($user, $created);
 
         $ready = in_array($site->status, ['preview', 'paid', 'published'], true);
         if ($ready) {

@@ -289,7 +289,8 @@ class SiteEditorController extends Controller
             $site->update(['owner_email' => $data['email']]);
         }
         $accounts = app(\App\Services\Accounts::class);
-        [$user] = $accounts->ensure($data['email'], array_unique(array_merge($request->session()->get('joow_sites', []), [$site->slug])), 'studio');
+        [$user, $created] = $accounts->ensure($data['email'], array_unique(array_merge($request->session()->get('joow_sites', []), [$site->slug])), 'studio');
+        $accounts->signInIfNew($user, $created);
         $accounts->welcome($user, $site->fresh());
 
         return response()->json(['ok' => true, 'owner_email' => $site->fresh()->owner_email, 'edit_link' => route('sites.editor', $site->slug).'?t='.$site->editToken()]);

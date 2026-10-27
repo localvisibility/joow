@@ -420,9 +420,9 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
     <div class="flex h-[100dvh] flex-col overflow-hidden bg-ink-950 text-slate-200">
         <!-- ═══ BARRE SUPÉRIEURE ═══ -->
         <header class="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-ink-900/80 px-4 backdrop-blur">
-            <Link :href="authUser ? route('dashboard') : route('home')" class="group flex shrink-0 items-center gap-2 rounded-xl py-1 pr-2 transition hover:bg-white/[0.06]" :title="authUser ? 'Retour à mes sites' : 'Retour à l\'accueil Joow'">
+            <Link :href="authUser ? route('dashboard') : route('public.site', site.slug)" class="group flex shrink-0 items-center gap-2 rounded-xl py-1 pr-2 transition hover:bg-white/[0.06]" :title="authUser ? 'Retour à mes sites' : 'Retour à votre site'">
                 <BrandLogo variant="mark" class="h-7 w-7" />
-                <span class="hidden text-xs font-semibold text-slate-400 group-hover:text-white sm:inline">← {{ authUser ? 'Mes sites' : 'Accueil' }}</span>
+                <span class="hidden text-xs font-semibold text-slate-400 group-hover:text-white sm:inline">← {{ authUser ? 'Mes sites' : 'Mon site' }}</span>
             </Link>
             <div class="flex min-w-0 items-center gap-2">
                 <span class="truncate font-display text-sm font-bold text-white max-w-[9rem] sm:max-w-none">{{ site.name }}</span>

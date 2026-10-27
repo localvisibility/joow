@@ -151,4 +151,19 @@ class AccountsTest extends TestCase
         });
         $this->assertArrayHasKey('checkout_reminder_at', $site->fresh()->site_data['emails']);
     }
+
+    public function test_leaving_an_email_signs_in_a_brand_new_account_but_never_an_existing_one(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $site = $this->site();
+        $this->withSession(['joow_sites' => [$site->slug]])->postJson(route('public.site.email', $site->slug), ['email' => 'nouvelle@exemple.fr'])->assertOk();
+        $this->assertAuthenticated();
+        $this->assertSame('nouvelle@exemple.fr', auth()->user()->email);
+
+        auth()->logout();
+        $existing = \App\Models\User::create(['name' => 'Déjà', 'email' => 'deja-la@exemple.fr', 'password' => bcrypt('secret-123')]);
+        $site2 = $this->site();
+        $this->withSession(['joow_sites' => [$site2->slug]])->postJson(route('public.site.email', $site2->slug), ['email' => 'deja-la@exemple.fr'])->assertOk();
+        $this->assertGuest();
+    }
 }

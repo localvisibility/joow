@@ -45,6 +45,22 @@ class Accounts
     }
 
     /**
+     * Connecte la personne quand le compte vient d'être créé par son email : il n'existe aucun compte
+     * préexistant à protéger, et elle retrouve ainsi tableau de bord, modules et Studio sans lien magique.
+     * Un compte existant, lui, reste accessible uniquement par lien magique, Google ou mot de passe.
+     */
+    public function signInIfNew(User $user, bool $created): bool
+    {
+        if (! $created || auth()->check()) {
+            return false;
+        }
+        auth()->login($user, remember: true);
+        request()->session()->regenerate();
+
+        return true;
+    }
+
+    /**
      * Email « votre site est prêt » : visuel du site, ce qu'on peut faire, Studio en un clic (lien magique),
      * choix du mot de passe. Envoyé une seule fois par site, quel que soit le canal (email, Google, Studio).
      */
