@@ -49,10 +49,18 @@
 
 @include('marketing.partials.footer')
 
-{{-- Consentement : affiché par le script uniquement si un pixel est configuré et qu'aucun choix n'a été fait --}}
-<div id="consent" class="fixed inset-x-3 bottom-3 z-[90] mx-auto hidden max-w-xl rounded-2xl border border-white/10 bg-ink-900/95 p-4 text-sm text-slate-200 shadow-2xl backdrop-blur sm:bottom-5" role="dialog" aria-label="Cookies">
-    <p class="text-[13px] leading-relaxed">Nous utilisons un cookie de mesure publicitaire (Meta) pour savoir quelles campagnes vous ont amené ici. Aucune donnée n'est revendue. <a href="{{ route('marketing.legal', 'confidentialite') }}" class="underline underline-offset-2 hover:text-white">En savoir plus</a></p>
-    <div class="mt-3 flex items-center justify-end gap-2"><button type="button" data-consent="essential" class="rounded-xl px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white">Refuser</button><button type="button" data-consent="all" class="btn-brand !px-4 !py-2 text-xs">Accepter</button></div>
+{{-- Consentement : affiché par le script uniquement si un pixel ou GTM est configuré et qu'aucun choix n'a été fait --}}
+<div id="consent" class="consent-card hidden" role="dialog" aria-label="Cookies et mesure d'audience">
+    <div class="flex items-start justify-between gap-4"><p class="font-display text-base font-bold text-white">🍪 Cookies &amp; mesure d'audience</p><button type="button" data-consent="none" class="shrink-0 text-xs text-slate-400 underline decoration-slate-600 underline-offset-4 hover:text-white">Continuer sans accepter</button></div>
+    <p class="mt-2 text-[13px] leading-relaxed text-slate-300">Nous utilisons des cookies pour améliorer votre expérience et mesurer l'efficacité de nos campagnes. Rien n'est déposé sans votre accord. <button type="button" data-consent="custom" class="underline underline-offset-2 hover:text-white">Personnaliser</button></p>
+    <div data-consent-panel class="mt-3 hidden space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[13px]">
+        <label class="flex items-center justify-between gap-3"><span><span class="font-semibold text-white">Mesure d'audience</span><span class="block text-xs text-slate-400">Comprendre quelles pages sont utiles (Google Analytics).</span></span><input type="checkbox" name="analytics" checked class="h-5 w-5 rounded accent-brand-500"></label>
+        <label class="flex items-center justify-between gap-3"><span><span class="font-semibold text-white">Mesure publicitaire</span><span class="block text-xs text-slate-400">Savoir quelle publicité vous a amené ici (Meta, Google Ads).</span></span><input type="checkbox" name="ads" checked class="h-5 w-5 rounded accent-brand-500"></label>
+        <label class="flex items-center justify-between gap-3 opacity-60"><span><span class="font-semibold text-white">Fonctionnement du site</span><span class="block text-xs text-slate-400">Session, sécurité, mémorisation de ce choix.</span></span><input type="checkbox" checked disabled class="h-5 w-5 rounded"></label>
+        <button type="button" data-consent="save" class="mt-1 w-full rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/5">Enregistrer mes choix</button>
+    </div>
+    <button type="button" data-consent="all" class="btn-brand mt-3 w-full !py-3 text-sm">Accepter</button>
+    <p class="mt-2 text-center text-[11px] text-slate-500"><a href="{{ route('marketing.legal', 'confidentialite') }}" class="hover:text-white">Politique de confidentialité</a></p>
 </div>
 </body>
 </html>

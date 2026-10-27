@@ -90,3 +90,7 @@
 .prose-joow th { @apply bg-white/5 text-white; }
 .prose-joow hr { @apply my-10 border-white/10; }
 @media (prefers-reduced-motion: reduce) { .aurora::before, .aurora::after, .marquee, .search-shell::before, .text-shimmer { animation: none; } .reveal { opacity: 1; transform: none; } }
+
+/* Bannière cookies : carte en bas à gauche, pleine largeur sur mobile */
+.consent-card { position: fixed; z-index: 90; left: .75rem; right: .75rem; bottom: .75rem; max-width: 26rem; border-radius: 1.25rem; border: 1px solid rgba(255,255,255,.1); background: rgba(13,13,20,.96); padding: 1.1rem 1.15rem; color: #e2e8f0; box-shadow: 0 30px 80px rgba(0,0,0,.55); backdrop-filter: blur(14px); }
+@media (min-width: 640px) { .consent-card { left: 1.25rem; right: auto; bottom: 1.25rem; } }

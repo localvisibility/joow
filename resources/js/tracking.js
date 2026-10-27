@@ -3,6 +3,8 @@
 const COOKIE = 'joow_consent';
 export const consent = () => (document.cookie.match(new RegExp('(?:^|; )' + COOKIE + '=([^;]*)')) || [])[1] || '';
 export const setConsent = (v) => { document.cookie = `${COOKIE}=${v}; Max-Age=${180 * 86400}; Path=/; SameSite=Lax; Secure`; };
+/* Consentement granulaire : 'all', 'essential', ou liste 'ads,analytics' */
+export const allows = (kind) => { const v = consent(); return v === 'all' || v.split(',').includes(kind); };
 export const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'e-' + Date.now() + '-' + Math.random().toString(16).slice(2));
 
 let pixelId = null;
@@ -12,10 +14,11 @@ let gtmId = null;
 const GA4 = { ViewContent: 'view_item', Search: 'search', Lead: 'generate_lead', CompleteRegistration: 'sign_up', InitiateCheckout: 'begin_checkout', Purchase: 'purchase', StartGeneration: 'start_generation', SiteGenerated: 'site_generated', Contact: 'contact' };
 export const initGtm = (id) => {
     gtmId = id || gtmId;
-    if (!gtmId || consent() !== 'all') return false;
+    if (!gtmId || !(allows('analytics') || allows('ads'))) return false;
     window.dataLayer = window.dataLayer || [];
     if (window.__gtmLoaded) return true;
-    if (typeof window.gtag === 'function') window.gtag('consent', 'update', { ad_storage: 'granted', ad_user_data: 'granted', ad_personalization: 'granted', analytics_storage: 'granted' });
+    const g = (k) => (allows(k) ? 'granted' : 'denied');
+    if (typeof window.gtag === 'function') window.gtag('consent', 'update', { ad_storage: g('ads'), ad_user_data: g('ads'), ad_personalization: g('ads'), analytics_storage: g('analytics') });
     window.dataLayer.push({ 'gtm.start': Date.now(), event: 'gtm.js' });
     const s = document.createElement('script'); s.async = true; s.src = 'https://www.googletagmanager.com/gtm.js?id=' + gtmId; document.head.appendChild(s);
     window.__gtmLoaded = true;
@@ -37,7 +40,7 @@ const toDataLayer = (name, params = {}, eventId = null) => {
 };
 export const initPixel = (id) => {
     pixelId = id || pixelId;
-    if (!pixelId || loaded || consent() !== 'all') return false;
+    if (!pixelId || loaded || !allows('ads')) return false;
     /* Snippet officiel du pixel Meta */
     !(function (f, b, e, v, n, t, s) { if (f.fbq) return; n = f.fbq = function () { n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments); }; if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0'; n.queue = []; t = b.createElement(e); t.async = !0; t.src = v; s = b.getElementsByTagName(e)[0]; s.parentNode.insertBefore(t, s); })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
     window.fbq('init', pixelId);
@@ -61,3 +64,5 @@ const seen = new Set();
 export const fire = (events) => {
     (events || []).forEach((e) => { if (!e || !e.id || seen.has(e.id)) return; seen.add(e.id); track(e.name, e.params || {}, e.id); });
 };
+/* Enregistre un choix (tout, rien, ou une sélection) puis charge ce qui est autorisé */
+export const choose = (kinds) => { const k = Array.isArray(kinds) ? kinds.filter(Boolean) : kinds === true ? ['ads', 'analytics'] : []; setConsent(k.length === 2 ? 'all' : k.length ? k.join(',') : 'essential'); initPixel(); initGtm(); };

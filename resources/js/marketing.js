@@ -1,6 +1,6 @@
 /* Site vitrine joow.fr : générateur embarqué, animations, consentement + pixel, menus. */
 import '../css/app.css';
-import { consent, setConsent, initPixel, initGtm, track, fire } from './tracking';
+import { consent, choose, initPixel, initGtm, track, fire } from './tracking';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -81,8 +81,10 @@ if (pixelId || gtmId) {
     const banner = $('#consent');
     if (banner && consent() === '') {
         banner.classList.remove('hidden');
-        $('[data-consent=all]', banner).addEventListener('click', () => { setConsent('all'); initPixel(pixelId); initGtm(gtmId); banner.remove(); });
-        $('[data-consent=essential]', banner).addEventListener('click', () => { setConsent('essential'); banner.remove(); });
+        $('[data-consent=all]', banner).addEventListener('click', () => { choose(true); banner.remove(); });
+        $('[data-consent=none]', banner).addEventListener('click', () => { choose([]); banner.remove(); });
+        $('[data-consent=custom]', banner).addEventListener('click', () => $('[data-consent-panel]', banner).classList.toggle('hidden'));
+        $('[data-consent=save]', banner).addEventListener('click', () => { choose([$('input[name=ads]', banner).checked && 'ads', $('input[name=analytics]', banner).checked && 'analytics']); banner.remove(); });
     }
     try { fire(JSON.parse(document.documentElement.dataset.track || '[]')); } catch {}
 }

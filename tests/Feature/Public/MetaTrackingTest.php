@@ -94,7 +94,7 @@ class MetaTrackingTest extends TestCase
         $this->get('https://joow.fr/')->assertOk()->assertDontSee('googletagmanager');
         config(['services.gtm.id' => 'GTM-TEST123']);
         $html = $this->get('https://joow.fr/')->assertOk()->assertSee('data-gtm="GTM-TEST123"', false)->assertSee("gtag('consent','default'", false)->getContent();
-        $this->assertStringContainsString('joow_consent=all', $html);
+        $this->assertStringContainsString('joow_consent=', $html);
         $this->get('https://app.joow.fr/')->assertOk()->assertSee("gtm.js?id='+i", false);
     }
 }
