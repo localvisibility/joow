@@ -213,7 +213,7 @@ main{display:flex;flex-direction:column}
 @keyframes glow1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-6%,-8%) scale(1.12)}}
 @keyframes glow2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(8%,6%) scale(1.08)}}
 .hero-glow{animation:glow1 14s ease-in-out infinite}.hero-glow-2{animation:glow2 18s ease-in-out infinite}
-.brand-logo{padding:.2rem .45rem;transition:background .3s}.brand-logo svg{height:100%;width:auto;max-width:14rem;display:block}.brand-invert img,.brand-invert svg{filter:invert(1) hue-rotate(180deg)}
+.brand-logo{padding:.2rem .45rem;transition:background .3s}.brand-logo svg{height:100%;width:auto;max-width:20rem;display:block}@media(max-width:640px){.brand-logo svg{max-width:13rem}}.brand-invert img,.brand-invert svg{filter:invert(1) hue-rotate(180deg)}
 .brand-bg-light{background:rgba(255,255,255,.92);box-shadow:0 6px 18px -8px rgba(0,0,0,.4)}.brand-bg-dark{background:rgba(15,23,42,.88)}.brand-bg-accent{background:var(--c)}.brand-bg-none{padding:0}
 /* auto : un logo clair reçoit un fond sombre quand la barre devient blanche ; un logo sombre reçoit un fond clair sur le visuel et en thème sombre */
 .brand-bg-auto{padding:0}.brand-bg-auto[data-tone=adaptive]{background:transparent!important;box-shadow:none!important;padding:0!important}
@@ -400,7 +400,7 @@ footer.bg-slate-900{background:#07070b!important}
 <nav id="nav" class="fixed inset-x-0 top-0 z-50 transition-all duration-300">
   <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
     <a href="{{ $home }}#top" class="flex items-center gap-2.5 text-white" id="brand" @if($page) data-page="" @endif>
-      @php $brand = $brand ?? \App\Services\LogoStudio::settings(['business' => $b]); $lh = ['sm' => 'h-8', 'md' => 'h-10', 'lg' => 'h-14'][$brand['size']] ?? 'h-10'; $lw = ['sm' => 'max-w-[8rem]', 'md' => 'max-w-[10rem]', 'lg' => 'max-w-[14rem]'][$brand['size']] ?? 'max-w-[10rem]'; @endphp
+      @php $brand = $brand ?? \App\Services\LogoStudio::settings(['business' => $b]); $lh = (! empty($brand['inline']) ? ['sm' => 'h-9', 'md' => 'h-12', 'lg' => 'h-16'] : ['sm' => 'h-8', 'md' => 'h-10', 'lg' => 'h-14'])[$brand['size']] ?? 'h-10'; $lw = ['sm' => 'max-w-[8rem]', 'md' => 'max-w-[10rem]', 'lg' => 'max-w-[14rem]'][$brand['size']] ?? 'max-w-[10rem]'; @endphp
       @if(!empty($brand['logo']))<span class="brand-logo brand-bg-{{ $brand['bg'] }} inline-flex items-center rounded-lg {{ $lh }} {{ $brand['invert'] ? 'brand-invert' : '' }}" data-tone="{{ $brand['tone'] ?? 'dark' }}" data-edit-logo>@if(!empty($brand['inline'])){!! $brand['inline'] !!}@else<img src="{{ $brand['logo'] }}" alt="{{ $b['name'] ?? '' }}" class="h-full w-auto {{ $lw }} object-contain" decoding="async">@endif</span>@else<span class="grid h-10 w-10 place-items-center rounded-xl text-white bg-grad shadow-c"><i class="fa-solid {{ $icon }}"></i></span>@endif
       <span class="font-display text-lg font-bold {{ (!empty($brand['logo']) && empty($brand['show_name'])) ? 'sr-only' : '' }}" data-edit="business.name">{{ $b['name'] ?? '' }}</span>
     </a>

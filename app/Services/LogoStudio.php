@@ -124,7 +124,7 @@ class LogoStudio
         $font = $d['font'] ?? ($sector['font'] ?? 'Space Grotesk');
         $theme = $d['theme'] ?? ($sector['theme'] ?? 'light');
         $ink = $theme === 'dark' ? '#ffffff' : '#0f172a';
-        $size = max(28, min(60, (int) round(1100 / max(8, mb_strlen($name) + 2))));
+        $size = mb_strlen($name) > 18 ? 40 : 48; // taille fixe et lisible : la largeur du viewBox est ajustée ensuite
         $styleTxt = in_array($style, self::STYLES, true) ? $style : 'épuré';
 
         $prompt = <<<TXT
@@ -133,7 +133,7 @@ Style demandé : {$styleTxt}. {$hint}
 
 CONTRAINTES SVG (strictes)
 - Chaque logo est un SVG complet : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" role="img" aria-label="{$name}"> … </svg>, sans width/height, sans script, sans image, sans texte hors du nom.
-- Le nom « {$name} » en <text> : x="140" y="76" font-family="{$font}, Inter, Arial, sans-serif" font-weight="700" font-size="{$size}" fill="currentColor" (tu peux mettre un mot en couleur {$accent} avec un <tspan fill="{$accent}>). IMPORTANT : tout ce qui est « encre » (texte, traits fins) utilise fill="currentColor" ou stroke="currentColor", jamais une couleur fixe : le logo s'adapte ainsi au fond clair comme au fond sombre. Les aplats colorés utilisent {$accent}. Lettres espacées autorisées (letter-spacing ≤ 4). Le texte doit tenir dans la largeur : réduis font-size si le nom est long.
+- Le nom « {$name} » en <text> : x="140" y="76" font-family="{$font}, Inter, Arial, sans-serif" font-weight="700" font-size="{$size}" fill="currentColor" (tu peux mettre un mot en couleur {$accent} avec un <tspan fill="{$accent}>). IMPORTANT : tout ce qui est « encre » (texte, traits fins) utilise fill="currentColor" ou stroke="currentColor", jamais une couleur fixe : le logo s'adapte ainsi au fond clair comme au fond sombre. Les aplats colorés utilisent {$accent}. Lettres espacées autorisées (letter-spacing ≤ 3). Garde exactement ce font-size : la largeur du logo s'ajuste automatiquement au nom.
 - Le pictogramme occupe la zone x 0–120, y 0–120 : formes géométriques simples (≤ 12 éléments : circle, rect rx, path, polygon, line), évocatrices du métier, lisibles à 40 px de haut. Couleurs : {$accent} pour les aplats, currentColor pour l'encre, et au plus une teinte dérivée de {$accent}. Sur une pastille {$accent}, les détails sont en #ffffff. Un <linearGradient> interne est autorisé.
 - Variez vraiment les 4 propositions : monogramme en pastille, pictogramme linéaire, forme pleine, pictogramme + soulignement.
 - Pas de dégradés complexes, pas de filtres, pas d'ombres, pas de fond pleine largeur (fond transparent).
@@ -186,6 +186,17 @@ TXT;
         if (! preg_match('/viewBox\s*=/i', $svg)) {
             $svg = preg_replace('/^<svg\b/', '<svg viewBox="0 0 520 120"', $svg, 1);
         }
+        // Largeur ajustée au nom : le viewBox s'élargit pour que le texte ne soit jamais coupé
+        if (preg_match('/<text\b[^>]*font-size\s*=\s*["\']?([\d.]+)/i', $svg, $fs) && preg_match('/viewBox\s*=\s*["\']\s*([\d.-]+)\s+([\d.-]+)\s+([\d.]+)\s+([\d.]+)\s*["\']/i', $svg, $vb)) {
+            preg_match('/<text\b[^>]*\bx\s*=\s*["\']?([\d.]+)/i', $svg, $tx);
+            $ls = preg_match('/letter-spacing\s*[:=]\s*["\']?([\d.]+)/i', $svg, $lsm) ? (float) $lsm[1] : 0;
+            $text = html_entity_decode(trim(strip_tags(preg_replace('/^.*?(<text\b.*<\/text>).*$/is', '$1', $svg))));
+            $need = (float) ($tx[1] ?? 140) + mb_strlen($text) * ((float) $fs[1] * 0.6 + $ls) + 16;
+            if ($need > (float) $vb[3]) {
+                $svg = preg_replace('/viewBox\s*=\s*["\'][^"\']*["\']/i', 'viewBox="'.$vb[1].' '.$vb[2].' '.(int) ceil($need).' '.$vb[4].'"', $svg, 1);
+            }
+        }
+        $svg = preg_replace('/^<svg\b(?![^>]*overflow=)/', '<svg overflow="visible"', $svg, 1);
         // Pas de dimensions fixes : la taille est pilotée par le gabarit
         $svg = preg_replace('/^(<svg\b[^>]*?)\s(width|height)\s*=\s*("[^"]*"|\'[^\']*\')/i', '$1', $svg, 2);
         // Le nom doit y figurer (sinon ce n'est pas un wordmark exploitable)

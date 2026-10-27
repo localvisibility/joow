@@ -85,6 +85,10 @@ class BrandTest extends TestCase
         $this->assertStringContainsString('xmlns="http://www.w3.org/2000/svg"', $ok);
         $this->assertStringNotContainsString('onclick', $ok);
         $this->assertStringNotContainsString('width="520"', $ok);
+        $long = $studio->sanitize('<svg viewBox="0 0 520 120"><text x="140" y="76" font-size="40">Le Ruisseau Burger Alésia</text></svg>', 'Le Ruisseau Burger Alésia');
+        $this->assertMatchesRegularExpression('/viewBox="0 0 (\\d+) 120"/', $long);
+        preg_match('/viewBox="0 0 (\\d+) 120"/', $long, $m);
+        $this->assertGreaterThan(700, (int) $m[1], 'viewBox élargi pour un nom long');
         $this->assertNull($studio->sanitize('<svg viewBox="0 0 1 1"><script>alert(1)</script><text>Le Ruisseau</text></svg>', 'Le Ruisseau'));
         $this->assertNull($studio->sanitize('<svg viewBox="0 0 1 1"><image href="https://x/y.png"/><text>Le Ruisseau</text></svg>', 'Le Ruisseau'));
         $this->assertNull($studio->sanitize('<svg viewBox="0 0 1 1"><text>Autre nom</text></svg>', 'Le Ruisseau'), 'le nom doit figurer');
