@@ -35,7 +35,10 @@ class StripeWebhookListener
             } elseif ($type === 'invoice.payment_failed') {
                 $this->subscriptionSites($obj['customer'] ?? null)->each(fn (Site $s) => $s->subscription_status !== 'lifetime' && $s->forceFill(['subscription_status' => 'past_due'])->save());
             } elseif ($type === 'customer.subscription.deleted') {
-                $this->subscriptionSites($obj['customer'] ?? null)->each(fn (Site $s) => $s->forceFill(['subscription_status' => 'canceled'])->save());
+                $this->subscriptionSites($obj['customer'] ?? null)->each(function (Site $s) {
+                    $s->forceFill(['subscription_status' => 'canceled'])->save();
+                    app(\App\Services\Domains\DomainRenewal::class)->onCanceled($s->fresh());
+                });
             }
         } catch (\Throwable $e) {
             Log::warning("Webhook $type : ".$e->getMessage());

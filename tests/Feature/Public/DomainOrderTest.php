@@ -72,4 +72,36 @@ class DomainOrderTest extends TestCase
         $this->actingAs($this->user)->postJson(route('domains.order', $site->slug), ['domain' => 'monbistrot.fr'])->assertOk();
         $this->actingAs($this->user)->postJson(route('domains.order', $site->slug), ['domain' => 'deux.fr'])->assertStatus(422);
     }
+
+    public function test_canceling_the_subscription_stops_domain_auto_renewal_and_resubscribing_restores_it(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        $this->user->forceFill(['stripe_id' => 'cus_9'])->save();
+        $site = $this->site(['custom_domain' => 'monbistrot.fr', 'domain_source' => 'hostinger', 'domain_expires_at' => now()->addMonths(11)]);
+        $calls = [];
+        $this->mock(HostingerClient::class, function ($m) use (&$calls) {
+            $m->shouldReceive('enabled')->andReturn(true);
+            $m->shouldReceive('domainSubscription')->with('monbistrot.fr')->andReturn(['id' => 'sub_dom_1', 'name' => '.FR Domain monbistrot.fr']);
+            $m->shouldReceive('setAutoRenewal')->andReturnUsing(function ($id, $on) use (&$calls) { $calls[] = [$id, $on]; });
+        });
+        app(\App\Listeners\StripeWebhookListener::class)->handle(new \Laravel\Cashier\Events\WebhookReceived(['type' => 'customer.subscription.deleted', 'data' => ['object' => ['customer' => 'cus_9']]]));
+        $site->refresh();
+        $this->assertSame('canceled', $site->subscription_status);
+        $this->assertSame([['sub_dom_1', false]], $calls);
+        $this->assertSame('disabled', $site->site_data['domain_renewal']);
+        \Illuminate\Support\Facades\Mail::assertSent(\App\Mail\JoowNotification::class, fn ($m) => str_contains($m->subjectLine, 'monbistrot.fr'));
+
+        app(\App\Services\Subscription::class)->activate($site, 'invoice_paid');
+        $this->assertSame([['sub_dom_1', false], ['sub_dom_1', true]], $calls);
+        $this->assertSame('enabled', $site->fresh()->site_data['domain_renewal']);
+    }
+
+    public function test_own_domains_are_never_touched(): void
+    {
+        $this->user->forceFill(['stripe_id' => 'cus_8'])->save();
+        $this->site(['custom_domain' => 'client.fr', 'domain_source' => 'own']);
+        $this->mock(HostingerClient::class, fn ($m) => $m->shouldReceive('setAutoRenewal')->never()->getMock()->shouldReceive('enabled')->andReturn(true));
+        app(\App\Listeners\StripeWebhookListener::class)->handle(new \Laravel\Cashier\Events\WebhookReceived(['type' => 'customer.subscription.deleted', 'data' => ['object' => ['customer' => 'cus_8']]]));
+        $this->assertTrue(true);
+    }
 }

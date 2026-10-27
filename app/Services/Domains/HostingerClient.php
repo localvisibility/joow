@@ -96,6 +96,27 @@ class HostingerClient
         return $res->json();
     }
 
+    /** Abonnement Hostinger correspondant à un domaine (le nom de l'abonnement contient le domaine). */
+    public function domainSubscription(string $domain): ?array
+    {
+        $res = $this->http()->get('/api/billing/v1/subscriptions');
+        $res->throw();
+        foreach ((array) $res->json() as $sub) {
+            if (is_array($sub) && str_contains(strtolower((string) ($sub['name'] ?? '')), strtolower($domain))) {
+                return $sub;
+            }
+        }
+
+        return null;
+    }
+
+    /** Active ou coupe le renouvellement automatique d'un abonnement Hostinger. */
+    public function setAutoRenewal(string $subscriptionId, bool $enabled): void
+    {
+        $path = '/api/billing/v1/subscriptions/'.rawurlencode($subscriptionId).'/auto-renewal/'.($enabled ? 'enable' : 'disable');
+        ($enabled ? $this->http()->patch($path) : $this->http()->delete($path))->throw();
+    }
+
     public function details(string $domain): ?array
     {
         $res = $this->http()->get('/api/domains/v1/portfolio/'.$domain);

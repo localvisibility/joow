@@ -147,6 +147,9 @@ class Subscription
     {
         $wasActive = $site->subscription_status === 'active';
         $site->forceFill(['subscription_status' => 'active'])->save();
+        if (! $wasActive) {
+            app(\App\Services\Domains\DomainRenewal::class)->onReactivated($site->fresh());
+        }
         if (! $wasActive || ! $site->ai_credits_reset_at || $site->ai_credits_reset_at->isPast()) {
             $this->credits->onPaid($site->fresh(), 'pro');
             Log::info("Abonnement {$site->slug} actif ($reason) : crédits Pro accordés");

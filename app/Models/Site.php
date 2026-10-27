@@ -27,6 +27,7 @@ class Site extends Model
         'paid_at'             => 'datetime',
         'payment_failed_at'   => 'datetime',
         'published_at'        => 'datetime',
+        'domain_expires_at'   => 'datetime',
         'subscription_period_end' => 'datetime',
     ];
 
