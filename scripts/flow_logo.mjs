@@ -1,0 +1,43 @@
+/* Test réel : génération avec email (compte + connexion auto), Studio, logo IA, choix d'une proposition. */
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+const out = process.env.OUT; fs.mkdirSync(out, { recursive: true });
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', proxy: { server: process.env.HTTPS_PROXY }, args: ['--ignore-certificate-errors'] });
+const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, ignoreHTTPSErrors: true });
+await ctx.addCookies([{ name: 'joow_consent', value: 'essential', domain: 'app.joow.fr', path: '/' }]);
+const page = await ctx.newPage();
+const email = `logo-test-${Date.now()}@joow-test.fr`;
+await page.goto('https://app.joow.fr/', { waitUntil: 'networkidle' });
+await page.fill('#search-input', 'Le Ruisseau burger Paris');
+await page.waitForSelector('button[type=button].w-full:has-text("Ruisseau")', { timeout: 15000 });
+await page.click('button[type=button].w-full:has-text("Ruisseau")');
+await page.waitForTimeout(500);
+await page.fill('input[type=email]', email);
+await Promise.all([page.waitForURL(/\/site\//, { timeout: 60000 }), page.click('button[type=submit]')]);
+const slug = page.url().split('/site/')[1].split(/[?#]/)[0]; console.log('slug', slug, 'email', email);
+for (let i = 0; i < 120; i++) { await page.waitForTimeout(1500); const st = await page.evaluate(async (s) => (await (await fetch('/site/' + s + '/status')).json()).status, slug); if (['preview', 'ready', 'paid'].includes(st)) { console.log('status', st, 'après', (i + 1) * 1.5, 's'); break; } }
+await page.goto(`https://app.joow.fr/sites/${slug}/editeur`, { waitUntil: 'networkidle', timeout: 60000 });
+console.log('editor url', page.url());
+await page.click('text=🎨 Style').catch(async () => page.click('button:has-text("Style")'));
+await page.waitForTimeout(600);
+await page.screenshot({ path: `${out}/logo-style-tab.png` });
+await page.click('button:has-text("Logo IA")'); await page.waitForTimeout(300);
+await page.click('button:has-text("artisanal")');
+await page.fill('input[placeholder^="Précisions"]', 'un burger stylisé, tons chauds');
+const t0 = Date.now();
+await page.click('button:has-text("Générer 4 propositions")');
+await page.waitForSelector('button:has-text("Utiliser")', { timeout: 150000 });
+console.log('logos en', Math.round((Date.now() - t0) / 1000), 's');
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${out}/logo-proposals.png` });
+const urls = await page.$$eval('button:has-text("Utiliser") img', (els) => els.map((e) => e.src));
+console.log('urls', urls);
+await page.click('button:has-text("Utiliser")'); await page.waitForTimeout(4000);
+await page.screenshot({ path: `${out}/logo-applied.png` });
+// le site publié
+const site = await ctx.newPage(); await site.goto(`https://${slug}.joow.fr/`, { waitUntil: 'networkidle' }); await site.waitForTimeout(1200);
+await site.screenshot({ path: `${out}/logo-site-top.png`, clip: { x: 0, y: 0, width: 1440, height: 120 } });
+await site.evaluate(() => window.scrollTo(0, 700)); await site.waitForTimeout(800);
+await site.screenshot({ path: `${out}/logo-site-scrolled.png`, clip: { x: 0, y: 0, width: 1440, height: 120 } });
+fs.writeFileSync(`${out}/logo-urls.json`, JSON.stringify({ slug, urls }));
+await browser.close();

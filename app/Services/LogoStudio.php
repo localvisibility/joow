@@ -50,6 +50,16 @@ class LogoStudio
         }
         $bytes = Storage::disk('local')->get($path);
         if (Str::endsWith(strtolower($m[2]), '.svg')) {
+            // Logo adaptatif : il prend la couleur du texte de la barre (blanc sur le visuel, sombre sur barre blanche)
+            if (str_contains($bytes, 'currentColor')) {
+                return 'adaptive';
+            }
+            if ($png = $this->rasterize($bytes)) {
+                $bytes = $png;
+                $m[2] = 'raster.png';
+            }
+        }
+        if (Str::endsWith(strtolower($m[2]), '.svg')) {
             preg_match_all('/(?:fill|stroke|stop-color)\s*[:=]\s*["\']?\s*#([0-9a-f]{3,8})\b/i', $bytes, $mm);
             $lums = [];
             foreach ($mm[1] as $hex) {
@@ -123,8 +133,8 @@ Style demandé : {$styleTxt}. {$hint}
 
 CONTRAINTES SVG (strictes)
 - Chaque logo est un SVG complet : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" role="img" aria-label="{$name}"> … </svg>, sans width/height, sans script, sans image, sans texte hors du nom.
-- Le nom « {$name} » en <text> : x="140" y="76" font-family="{$font}, Inter, Arial, sans-serif" font-weight="700" font-size="{$size}" fill="{$ink}" (tu peux mettre un mot en couleur {$accent} avec un <tspan>). Lettres espacées autorisées (letter-spacing ≤ 4). Le texte doit tenir dans la largeur : réduis font-size si le nom est long.
-- Le pictogramme occupe la zone x 0–120, y 0–120 : formes géométriques simples (≤ 12 éléments : circle, rect rx, path, polygon, line), évocatrices du métier, lisibles à 40 px de haut. Couleurs : {$accent}, {$ink}, et au plus une teinte dérivée. Un <linearGradient> interne est autorisé.
+- Le nom « {$name} » en <text> : x="140" y="76" font-family="{$font}, Inter, Arial, sans-serif" font-weight="700" font-size="{$size}" fill="currentColor" (tu peux mettre un mot en couleur {$accent} avec un <tspan fill="{$accent}>). IMPORTANT : tout ce qui est « encre » (texte, traits fins) utilise fill="currentColor" ou stroke="currentColor", jamais une couleur fixe : le logo s'adapte ainsi au fond clair comme au fond sombre. Les aplats colorés utilisent {$accent}. Lettres espacées autorisées (letter-spacing ≤ 4). Le texte doit tenir dans la largeur : réduis font-size si le nom est long.
+- Le pictogramme occupe la zone x 0–120, y 0–120 : formes géométriques simples (≤ 12 éléments : circle, rect rx, path, polygon, line), évocatrices du métier, lisibles à 40 px de haut. Couleurs : {$accent} pour les aplats, currentColor pour l'encre, et au plus une teinte dérivée de {$accent}. Sur une pastille {$accent}, les détails sont en #ffffff. Un <linearGradient> interne est autorisé.
 - Variez vraiment les 4 propositions : monogramme en pastille, pictogramme linéaire, forme pleine, pictogramme + soulignement.
 - Pas de dégradés complexes, pas de filtres, pas d'ombres, pas de fond pleine largeur (fond transparent).
 
@@ -151,7 +161,7 @@ TXT;
             }
             $file = $this->images->storeSvg($svg, $site->slug, 'logo-ia');
             if ($file) {
-                $out[] = ['url' => route('media.show', [$site->slug, $file]), 'name' => Str::limit(trim((string) ($l['name'] ?? 'Proposition '.($i + 1))), 40, '')];
+                $out[] = ['url' => route('media.show', [$site->slug, $file]), 'svg' => $svg, 'name' => Str::limit(trim((string) ($l['name'] ?? 'Proposition '.($i + 1))), 40, '')];
             }
         }
         Log::info('LogoStudio '.$site->slug.' : '.count($out).' proposition(s)');
@@ -202,6 +212,24 @@ TXT;
         $svg = preg_replace('/\son\w+\s*=\s*("[^"]*"|\'[^\']*\')/i', '', $svg);
 
         return strlen($svg) < 60000 && preg_match('/^\s*<svg\b/i', $svg) ? trim($svg) : null;
+    }
+
+    /** SVG → PNG 160 px via rsvg-convert (présent dans l'image Docker), null si indisponible. */
+    private function rasterize(string $svg): ?string
+    {
+        $bin = trim((string) @shell_exec('command -v rsvg-convert 2>/dev/null'));
+        if ($bin === '') {
+            return null;
+        }
+        $in = tempnam(sys_get_temp_dir(), 'logo').'.svg';
+        $out = tempnam(sys_get_temp_dir(), 'logo').'.png';
+        file_put_contents($in, $svg);
+        @exec(escapeshellcmd($bin).' -w 160 --keep-aspect-ratio '.escapeshellarg($in).' -o '.escapeshellarg($out).' 2>/dev/null');
+        $png = is_file($out) && filesize($out) > 100 ? file_get_contents($out) : null;
+        @unlink($in);
+        @unlink($out);
+
+        return $png ?: null;
     }
 
     private function lum(int $r, int $g, int $b): float

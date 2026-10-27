@@ -531,7 +531,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                         <span v-for="(a,k) in m.applied" :key="k" class="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">✓ {{ a }}</span>
                                     </div>
                                     <div v-if="m.logos?.length" class="mt-3 grid grid-cols-2 gap-2">
-                                        <button v-for="l in m.logos" :key="l.url" type="button" @click="useLogo(l.url)" class="group rounded-xl border border-white/10 bg-white p-2 text-left transition hover:border-brand-400" :title="'Utiliser : ' + l.name"><img :src="l.url" :alt="l.name" class="h-10 w-full object-contain" /><span class="mt-1 block truncate text-[10px] font-semibold text-slate-600 group-hover:text-brand-600">{{ l.name }} · Utiliser</span></button>
+                                        <button v-for="l in m.logos" :key="l.url" type="button" @click="useLogo(l.url)" class="group rounded-xl border border-white/10 p-2 text-left transition hover:border-brand-400" :class="st?.theme==='dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'" :title="'Utiliser : ' + l.name"><div class="logo-inline h-10 w-full" v-html="l.svg"></div><span class="mt-1 block truncate text-[10px] font-semibold opacity-70 group-hover:opacity-100">{{ l.name }} · Utiliser</span></button>
                                     </div>
                                     <div v-if="m.undo_id && !m.reverted" class="mt-2 flex items-center gap-3 text-[11px]">
                                         <button @click="revert(m)" class="font-semibold text-slate-400 underline-offset-2 hover:text-white hover:underline">↶ Annuler ces modifications</button>
@@ -862,8 +862,8 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                         <p class="font-display font-bold text-white">En-tête &amp; logo</p>
                         <p class="mt-1 text-xs text-slate-500">Votre logo tel qu'il apparaît sur le visuel d'accueil et sur la barre blanche.</p>
                         <div class="mt-3 grid grid-cols-2 gap-2">
-                            <div class="flex h-16 items-center justify-center rounded-xl bg-slate-900 px-3"><img v-if="brand.logo" :src="brand.logo" alt="" class="max-h-10 max-w-full object-contain" :class="brand.invert && 'invert hue-rotate-180'" /><span v-else class="text-xs text-slate-500">Icône du métier</span></div>
-                            <div class="flex h-16 items-center justify-center rounded-xl bg-white px-3"><img v-if="brand.logo" :src="brand.logo" alt="" class="max-h-10 max-w-full object-contain" :class="brand.invert && 'invert hue-rotate-180'" /><span v-else class="text-xs text-slate-400">Icône du métier</span></div>
+                            <div class="flex h-16 items-center justify-center rounded-xl bg-slate-900 px-3 text-white"><div v-if="brand.inline" class="logo-inline h-10 max-w-full" :class="brand.invert && 'invert hue-rotate-180'" v-html="brand.inline"></div><img v-else-if="brand.logo" :src="brand.logo" alt="" class="max-h-10 max-w-full object-contain" :class="brand.invert && 'invert hue-rotate-180'" /><span v-else class="text-xs text-slate-500">Icône du métier</span></div>
+                            <div class="flex h-16 items-center justify-center rounded-xl bg-white px-3 text-slate-900"><div v-if="brand.inline" class="logo-inline h-10 max-w-full" :class="brand.invert && 'invert hue-rotate-180'" v-html="brand.inline"></div><img v-else-if="brand.logo" :src="brand.logo" alt="" class="max-h-10 max-w-full object-contain" :class="brand.invert && 'invert hue-rotate-180'" /><span v-else class="text-xs text-slate-400">Icône du métier</span></div>
                         </div>
                         <div class="mt-2 flex flex-wrap gap-2">
                             <label class="cursor-pointer rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-white/25">Importer<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" @change="uploadLogo" /></label>
@@ -877,7 +877,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                             <input v-model="logoHint" class="fld" placeholder="Précisions : un burger stylisé, lettres fines, tons dorés…" />
                             <button type="button" @click="genLogos" :disabled="logoBusy" class="btn-brand w-full !py-2 text-xs">{{ logoBusy ? 'Création en cours (20 à 40 s)…' : 'Générer 4 propositions' }}</button>
                             <div v-if="logoProps.length" class="grid grid-cols-2 gap-2">
-                                <button v-for="l in logoProps" :key="l.url" type="button" @click="useLogo(l.url)" class="group rounded-xl border border-white/10 bg-white p-2 text-left transition hover:border-brand-400"><img :src="l.url" :alt="l.name" class="h-10 w-full object-contain" /><span class="mt-1 block truncate text-[10px] font-semibold text-slate-600 group-hover:text-brand-600">{{ l.name }} · Utiliser</span></button>
+                                <button v-for="l in logoProps" :key="l.url" type="button" @click="useLogo(l.url)" class="group rounded-xl border border-white/10 p-2 text-left transition hover:border-brand-400" :class="st.theme==='dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'"><div class="logo-inline h-10 w-full" v-html="l.svg"></div><span class="mt-1 block truncate text-[10px] font-semibold opacity-70 group-hover:opacity-100">{{ l.name }} · Utiliser</span></button>
                             </div>
                         </div>
                         <div v-if="brand.logo" class="mt-3 space-y-2">
@@ -1147,4 +1147,8 @@ select.fld option { background: #14141f; }
 .ptab.on { color: #fff; background: rgba(255,255,255,.1); }
 .fade-enter-active, .fade-leave-active { transition: opacity .2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>
+
+<style>
+.logo-inline svg { height: 100%; width: auto; max-width: 100%; display: block; margin: 0 auto; }
 </style>

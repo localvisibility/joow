@@ -216,7 +216,7 @@ main{display:flex;flex-direction:column}
 .brand-logo{padding:.2rem .45rem;transition:background .3s}.brand-logo svg{height:100%;width:auto;max-width:14rem;display:block}.brand-invert img,.brand-invert svg{filter:invert(1) hue-rotate(180deg)}
 .brand-bg-light{background:rgba(255,255,255,.92);box-shadow:0 6px 18px -8px rgba(0,0,0,.4)}.brand-bg-dark{background:rgba(15,23,42,.88)}.brand-bg-accent{background:var(--c)}.brand-bg-none{padding:0}
 /* auto : un logo clair reçoit un fond sombre quand la barre devient blanche ; un logo sombre reçoit un fond clair sur le visuel et en thème sombre */
-.brand-bg-auto{padding:0}
+.brand-bg-auto{padding:0}.brand-bg-auto[data-tone=adaptive]{background:transparent!important;box-shadow:none!important;padding:0!important}
 .theme-light #nav.solid .brand-bg-auto[data-tone=light]{background:rgba(15,23,42,.9);padding:.2rem .45rem}
 .brand-bg-auto[data-tone=dark]{background:rgba(255,255,255,.92);padding:.2rem .45rem;box-shadow:0 6px 18px -8px rgba(0,0,0,.4)}
 .theme-light #nav.solid .brand-bg-auto[data-tone=dark]{background:transparent;box-shadow:none;padding:0}

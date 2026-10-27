@@ -159,6 +159,9 @@ class SiteEditorController extends Controller
             $brand['logo'] = $data['logo_url'];
             $brand['hide'] = false;
             unset($brand['tone']);
+            if (str_contains($data['logo_url'], '/logo-ia-') && ! array_key_exists('show_name', $data)) {
+                $brand['show_name'] = false; // le wordmark contient déjà le nom
+            }
         }
         if (! empty($data['remove'])) {
             $brand['hide'] = true;
@@ -177,7 +180,9 @@ class SiteEditorController extends Controller
         $site->update(['site_data' => $d]);
         $pub = ! empty($d['content']) ? $renderer->publish($site) : ['queued' => false];
 
-        return response()->json(['ok' => true, 'brand' => \App\Services\LogoStudio::settings($site->fresh()->site_data ?? []), 'version' => now()->timestamp, 'queued' => $pub['queued']]);
+        $settings = \App\Services\LogoStudio::settings($site->fresh()->site_data ?? []);
+
+        return response()->json(['ok' => true, 'brand' => $settings + ['source_logo' => $d['business']['logo'] ?? null, 'inline' => \App\Services\LogoStudio::inline($settings['logo'])], 'version' => now()->timestamp, 'queued' => $pub['queued']]);
     }
 
     /** Logo IA : 4 propositions vectorielles (2 crédits), à choisir dans le Studio. */
@@ -509,7 +514,7 @@ class SiteEditorController extends Controller
             'font'     => $d['font'] ?? null,
             'theme'    => $d['theme'] ?? ($cfg['theme'] ?? 'light'),
             'hero_style' => $d['hero_style'] ?? ($cfg['hero'] ?? 'editorial'),
-            'brand'    => \App\Services\LogoStudio::settings($d) + ['source_logo' => $b['logo'] ?? null],
+            'brand'    => \App\Services\LogoStudio::settings($d) + ['source_logo' => $b['logo'] ?? null, 'inline' => \App\Services\LogoStudio::inline(\App\Services\LogoStudio::settings($d)['logo'])],
             'modules'  => $site->modules ?: ['booking' => true],
             'module_config' => $this->moduleConfig($site),
             'module_catalog' => collect(config('modules'))->map(fn ($m, $k) => ['key' => $k, 'label' => $m['name'] ?? $k])->values()->all(),
