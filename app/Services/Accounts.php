@@ -118,7 +118,7 @@ class Accounts
     }
 
     /** Site mis en ligne : félicitations et prochaines étapes qui font décoller la visibilité. */
-    public function live(User $user, Site $site, string $plan): bool
+    public function live(User $user, Site $site, string $plan, ?\App\Models\Invoice $invoice = null): bool
     {
         if (! empty($site->site_data['emails']['live_at'])) {
             return false;
@@ -136,7 +136,7 @@ class Accounts
                 ['📣', 'Partagez-le', 'Signature d\'email, Instagram, Facebook, WhatsApp : un lien suffit.'],
                 ['💬', 'Laissez l\'assistant répondre', 'Horaires, tarifs, prise de contact : il répond à vos clients 24h/24.'],
             ],
-            'rows'  => [['Votre adresse', $url], ['Formule', $plan === 'liberte' ? 'Liberté · paiement unique' : 'Pro · mensuel, sans engagement'], ['Crédits IA inclus', '100 pour l\'assistant du Studio']],
+            'rows'  => array_values(array_filter([['Votre adresse', $url], ['Formule', $plan === 'liberte' ? 'Liberté · paiement unique' : 'Pro · mensuel, sans engagement'], ['Crédits IA inclus', '100 pour l\'assistant du Studio'], $invoice ? ['Facture', $invoice->invoice_number.' · '.$this->magicLink($user, route('invoices.show', $invoice, absolute: false), days: 30)] : null])),
             'cta'   => ['label' => 'Ouvrir mon espace', 'url' => $space],
             'cta2'  => ['label' => 'Voir mon site', 'url' => $url],
             'note'  => 'Vos demandes, réservations et statistiques arrivent dans votre espace. Une question ? Répondez simplement à cet email.',

@@ -46,6 +46,13 @@ class StripeWebhookListener
     {
         $pi = $s['payment_intent'] ?? null;
 
+        // Mise en ligne (Pro / Liberté) : traitée ici même si la personne a fermé l'onglet avant le retour
+        if (! empty($meta['plan']) && ! empty($meta['site_slug']) && in_array($s['payment_status'] ?? '', ['paid', 'no_payment_required'], true)) {
+            if ($site = Site::where('slug', $meta['site_slug'])->first()) {
+                app(\App\Services\Subscription::class)->fulfil($site, $meta['plan'] === 'liberte' ? 'liberte' : 'pro', (string) ($s['id'] ?? ''), $s);
+            }
+        }
+
         // Recharge de crédits IA (pack) : créditer le portefeuille du site (idempotent par session)
         if (($meta['type'] ?? '') === 'credits' && ! empty($meta['site_slug']) && ($s['payment_status'] ?? '') === 'paid') {
             if ($site = Site::where('slug', $meta['site_slug'])->first()) {
@@ -81,9 +88,12 @@ class StripeWebhookListener
         if (empty($inv['subscription']) || (int) ($inv['amount_paid'] ?? 0) <= 0) {
             return; // facture à 0 € (début d'essai) ou paiement unique : rien à activer
         }
-        $this->subscriptionSites($inv['customer'] ?? null)->each(function (Site $site) {
+        $sites = $this->subscriptionSites($inv['customer'] ?? null);
+        $sites->each(function (Site $site) {
             app(\App\Services\Subscription::class)->activate($site, 'invoice_paid');
         });
+        // Facture Joow pour chaque facture Stripe payée (première échéance comme renouvellements)
+        app(\App\Services\Billing::class)->recordFromStripeInvoice($inv, $sites->first(), 'pro');
     }
 
     /** Sites Pro rattachés au client Stripe. */

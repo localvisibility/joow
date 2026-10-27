@@ -100,6 +100,49 @@ class Subscription
     }
 
     /** Premier paiement encaissé (anticipé ou à l'échéance) : abonnement actif + crédits de la formule. */
+    /**
+     * Site payé (retour de Stripe ou webhook, idempotent) : statut, crédits, compte connecté,
+     * facture, email « en ligne », conversion Purchase.
+     */
+    public function fulfil(Site $site, string $plan, ?string $sessionId, object|array|null $session = null, $request = null): bool
+    {
+        $site = $site->fresh();
+        $billing = app(Billing::class);
+        $user = $billing->owner($site);
+        if ($site->status === 'paid' || $site->status === 'published') {
+            // Déjà traité : on s'assure seulement que la facture existe (webhook arrivé après le retour)
+            if ($session) {
+                $billing->recordFromCheckoutSession($session, $site, $plan);
+            }
+
+            return false;
+        }
+        $trialing = $plan === 'pro' && self::trialDays() > 0;
+        $site->update([
+            'status'              => 'paid',
+            'paid_at'             => now(),
+            'published_at'        => now(),
+            'hosting_plan'        => $plan,
+            'subscription_status' => $plan === 'liberte' ? 'lifetime' : ($trialing ? 'trialing' : 'active'),
+            'purchase_type'       => $plan === 'liberte' ? 'one_time' : 'subscription',
+            'user_id'             => $site->user_id ?: $user?->id,
+        ]);
+        if (! $trialing) {
+            $this->credits->onPaid($site->fresh(), $plan);
+        }
+        $invoice = $session ? $billing->recordFromCheckoutSession($session, $site, $plan) : null;
+        if ($user) {
+            app(Accounts::class)->live($user, $site->fresh(), $plan, $invoice);
+        }
+        try {
+            app(MetaConversions::class)->event('Purchase', ['value' => MetaConversions::PRICES[$plan], 'currency' => 'EUR', 'content_ids' => [$plan], 'content_type' => 'product', 'order_id' => (string) $sessionId], $site->owner_email, $site->user_id, 'purchase-'.$sessionId, $request);
+        } catch (\Throwable $e) {
+            Log::info('Tracking Purchase : '.$e->getMessage());
+        }
+
+        return true;
+    }
+
     public function activate(Site $site, string $reason = 'invoice_paid'): void
     {
         $wasActive = $site->subscription_status === 'active';

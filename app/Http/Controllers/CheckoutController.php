@@ -62,7 +62,7 @@ class CheckoutController extends Controller
         // Liberté : paiement unique. Pro : abonnement mensuel avec essai gratuit.
         return $user->withValidStripeCustomer(function () use ($user, $plan, $price, $urls) {
             if ($plan === 'liberte') {
-                return $user->checkout([$price => 1], $urls)->redirect();
+                return $user->checkout([$price => 1], $urls + ['invoice_creation' => ['enabled' => true]])->redirect();
             }
 
             $sub = $user->newSubscription('hosting', $price);
@@ -92,28 +92,11 @@ class CheckoutController extends Controller
 
         $plan = $request->query('plan') === 'liberte' ? 'liberte' : 'pro';
 
-        if ($paid && $site->status !== 'paid') {
-            // Pro avec essai : statut « trialing » jusqu'au 1er paiement (anticipé ou à l'échéance)
-            $trialing = $plan === 'pro' && \App\Services\Subscription::trialDays() > 0;
-            $site->update([
-                'status'              => 'paid',
-                'paid_at'             => now(),
-                'published_at'        => now(),
-                'hosting_plan'        => $plan,
-                'subscription_status' => $plan === 'liberte' ? 'lifetime' : ($trialing ? 'trialing' : 'active'),
-                'purchase_type'       => $plan === 'liberte' ? 'one_time' : 'subscription',
-            ]);
-            // Crédits IA de la formule (Pro : 100 / mois dès le 1er paiement ; Liberté : 100 offerts).
-            // Pendant l'essai, le client garde ses crédits d'aperçu et peut souscrire à tout moment.
-            if (! $trialing) {
-                app(\App\Services\AiCredits::class)->onPaid($site->fresh(), $plan);
+        if ($paid) {
+            app(\App\Services\Subscription::class)->fulfil($site, $plan, $sessionId, $session ?? null, $request);
+            if (($owner = $site->fresh()->user) && ! Auth::check()) {
+                Auth::login($owner);
             }
-            if ($site->user) {
-                Auth::login($site->user);
-                app(\App\Services\Accounts::class)->live($site->user, $site->fresh(), $plan);
-            }
-            // Purchase : valeur de la formule, identifiant de commande = session Stripe (dédoublonnage)
-            app(\App\Services\MetaConversions::class)->event('Purchase', ['value' => \App\Services\MetaConversions::PRICES[$plan], 'currency' => 'EUR', 'content_ids' => [$plan], 'content_type' => 'product', 'order_id' => (string) $sessionId], $site->owner_email, $site->user_id, 'purchase-'.$sessionId, $request);
         }
 
         return Inertia::render('Public/Thanks', [
