@@ -66,7 +66,18 @@ class SiteRenderer
             }
         }
 
+        $brand = \App\Services\LogoStudio::settings($data);
+        if ($brand['logo'] && (! $brand['tone'] || ($data['brand']['tone_for'] ?? null) !== $brand['logo'])) {
+            $brand['tone'] = app(\App\Services\LogoStudio::class)->tone($brand['logo']) ?: 'dark';
+            $data['brand'] = ($data['brand'] ?? []) + [];
+            $data['brand']['tone'] = $brand['tone'];
+            $data['brand']['tone_for'] = $brand['logo'];
+            $site->forceFill(['site_data' => $data])->saveQuietly();
+        }
+        $brand['inline'] = \App\Services\LogoStudio::inline($brand['logo']);
+
         return View::make('generated.site', [
+            'brand'    => $brand,
             'b'        => $data['business'] ?? [],
             'c'        => $data['content'] ?? [],
             'sector'   => $sector,

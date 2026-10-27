@@ -23,6 +23,9 @@ class SiteAgent
 {
     private string $key;
 
+    /** Propositions de logos produites pendant apply() (op logo_ai). */
+    private array $logos = [];
+
     public const EDITABLE = ['content.', 'images.', 'booking.', 'form.', 'pages.', 'business.name', 'business.phone', 'business.address', 'business.email', 'business.opening_hours'];
 
     public function __construct()
@@ -100,7 +103,7 @@ class SiteAgent
             $reply = count($applied) ? 'C\'est fait.' : 'Je n\'ai rien modifié. Précisez ce que vous souhaitez changer ?';
         }
 
-        return ['ops' => $ops, 'applied' => $applied, 'reply' => Str::limit($reply, 600, '…'), 'site_data' => $siteData, 'modules' => $modules];
+        return ['ops' => $ops, 'applied' => $applied, 'reply' => Str::limit($reply, 600, '…'), 'site_data' => $siteData, 'modules' => $modules, 'logos' => $this->logos];
     }
 
     /** Applique les opérations ; renvoie [site_data, modules, libellés des changements]. */
@@ -257,6 +260,18 @@ class SiteAgent
                         }
                         break;
 
+                    case 'brand':
+                        $brand = $d['brand'] ?? [];
+                        if (! empty($op['bg']) && in_array($op['bg'], LogoStudio::BG, true)) { $brand['bg'] = $op['bg']; }
+                        if (! empty($op['size']) && in_array($op['size'], LogoStudio::SIZES, true)) { $brand['size'] = $op['size']; }
+                        foreach (['invert', 'show_name', 'hide'] as $k) { if (array_key_exists($k, $op)) { $brand[$k] = (bool) $op[$k]; } }
+                        $d['brand'] = $brand;
+                        $applied[] = 'Logo : '.(! empty($op['hide']) ? 'retiré' : 'affichage ajusté');
+                        break;
+                    case 'logo_ai':
+                        $this->logos = app(LogoStudio::class)->generate($site, (string) ($op['style'] ?? 'épuré'), (string) ($op['hint'] ?? ''));
+                        if ($this->logos) { $applied[] = count($this->logos).' propositions de logo'; }
+                        break;
                     case 'module':
                         $key = (string) ($op['key'] ?? '');
                         if (array_key_exists($key, config('modules')) && array_key_exists('enabled', $op)) {
@@ -290,6 +305,7 @@ class SiteAgent
             'etablissement' => Arr::only($b, ['name', 'city', 'address', 'phone', 'rating', 'reviews_count', 'opening_hours']),
             'secteur'       => $label,
             'style'         => ['accent' => $d['accent'] ?? config("sectors.$sector.color"), 'font' => $d['font'] ?? null, 'theme' => $d['theme'] ?? null, 'hero_style' => $d['hero_style'] ?? null],
+            'logo'          => LogoStudio::settings($d) + ['present' => ! empty(LogoStudio::settings($d)['logo'])],
             'content'       => $content,
             'images'        => $d['images'] ?? [],
             'photos_disponibles' => $photos,
@@ -326,6 +342,8 @@ OPÉRATIONS DISPONIBLES (champ "op")
 - {"op":"sections","order":["services","gallery",...],"hidden":{"faq":true}} — réorganiser / masquer des sections de l'accueil
 - {"op":"style","accent":"#hex","font":"Playfair Display|Space Grotesk|DM Serif Display|Sora|Poppins|Montserrat|Cormorant Garamond","theme":"light|dark","hero_style":"editorial|split|center"}
 - {"op":"module","key":"whatsapp|bot|reviews|legal|booking|restaurant|rooms|menu|payment|stats","enabled":true}
+- {"op":"brand","bg":"auto|none|light|dark|accent","size":"sm|md|lg","invert":true|false,"show_name":true|false,"hide":true|false} — LOGO de l'en-tête : "bg" = fond derrière le logo (auto = choisi selon la clarté du logo), "invert" = inverse les couleurs d'un logo (blanc ↔ noir), "show_name" = afficher le nom à côté, "hide" = retirer le logo (l'icône du métier le remplace). Un logo blanc invisible sur fond clair → bg "dark" ou invert true. « Logo en double » = le nom apparaît à côté d'un logo qui le contient déjà → show_name false.
+- {"op":"logo_ai","style":"épuré|élégant|moderne|artisanal|chaleureux|premium|ludique","hint":"précisions du client"} — GÉNÈRE 4 propositions de logo vectoriel (2 crédits) ; le client choisit ensuite dans le Studio. À utiliser quand il demande un nouveau logo, un meilleur logo, ou de refaire/générer le logo. Ne jamais tenter de "générer un logo" par une autre opération.
 
 TYPES DE BLOCS (pages)
 {$blocks}

@@ -121,6 +121,85 @@ class SiteEditorController extends Controller
         return response()->json(['url' => route('media.show', [$site->slug, $name])]);
     }
 
+    /** En-tête : logo (import, retrait, logo IA choisi), fond, taille, inversion, nom affiché. */
+    public function brand(Request $request, string $slug, SiteRenderer $renderer)
+    {
+        $site = $this->ownedSite($request, $slug);
+        $data = $request->validate([
+            'file'      => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
+            'logo_url'  => ['nullable', 'string', 'max:300'],
+            'remove'    => ['nullable', 'boolean'],
+            'bg'        => ['nullable', 'in:auto,none,light,dark,accent'],
+            'size'      => ['nullable', 'in:sm,md,lg'],
+            'invert'    => ['nullable', 'boolean'],
+            'show_name' => ['nullable', 'boolean'],
+        ]);
+        $d = $site->site_data ?? [];
+        $brand = $d['brand'] ?? [];
+
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $ext = strtolower($file->extension() ?: 'png');
+            if ($ext === 'svg') {
+                $svg = app(\App\Services\LogoStudio::class)->sanitize((string) file_get_contents($file->getRealPath()), '') ?: null;
+                $svg = $svg ?: preg_replace(['#<script\b[^>]*>.*?</script>#is', '/\son\w+\s*=\s*("[^"]*"|\'[^\']*\')/i'], '', (string) file_get_contents($file->getRealPath()));
+                $name = app(\App\Services\ImageStore::class)->storeSvg($svg, $site->slug, 'logo');
+                abort_unless($name, 422, 'SVG illisible.');
+            } else {
+                $name = 'logo-'.Str::lower(Str::random(8)).'.'.$ext;
+                Storage::disk('local')->putFileAs("uploads/{$site->slug}", $file, $name);
+            }
+            $brand['logo'] = route('media.show', [$site->slug, $name]);
+            $brand['hide'] = false;
+            unset($brand['tone']);
+        }
+        if (! empty($data['logo_url'])) {
+            $prefix = rtrim(route('media.show', [$site->slug, 'x']), 'x');
+            abort_unless(Str::startsWith($data['logo_url'], [$prefix, '/media/'.$site->slug.'/']), 422, 'Logo non reconnu.');
+            $brand['logo'] = $data['logo_url'];
+            $brand['hide'] = false;
+            unset($brand['tone']);
+        }
+        if (! empty($data['remove'])) {
+            $brand['hide'] = true;
+        }
+        foreach (['bg', 'size'] as $k) {
+            if (! empty($data[$k])) {
+                $brand[$k] = $data[$k];
+            }
+        }
+        foreach (['invert', 'show_name'] as $k) {
+            if (array_key_exists($k, $data) && $data[$k] !== null) {
+                $brand[$k] = (bool) $data[$k];
+            }
+        }
+        $d['brand'] = $brand;
+        $site->update(['site_data' => $d]);
+        $pub = ! empty($d['content']) ? $renderer->publish($site) : ['queued' => false];
+
+        return response()->json(['ok' => true, 'brand' => \App\Services\LogoStudio::settings($site->fresh()->site_data ?? []), 'version' => now()->timestamp, 'queued' => $pub['queued']]);
+    }
+
+    /** Logo IA : 4 propositions vectorielles (2 crédits), à choisir dans le Studio. */
+    public function logoAi(Request $request, string $slug, \App\Services\LogoStudio $logos)
+    {
+        $site = $this->ownedSite($request, $slug);
+        $data = $request->validate(['style' => ['nullable', 'string', 'max:30'], 'hint' => ['nullable', 'string', 'max:300']]);
+        @set_time_limit(150);
+        $credits = app(\App\Services\AiCredits::class);
+        $credits->refresh($site);
+        if ($credits->balance($site) < 2) {
+            return response()->json(['error' => 'no_credits', 'message' => 'Il faut 2 crédits IA pour générer des logos.', 'credits' => $credits->state($site)], 402);
+        }
+        $out = $logos->generate($site, $data['style'] ?? 'épuré', $data['hint'] ?? '');
+        if (! $out) {
+            return response()->json(['message' => 'La génération n\'a rien donné cette fois-ci, réessayez dans un instant ou changez de style.'], 503);
+        }
+        $credits->charge($site, 2, ['logo_ai' => count($out), 'style' => $data['style'] ?? 'épuré']);
+
+        return response()->json(['logos' => $out, 'credits' => $credits->state($site)]);
+    }
+
     /** Visibilité / ordre des sections de l'accueil. */
     public function sections(Request $request, string $slug, SiteRenderer $renderer)
     {
@@ -233,6 +312,7 @@ class SiteEditorController extends Controller
         return response()->json([
             'reply'   => $out['reply'],
             'applied' => $out['applied'],
+            'logos'   => $out['logos'] ?? [],
             'cost'    => $cost,
             'undo_id' => $undoId,
             'version' => now()->timestamp,
@@ -429,6 +509,7 @@ class SiteEditorController extends Controller
             'font'     => $d['font'] ?? null,
             'theme'    => $d['theme'] ?? ($cfg['theme'] ?? 'light'),
             'hero_style' => $d['hero_style'] ?? ($cfg['hero'] ?? 'editorial'),
+            'brand'    => \App\Services\LogoStudio::settings($d) + ['source_logo' => $b['logo'] ?? null],
             'modules'  => $site->modules ?: ['booking' => true],
             'module_config' => $this->moduleConfig($site),
             'module_catalog' => collect(config('modules'))->map(fn ($m, $k) => ['key' => $k, 'label' => $m['name'] ?? $k])->values()->all(),

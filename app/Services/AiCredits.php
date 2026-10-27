@@ -42,7 +42,9 @@ class AiCredits
         }
         $pages = count(array_filter($ops, fn ($o) => (($o['op'] ?? $o['type'] ?? '') === 'add_page')));
 
-        return min(5, 1 + $pages); // 1 crédit + 1 par page créée, plafonné
+        $logos = count(array_filter($ops, fn ($o) => (($o['op'] ?? $o['type'] ?? '') === 'logo_ai')));
+
+        return min(5, 1 + $pages + $logos); // 1 crédit + 1 par page créée + 1 par génération de logos, plafonné
     }
 
     /** Renouvelle le quota mensuel (Pro) si la période est écoulée. */

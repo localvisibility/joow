@@ -24,6 +24,18 @@ class ImageStore
         return $name;
     }
 
+    /** Enregistre un SVG déjà assaini (logo généré) et retourne le nom du fichier. */
+    public function storeSvg(string $svg, string $dir, string $prefix = 'logo'): ?string
+    {
+        if (! preg_match('/^\s*<svg\b/i', $svg)) {
+            return null;
+        }
+        $name = $prefix.'-'.Str::lower(Str::random(8)).'-'.time().'.svg';
+        $this->write("uploads/$dir/$name", $svg);
+
+        return $name;
+    }
+
     /** Enregistre des octets d'image (déjà téléchargés) et retourne le nom du fichier, ou null si illisible. */
     public function storeBytes(string $raw, string $dir): ?string
     {

@@ -213,7 +213,13 @@ main{display:flex;flex-direction:column}
 @keyframes glow1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-6%,-8%) scale(1.12)}}
 @keyframes glow2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(8%,6%) scale(1.08)}}
 .hero-glow{animation:glow1 14s ease-in-out infinite}.hero-glow-2{animation:glow2 18s ease-in-out infinite}
-.brand-logo{box-shadow:0 6px 18px -8px rgba(0,0,0,.4)}
+.brand-logo{padding:.2rem .45rem;transition:background .3s}.brand-logo svg{height:100%;width:auto;max-width:14rem;display:block}.brand-invert img,.brand-invert svg{filter:invert(1) hue-rotate(180deg)}
+.brand-bg-light{background:rgba(255,255,255,.92);box-shadow:0 6px 18px -8px rgba(0,0,0,.4)}.brand-bg-dark{background:rgba(15,23,42,.88)}.brand-bg-accent{background:var(--c)}.brand-bg-none{padding:0}
+/* auto : un logo clair reçoit un fond sombre quand la barre devient blanche ; un logo sombre reçoit un fond clair sur le visuel et en thème sombre */
+.brand-bg-auto{padding:0}
+.theme-light #nav.solid .brand-bg-auto[data-tone=light]{background:rgba(15,23,42,.9);padding:.2rem .45rem}
+.brand-bg-auto[data-tone=dark]{background:rgba(255,255,255,.92);padding:.2rem .45rem;box-shadow:0 6px 18px -8px rgba(0,0,0,.4)}
+.theme-light #nav.solid .brand-bg-auto[data-tone=dark]{background:transparent;box-shadow:none;padding:0}
 .stagger>*:nth-child(1){animation-delay:.15s}.stagger>*:nth-child(2){animation-delay:.3s}.stagger>*:nth-child(3){animation-delay:.45s}.stagger>*:nth-child(4){animation-delay:.6s}.stagger>*:nth-child(5){animation-delay:.75s}.stagger>*:nth-child(6){animation-delay:.9s}.stagger>*:nth-child(7){animation-delay:1.05s}
 .shine{position:relative;overflow:hidden}.shine::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s}.shine:hover::after{transform:translateX(120%)}
 .open-pill{display:inline-flex;align-items:center;gap:.5rem;border-radius:9999px;padding:.35rem .8rem;font-size:.8rem;font-weight:600;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px)}
@@ -394,8 +400,9 @@ footer.bg-slate-900{background:#07070b!important}
 <nav id="nav" class="fixed inset-x-0 top-0 z-50 transition-all duration-300">
   <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
     <a href="{{ $home }}#top" class="flex items-center gap-2.5 text-white" id="brand" @if($page) data-page="" @endif>
-      @if(!empty($b['logo']))<img src="{{ $b['logo'] }}" alt="{{ $b['name'] ?? '' }}" class="brand-logo h-10 w-auto max-w-[9rem] rounded-lg bg-white/90 object-contain p-1" decoding="async">@else<span class="grid h-10 w-10 place-items-center rounded-xl text-white bg-grad shadow-c"><i class="fa-solid {{ $icon }}"></i></span>@endif
-      <span class="font-display text-lg font-bold" data-edit="business.name">{{ $b['name'] ?? '' }}</span>
+      @php $brand = $brand ?? \App\Services\LogoStudio::settings(['business' => $b]); $lh = ['sm' => 'h-8', 'md' => 'h-10', 'lg' => 'h-14'][$brand['size']] ?? 'h-10'; $lw = ['sm' => 'max-w-[8rem]', 'md' => 'max-w-[10rem]', 'lg' => 'max-w-[14rem]'][$brand['size']] ?? 'max-w-[10rem]'; @endphp
+      @if(!empty($brand['logo']))<span class="brand-logo brand-bg-{{ $brand['bg'] }} inline-flex items-center rounded-lg {{ $lh }} {{ $brand['invert'] ? 'brand-invert' : '' }}" data-tone="{{ $brand['tone'] ?? 'dark' }}" data-edit-logo>@if(!empty($brand['inline'])){!! $brand['inline'] !!}@else<img src="{{ $brand['logo'] }}" alt="{{ $b['name'] ?? '' }}" class="h-full w-auto {{ $lw }} object-contain" decoding="async">@endif</span>@else<span class="grid h-10 w-10 place-items-center rounded-xl text-white bg-grad shadow-c"><i class="fa-solid {{ $icon }}"></i></span>@endif
+      <span class="font-display text-lg font-bold {{ (!empty($brand['logo']) && empty($brand['show_name'])) ? 'sr-only' : '' }}" data-edit="business.name">{{ $b['name'] ?? '' }}</span>
     </a>
     <div class="hidden items-center gap-6 md:flex" id="links">
       @if($show('services') && count($services))<a href="{{ $home }}#services" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>Services</a>@endif

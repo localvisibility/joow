@@ -254,6 +254,33 @@ const upload = async (ev) => {
     finally { picker.value.uploading = false; ev.target.value = ''; }
 };
 
+/* ───────────── en-tête & logo ───────────── */
+const brand = computed(() => st.value?.brand || {});
+const logoBusy = ref(false);
+const logoPanel = ref(false);
+const logoStyle = ref('épuré');
+const logoHint = ref('');
+const logoProps = ref([]);
+const LOGO_STYLES = ['épuré', 'élégant', 'moderne', 'artisanal', 'chaleureux', 'premium', 'ludique'];
+const saveBrand = async (payload) => {
+    status.value = 'saving';
+    try {
+        let body = payload;
+        if (payload instanceof File) { body = new FormData(); body.append('file', payload); }
+        const d = await postJson(route('sites.editor.brand', slug), body);
+        if (st.value) st.value.brand = { ...(st.value.brand || {}), ...d.brand };
+        status.value = d.queued ? 'queued' : 'saved'; reload(d.version);
+    } catch (e) { status.value = 'error'; alert(e?.message || 'Modification impossible.'); }
+};
+const uploadLogo = (ev) => { const f = ev.target.files?.[0]; if (f) saveBrand(f); ev.target.value = ''; };
+const useLogo = (url) => { saveBrand({ logo_url: url }); logoPanel.value = false; };
+const genLogos = async () => {
+    if (logoBusy.value) return; logoBusy.value = true; logoProps.value = [];
+    try { const d = await postJson(route('sites.editor.logo', slug), { style: logoStyle.value, hint: logoHint.value }); logoProps.value = d.logos || []; if (d.credits && st.value) st.value.credits = d.credits; }
+    catch (e) { alert(e?.message || 'Génération impossible pour le moment.'); }
+    finally { logoBusy.value = false; }
+};
+
 /* ───────────── style ───────────── */
 const palette = ['#4f46e5', '#e11d48', '#0d9488', '#db2777', '#ea580c', '#2563eb', '#7c3aed', '#059669', '#0f172a', '#b45309'];
 const fonts = ['Space Grotesk', 'Sora', 'Manrope', 'Outfit', 'Bricolage Grotesque', 'Poppins', 'Montserrat', 'Playfair Display', 'DM Serif Display', 'Cormorant Garamond', 'Fraunces', 'Lora', 'Libre Baskerville'];
@@ -387,7 +414,7 @@ const send = async (text) => {
     try {
         await flush();
         const d = await postJson(route('sites.editor.chat', slug), { message: msg });
-        messages.value.pop(); const aiMsg = { role: 'ai', text: d.reply || 'C\'est fait ✅', applied: d.applied || [], undo_id: d.undo_id, cost: d.cost || 0 }; messages.value.push(aiMsg);
+        messages.value.pop(); const aiMsg = { role: 'ai', text: d.reply || 'C\'est fait ✅', applied: d.applied || [], undo_id: d.undo_id, cost: d.cost || 0, logos: d.logos || [] }; messages.value.push(aiMsg);
         // Les changements de l'IA deviennent annulables depuis les flèches du haut (Ctrl+Z)
         if (d.undo_id && (d.applied || []).length) { undoStack.value.push({ ai: aiMsg }); redoStack.value = []; }
         if (d.state) { const chat = st.value?.chat; st.value = d.state; if (!d.state.chat && chat) st.value.chat = chat; pagesSnap = clone(d.state.pages || []); }
@@ -502,6 +529,9 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                     <span class="whitespace-pre-line">{{ m.text }}</span>
                                     <div v-if="m.applied?.length" class="mt-2.5 flex flex-wrap gap-1.5">
                                         <span v-for="(a,k) in m.applied" :key="k" class="rounded-md bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">✓ {{ a }}</span>
+                                    </div>
+                                    <div v-if="m.logos?.length" class="mt-3 grid grid-cols-2 gap-2">
+                                        <button v-for="l in m.logos" :key="l.url" type="button" @click="useLogo(l.url)" class="group rounded-xl border border-white/10 bg-white p-2 text-left transition hover:border-brand-400" :title="'Utiliser : ' + l.name"><img :src="l.url" :alt="l.name" class="h-10 w-full object-contain" /><span class="mt-1 block truncate text-[10px] font-semibold text-slate-600 group-hover:text-brand-600">{{ l.name }} · Utiliser</span></button>
                                     </div>
                                     <div v-if="m.undo_id && !m.reverted" class="mt-2 flex items-center gap-3 text-[11px]">
                                         <button @click="revert(m)" class="font-semibold text-slate-400 underline-offset-2 hover:text-white hover:underline">↶ Annuler ces modifications</button>
@@ -828,6 +858,35 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
 
                 <!-- ══ STYLE ══ -->
                 <div v-else-if="st && tab==='style'" class="min-h-0 flex-1 space-y-5 overflow-y-auto p-5">
+                    <div>
+                        <p class="font-display font-bold text-white">En-tête &amp; logo</p>
+                        <p class="mt-1 text-xs text-slate-500">Votre logo tel qu'il apparaît sur le visuel d'accueil et sur la barre blanche.</p>
+                        <div class="mt-3 grid grid-cols-2 gap-2">
+                            <div class="flex h-16 items-center justify-center rounded-xl bg-slate-900 px-3"><img v-if="brand.logo" :src="brand.logo" alt="" class="max-h-10 max-w-full object-contain" :class="brand.invert && 'invert hue-rotate-180'" /><span v-else class="text-xs text-slate-500">Icône du métier</span></div>
+                            <div class="flex h-16 items-center justify-center rounded-xl bg-white px-3"><img v-if="brand.logo" :src="brand.logo" alt="" class="max-h-10 max-w-full object-contain" :class="brand.invert && 'invert hue-rotate-180'" /><span v-else class="text-xs text-slate-400">Icône du métier</span></div>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <label class="cursor-pointer rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-white/25">Importer<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" @change="uploadLogo" /></label>
+                            <button type="button" @click="logoPanel = !logoPanel" class="rounded-xl bg-brand-gradient px-3 py-2 text-xs font-semibold text-white">✨ Logo IA</button>
+                            <button v-if="brand.logo" type="button" @click="saveBrand({ remove: true })" class="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white">Retirer</button>
+                            <button v-else-if="brand.source_logo" type="button" @click="saveBrand({ logo_url: brand.source_logo })" class="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white">Remettre le logo d'origine</button>
+                        </div>
+                        <div v-if="logoPanel" class="mt-3 space-y-2 rounded-xl border border-brand-400/30 bg-brand-500/[0.06] p-3">
+                            <p class="text-xs text-slate-300">L'IA dessine 4 logos vectoriels à partir de votre nom, de votre métier et de votre couleur. <span class="text-slate-500">2 crédits par série.</span></p>
+                            <div class="flex flex-wrap gap-1.5"><button v-for="sty in LOGO_STYLES" :key="sty" type="button" @click="logoStyle = sty" class="rounded-full border px-2.5 py-1 text-[11px] capitalize" :class="logoStyle===sty ? 'border-brand-400 text-white' : 'border-white/10 text-slate-400 hover:text-white'">{{ sty }}</button></div>
+                            <input v-model="logoHint" class="fld" placeholder="Précisions : un burger stylisé, lettres fines, tons dorés…" />
+                            <button type="button" @click="genLogos" :disabled="logoBusy" class="btn-brand w-full !py-2 text-xs">{{ logoBusy ? 'Création en cours (20 à 40 s)…' : 'Générer 4 propositions' }}</button>
+                            <div v-if="logoProps.length" class="grid grid-cols-2 gap-2">
+                                <button v-for="l in logoProps" :key="l.url" type="button" @click="useLogo(l.url)" class="group rounded-xl border border-white/10 bg-white p-2 text-left transition hover:border-brand-400"><img :src="l.url" :alt="l.name" class="h-10 w-full object-contain" /><span class="mt-1 block truncate text-[10px] font-semibold text-slate-600 group-hover:text-brand-600">{{ l.name }} · Utiliser</span></button>
+                            </div>
+                        </div>
+                        <div v-if="brand.logo" class="mt-3 space-y-2">
+                            <div class="flex items-center justify-between gap-2 text-xs text-slate-300"><span>Fond derrière le logo</span><div class="flex gap-1"><button v-for="o in [['auto','Auto'],['none','Aucun'],['light','Clair'],['dark','Sombre'],['accent','Couleur']]" :key="o[0]" type="button" @click="saveBrand({ bg: o[0] })" class="rounded-md border px-2 py-1 text-[11px]" :class="brand.bg===o[0] ? 'border-brand-400 text-white' : 'border-white/10 text-slate-400 hover:text-white'">{{ o[1] }}</button></div></div>
+                            <div class="flex items-center justify-between gap-2 text-xs text-slate-300"><span>Taille</span><div class="flex gap-1"><button v-for="o in [['sm','S'],['md','M'],['lg','L']]" :key="o[0]" type="button" @click="saveBrand({ size: o[0] })" class="rounded-md border px-2.5 py-1 text-[11px]" :class="brand.size===o[0] ? 'border-brand-400 text-white' : 'border-white/10 text-slate-400 hover:text-white'">{{ o[1] }}</button></div></div>
+                            <label class="flex items-center justify-between text-xs text-slate-300">Inverser les couleurs du logo<button type="button" @click="saveBrand({ invert: !brand.invert })" :class="brand.invert ? 'bg-brand-500' : 'bg-white/10'" class="relative h-5 w-9 rounded-full transition"><span :class="brand.invert ? 'translate-x-4' : 'translate-x-0.5'" class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition"></span></button></label>
+                            <label class="flex items-center justify-between text-xs text-slate-300">Afficher le nom à côté du logo<button type="button" @click="saveBrand({ show_name: !brand.show_name })" :class="brand.show_name ? 'bg-brand-500' : 'bg-white/10'" class="relative h-5 w-9 rounded-full transition"><span :class="brand.show_name ? 'translate-x-4' : 'translate-x-0.5'" class="absolute top-0.5 h-4 w-4 rounded-full bg-white transition"></span></button></label>
+                        </div>
+                    </div>
                     <div>
                         <p class="font-display font-bold text-white">Couleur principale</p>
                         <div class="mt-3 flex flex-wrap gap-2">
