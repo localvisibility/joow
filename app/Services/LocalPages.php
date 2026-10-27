@@ -56,7 +56,8 @@ class LocalPages
             '{v1}' => $city['voisines'][$seed % count($city['voisines'])], '{v2}' => $city['voisines'][($seed + 3) % count($city['voisines'])],
             '{metier}' => $noun['sing'], '{Metier}' => mb_convert_case(mb_substr($noun['sing'], 0, 1), MB_CASE_UPPER).mb_substr($noun['sing'], 1), '{metiers}' => $noun['plur'], '{label}' => lcfirst($cfg['label']), '{cta}' => strtolower(trim((string) last(explode('·', $cfg['cta'])))),
         ];
-        $t = fn (string $s) => strtr($s, $v);
+        // Contractions après substitution des quartiers (« de le Vieux-Lyon » → « du Vieux-Lyon »)
+        $t = fn (string $s) => preg_replace(['/\bde le /u', '/\bDe le /u', '/\bde les /u', '/\bDe les /u', '/\bà le /u', '/\bÀ le /u', '/\bà les /u', '/\bÀ les /u'], ['du ', 'Du ', 'des ', 'Des ', 'au ', 'Au ', 'aux ', 'Aux '], strtr($s, $v));
         $S = self::TEXTS[$sector];
 
         // Arguments liés aux traits de la ville (au plus trois), puis argument générique du métier
@@ -72,7 +73,8 @@ class LocalPages
             }
         }
 
-        $searches = array_map($t, array_merge(['{metier} {ville}', '{metier} {q1}', '{metier} {v1}', '{metier} {v2}'], $S['searches']));
+        // Requêtes : sans article devant le quartier (« plombier Vieux-Lyon », pas « plombier le Vieux-Lyon »)
+        $searches = array_map(fn ($q) => preg_replace(["/ (le|la|les) /u", "/ l'/u"], [' ', ' '], $t($q)), array_merge(['{metier} {ville}', '{metier} {q1}', '{metier} {v1}', '{metier} {v2}'], $S['searches']));
 
         return [
             'sector' => $sector, 'cfg' => $cfg, 'city' => $city, 'noun' => $noun,
