@@ -377,9 +377,13 @@ footer.bg-slate-900{background:#07070b!important}
 .joow-img-btn{position:absolute;z-index:30;display:inline-flex;align-items:center;gap:.4rem;background:#fff;color:#0f172a;font:600 12px 'Plus Jakarta Sans',sans-serif;padding:.55rem .8rem;border-radius:999px;box-shadow:0 10px 30px -10px rgba(0,0,0,.6);cursor:pointer;border:0}
 .joow-img-btn:hover{background:#eef2ff}
 @endif
-/* Menu sur fond blanc (après défilement) : liens et survol lisibles, page active soulignée */
-#nav.solid #links a:not(.bg-grad){color:#0f172a !important}
-#nav.solid #links a:not(.bg-grad):hover{color:var(--accent,#334155) !important;opacity:1}
+/* Thème clair : textes secondaires assez contrastés sur blanc (slate-400 → slate-500, 4,6:1) */
+.theme-light .text-slate-400{color:#64748b!important}
+/* Menu après défilement : lisible selon le thème (fond blanc en clair, fond sombre en sombre) */
+.theme-light #nav.solid #links a:not(.bg-grad){color:#0f172a !important}
+.theme-light #nav.solid #links a:not(.bg-grad):hover{color:var(--c,#334155) !important;opacity:1}
+.theme-dark #nav.solid #links a:not(.bg-grad){color:#f1f5f9 !important}
+.theme-dark #nav.solid #links a:not(.bg-grad):hover{color:#fff !important;opacity:1}
 #nav:not(.solid) #links a:not(.bg-grad):hover{color:#fff !important}
 </style>
 </head>

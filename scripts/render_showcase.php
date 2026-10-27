@@ -230,7 +230,10 @@ $scenarios = [
     ],
 ];
 
+$only = getenv('ONLY') ? explode(',', getenv('ONLY')) : null;
+$forceTheme = getenv('THEME') ?: null;
 foreach ($scenarios as $sector => $s) {
+    if ($only && ! in_array($sector, $only, true)) { continue; }
     $cfg = config("sectors.$sector") ?? config('sectors.service');
     $b = [
         'name' => $s['name'], 'city' => $s['city'], 'phone' => $s['phone'], 'address' => $s['address'],
@@ -242,9 +245,9 @@ foreach ($scenarios as $sector => $s) {
         'b' => $b, 'c' => $s['c'], 'sector' => $sector,
         'label' => $cfg['label'], 'color' => $cfg['color'], 'icon' => $cfg['icon'], 'cta' => $cfg['cta'],
         'mapsKey' => '', 'slug' => $sector.'-demo',
-        'design' => ['font' => $cfg['font'] ?? 'Space Grotesk', 'theme' => $cfg['theme'] ?? 'light', 'hero' => $cfg['hero'] ?? 'editorial', 'stock' => $cfg['stock'] ?? []],
+        'design' => ['font' => $cfg['font'] ?? 'Space Grotesk', 'theme' => $forceTheme ?: ($cfg['theme'] ?? 'light'), 'hero' => $cfg['hero'] ?? 'editorial', 'stock' => $cfg['stock'] ?? []],
     ])->render();
-    file_put_contents("$out/$sector.html", $html);
+    file_put_contents("$out/$sector".($forceTheme ? "-$forceTheme" : '').'.html', $html);
     echo "rendered $sector (".strlen($html)." bytes)\n";
 }
 echo "DONE -> $out\n";
