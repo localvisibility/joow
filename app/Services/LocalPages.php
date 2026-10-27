@@ -30,6 +30,26 @@ class LocalPages
         return $c ? self::decorate($c, $slug) : null;
     }
 
+    /** « le Rhône », « les Bouches-du-Rhône », « l'Hérault », « Paris ». */
+    private static function withArticle(array $city): string
+    {
+        $art = $city['dept_art'] ?? 'le';
+
+        return $art === '' ? $city['dept_name'] : ($art === "l'" ? "l'".$city['dept_name'] : $art.' '.$city['dept_name']);
+    }
+
+    /** « du Rhône », « de la Gironde », « de l'Hérault », « des Bouches-du-Rhône », « de Paris ». */
+    private static function ofDept(array $city): string
+    {
+        return match ($city['dept_art'] ?? 'le') {
+            'le' => 'du '.$city['dept_name'],
+            'les' => 'des '.$city['dept_name'],
+            "l'" => "de l'".$city['dept_name'],
+            'la' => 'de la '.$city['dept_name'],
+            default => 'de '.$city['dept_name'],
+        };
+    }
+
     /** Ajoute le slug et la locution « à Lyon » / « au Havre » (article contracté). */
     private static function decorate(array $c, string $slug): array
     {
@@ -51,7 +71,7 @@ class LocalPages
         $noun = self::NOUNS[$sector];
         $v = [
             '{ville}' => $city['name'], '{prep}' => $city['prep'], '{Ville}' => $city['loc'], '{gentile}' => $city['gentile'],
-            '{dept}' => $city['dept_name'], '{region}' => $city['region'], '{pop}' => $city['pop'],
+            '{dept}' => self::withArticle($city), '{du_dept}' => self::ofDept($city), '{region}' => $city['region'], '{pop}' => $city['pop'],
             '{q1}' => $city['quartiers'][$seed % count($city['quartiers'])], '{q2}' => $city['quartiers'][($seed + 2) % count($city['quartiers'])], '{q3}' => $city['quartiers'][($seed + 4) % count($city['quartiers'])],
             '{v1}' => $city['voisines'][$seed % count($city['voisines'])], '{v2}' => $city['voisines'][($seed + 3) % count($city['voisines'])],
             '{metier}' => $noun['sing'], '{Metier}' => mb_convert_case(mb_substr($noun['sing'], 0, 1), MB_CASE_UPPER).mb_substr($noun['sing'], 1), '{metiers}' => $noun['plur'], '{label}' => lcfirst($cfg['label']), '{cta}' => strtolower(trim((string) last(explode('·', $cfg['cta'])))),
@@ -83,7 +103,7 @@ class LocalPages
             'description' => $t($pick(['Créez le site de votre activité de {metier} {Ville} à partir de votre fiche Google : textes, photos, avis et {cta} en ligne. Gratuit jusqu\'à la mise en ligne.', '{Metier} {Ville} ? Générez votre site professionnel en 90 secondes, avec vos avis Google et votre zone ({q1}, {v1}, {v2}). Aperçu gratuit.', 'Un site de {metier} pensé pour {ville} et ses environs : prestations, avis, {cta}, référencement local. Essai gratuit, sans carte bancaire.'])),
             'intro' => $t($pick($S['intro'])),
             'args' => $args,
-            'zone' => $t($pick(['{Ville} et dans l\'agglomération ({pop} habitants), de {q1} à {q2} en passant par {q3}, ainsi que dans les communes voisines : {v1}, {v2} et les autres villes du {dept}.', 'Votre zone couvre {ville} ({pop} habitants) : {q1}, {q2}, {q3}, et s\'étend aux communes proches comme {v1} ou {v2}, dans le {dept}.', 'De {q1} à {q3}, et jusqu\'à {v1} et {v2} : votre site nomme les quartiers de {ville} et les communes du {dept} où vous intervenez réellement.'])),
+            'zone' => $t($pick(['{Ville} et dans l\'agglomération ({pop} habitants), de {q1} à {q2} en passant par {q3}, ainsi que dans les communes voisines : {v1}, {v2} et les autres villes {du_dept}.', 'Votre zone couvre {ville} ({pop} habitants) : {q1}, {q2}, {q3}, et s\'étend aux communes proches comme {v1} ou {v2}, dans {dept}.', 'De {q1} à {q3}, et jusqu\'à {v1} et {v2} : votre site nomme les quartiers de {ville} et les communes {du_dept} où vous intervenez réellement.'])),
             'searches' => $searches,
             'faq' => array_map(fn ($qa) => ['q' => $t($qa[0]), 'a' => $t($qa[1])], array_merge($S['faq'], self::COMMON_FAQ)),
             'closing' => $t($pick(['Les {gentile} vous cherchent sur Google. Votre site peut exister avant ce soir.', 'Tapez votre nom, regardez le résultat : votre site de {metier} {Ville} en 90 secondes.', 'Gratuit jusqu\'à la mise en ligne, sans carte bancaire. Commencez par votre fiche Google.'])),
