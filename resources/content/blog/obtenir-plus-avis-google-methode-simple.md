@@ -3,6 +3,7 @@ title: Obtenir plus d'avis Google : la méthode qui marche vraiment
 description: Pas de triche, pas d'achat d'avis. Une routine de deux minutes, le bon moment, le bon canal, et une réponse à chaque avis.
 date: 2026-09-30
 category: Visibilité locale
+sectors: restaurant, coiffeur, automobile, plombier, commerce
 ---
 
 Les avis sont le premier critère de choix pour un commerce local, avant le prix et avant la distance. Et pourtant, la plupart des professionnels n'en demandent jamais. Voici une méthode simple, honnête, et qui donne des résultats en quelques semaines.

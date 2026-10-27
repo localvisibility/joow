@@ -3,6 +3,7 @@ title: Nom de domaine : .fr ou .com, et comment bien le choisir
 description: Le nom de domaine est votre adresse pour des années. Les règles simples pour le choisir, le protéger, et ne jamais le perdre.
 date: 2026-09-01
 category: Conseils
+sectors: service, commerce, artisan
 ---
 
 Votre site est prêt sur une adresse joow.fr, et vous voulez la vôtre : votre-nom.fr. Bonne idée, c'est un signe de sérieux et c'est ce que vos clients retiennent. Voici comment choisir sans se tromper.

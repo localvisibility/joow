@@ -3,6 +3,7 @@ title: Fiche Google Business : 10 optimisations qui font la différence
 description: Votre fiche Google est votre première vitrine. Dix réglages concrets, de dix minutes chacun, pour être mieux placé et plus appelé.
 date: 2026-10-14
 category: Visibilité locale
+sectors: restaurant, commerce, artisan, coiffeur
 ---
 
 Avant même votre site, c'est votre **fiche Google Business Profile** que vos clients voient : dans Maps, dans les résultats de recherche, sur leur téléphone en marchant. Une fiche bien tenue vous amène des appels. Une fiche négligée en fait perdre. Voici dix optimisations, par ordre d'impact.

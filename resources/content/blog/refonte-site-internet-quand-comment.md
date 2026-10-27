@@ -3,6 +3,7 @@ title: Refonte de site internet : quand la faire, et comment ne pas tout perdre
 description: Les cinq signes qu'il est temps, ce qu'il faut absolument conserver, et comment refaire un site en gardant ce qui marchait.
 date: 2026-09-22
 category: Refonte
+sectors: service, agence_web, commerce, hebergement
 ---
 
 Un site vieillit plus vite qu'une devanture. Ce qui était moderne en 2018 paraît daté en 2026, et surtout, les usages ont changé : huit visiteurs sur dix viennent d'un téléphone. Voici comment savoir s'il est temps, et comment refaire sans casser.

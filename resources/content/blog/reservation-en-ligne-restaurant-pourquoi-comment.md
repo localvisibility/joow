@@ -3,6 +3,7 @@ title: Réservation en ligne pour un restaurant : pourquoi, comment, et sans com
 description: Les plateformes prennent jusqu'à 2 € par couvert. Un module de réservation sur votre propre site fait le même travail, gratuitement, et garde vos clients chez vous.
 date: 2026-09-15
 category: Restauration
+sectors: restaurant, bar, hebergement, traiteur
 ---
 
 Vous connaissez la scène : le téléphone sonne pendant le service, personne ne décroche, le client réserve ailleurs. Ou il réserve via une plateforme qui vous prélève une commission et garde ses coordonnées. La réservation en ligne sur votre propre site règle les deux problèmes.

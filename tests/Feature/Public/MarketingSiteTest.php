@@ -46,6 +46,12 @@ class MarketingSiteTest extends TestCase
         $this->get('https://joow.fr/blog')->assertOk()->assertSee('Fiche Google Business');
         $this->get('https://joow.fr/blog/fiche-google-business-10-optimisations')->assertOk()->assertSee('"@type":"Article"', false)->assertSee('<h2>1. La catégorie principale, exacte</h2>', false);
         $this->get('https://joow.fr/blog/inexistant')->assertNotFound();
+        // Maillage : page métier → articles du métier ; article → modèles de sites ; filtre par catégorie
+        $this->get('https://joow.fr/site-internet/coiffeur')->assertSee('Articles pour votre métier')->assertSee('Site internet pour coiffeur');
+        $this->get('https://joow.fr/blog/site-internet-coiffeur-ce-quil-doit-contenir')->assertSee('Modèles de sites pour ces métiers')->assertSee('/site-internet/barbier', false)->assertSee('À lire ensuite');
+        $this->get('https://joow.fr/blog?categorie=Juridique')->assertOk()->assertSee('Mentions légales d')->assertDontSee('Combien coûte un site internet');
+        $this->get('https://joow.fr/blog?categorie=Inconnue')->assertNotFound();
+        $this->assertGreaterThanOrEqual(40, count(app(\App\Services\Content::class)->posts()));
     }
 
     public function test_sitemap_lists_pages_sectors_and_posts(): void

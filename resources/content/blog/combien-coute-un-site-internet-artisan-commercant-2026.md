@@ -3,6 +3,7 @@ title: Combien coûte un site internet pour un artisan ou un commerçant en 2026
 description: Agence, freelance, éditeur en ligne ou IA : les vrais prix d'un site professionnel, les coûts cachés, et ce qui vaut vraiment la peine d'être payé.
 date: 2026-10-20
 category: Budget
+sectors: artisan, commerce, service
 ---
 
 La question arrive toujours en premier, et la réponse honnête est : **de 0 € à 5 000 €, pour des résultats parfois identiques**. Ce qui change, ce n'est pas tant la qualité du site que ce que vous payez : du temps humain, du logiciel, ou votre propre temps.

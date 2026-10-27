@@ -73,8 +73,10 @@ class MarketingController extends Controller
         $services = $this->servicesFromBrief($cfg['brief'] ?? '');
         $related = collect(config('sectors'))->except([$key, 'service'])->filter(fn ($c) => $this->family($c) === $family)->take(6)->map(fn ($c, $k) => $c + ['key' => $k])->all();
 
+        $posts = app(Content::class)->forSector($key, array_keys($related));
+
         return view('marketing.pages.sector', [
-            'key' => $key, 'cfg' => $cfg, 'family' => config("marketing.families.$family"), 'services' => $services, 'related' => $related,
+            'key' => $key, 'cfg' => $cfg, 'family' => config("marketing.families.$family"), 'services' => $services, 'related' => $related, 'posts' => $posts,
             'seo' => ['title' => 'Site internet pour '.lcfirst($cfg['label']).' : créé par IA en 90 secondes — Joow', 'description' => 'Créez le site de votre activité ('.lcfirst($cfg['label']).') à partir de votre fiche Google : textes, photos, avis, '.strtolower($cfg['cta']).' en ligne. Gratuit jusqu\'à la mise en ligne.'],
         ]);
     }
@@ -97,8 +99,12 @@ class MarketingController extends Controller
 
     public function blog(Content $content)
     {
+        $category = (string) request()->query('categorie', '');
+        $posts = $category !== '' ? array_values(array_filter($content->posts(), fn ($p) => $p['category'] === $category)) : $content->posts();
+        abort_if($category !== '' && ! $posts, 404);
+
         return view('marketing.pages.blog', [
-            'posts' => $content->posts(),
+            'posts' => $posts, 'categories' => $content->categories(), 'category' => $category,
             'seo' => ['title' => 'Blog — Conseils pour la visibilité des commerces et artisans', 'description' => 'Site internet, fiche Google, avis, réservation en ligne, nom de domaine : des conseils concrets pour être trouvé et choisi par vos clients.'],
         ]);
     }
@@ -107,9 +113,10 @@ class MarketingController extends Controller
     {
         $post = $content->post($slug);
         abort_unless($post, 404);
-        $more = collect($content->posts())->where('slug', '!=', $slug)->take(3)->all();
+        $more = $content->related($post);
+        $sectors = collect($post['sectors'])->filter(fn ($k) => $k !== 'service' && config("sectors.$k"))->map(fn ($k) => ['key' => $k, 'label' => config("sectors.$k.label")])->values()->all();
 
-        return view('marketing.pages.post', ['post' => $post, 'more' => $more, 'seo' => ['title' => $post['title'].' — Blog Joow', 'description' => $post['description'], 'type' => 'article', 'image' => $post['cover']]]);
+        return view('marketing.pages.post', ['post' => $post, 'more' => $more, 'sectors' => $sectors, 'seo' => ['title' => $post['title'].' — Blog Joow', 'description' => $post['description'], 'type' => 'article', 'image' => $post['cover']]]);
     }
 
     public function faq()

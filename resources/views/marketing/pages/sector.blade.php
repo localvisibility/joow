@@ -48,6 +48,9 @@
     </div>
 </section>
 
+@if(count($posts))
+<section class="mx-auto max-w-7xl px-5 py-16"><div class="flex items-end justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[0.3em] text-brand-400">Conseils</p><h2 class="mt-2 font-display text-3xl font-bold text-white">Articles pour votre métier</h2></div><a href="{{ route('marketing.blog') }}" class="hidden text-sm font-semibold text-brand-400 hover:text-white sm:block">Tout le blog →</a></div><div class="stagger mt-8 grid gap-5 md:grid-cols-3">@foreach($posts as $p)@include('marketing.partials.post-card', ['p' => $p])@endforeach</div></section>
+@endif
 @if(count($related))
 <section class="mx-auto max-w-7xl px-5 py-10"><p class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Métiers proches</p><div class="mt-4 flex flex-wrap gap-2">@foreach($related as $r)<a href="{{ route('marketing.sector', $r['key']) }}" class="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300 hover:border-brand-400/60 hover:text-white">{{ $r['label'] }}</a>@endforeach</div></section>
 @endif

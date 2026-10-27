@@ -3,6 +3,7 @@ title: Les 7 éléments indispensables d'un site de petite entreprise
 description: Pas besoin de vingt pages. Mais ces sept éléments, dans cet ordre, sont ceux que vos clients cherchent et que Google attend.
 date: 2026-09-08
 category: Conseils
+sectors: service, artisan, commerce
 ---
 
 On nous demande souvent « combien de pages faut-il ? ». Mauvaise question. La bonne : **que cherche un client qui arrive sur mon site, et en combien de secondes le trouve-t-il ?** Voici les sept éléments qui répondent à cette question, pour n'importe quel commerce, artisan ou indépendant.

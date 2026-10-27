@@ -3,6 +3,7 @@ title: Site internet ou page Facebook / Instagram : lequel pour mon activité ?
 description: Les réseaux sociaux ne remplacent pas un site, et un site ne remplace pas les réseaux. Ce que chacun fait bien, et comment les faire travailler ensemble.
 date: 2026-10-07
 category: Stratégie
+sectors: commerce, restaurant, beaute, loisirs
 ---
 
 « J'ai déjà ma page Facebook, pourquoi un site ? » Nous entendons la question chaque semaine. Elle est légitime : une page se crée en dix minutes, gratuitement, et vos clients y sont déjà. Mais elle ne fait pas le même travail.
