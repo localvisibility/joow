@@ -7,6 +7,7 @@ use App\Models\Site;
 use App\Services\Domains\DomainManager;
 use App\Services\Domains\HostingerClient;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -86,10 +87,25 @@ class DomainsController extends Controller
         if ($t = $this->trialEndsAt($site)) {
             abort(422, 'Le domaine inclus sera disponible à la fin de votre essai gratuit, le '.$t->format('d/m/Y').'. En attendant, vous pouvez connecter un domaine que vous possédez déjà.');
         }
+        abort_if(in_array($site->subscription_status, ['past_due', 'canceled', 'unpaid'], true), 422, 'Votre abonnement doit être à jour pour commander le domaine inclus.');
         abort_unless($this->domainIncluded($site), 422, 'Un domaine a déjà été commandé pour ce site.');
         $data = $request->validate(['domain' => ['required', 'string', 'max:120']]);
 
-        $domain = $dm->normalize($data['domain']);
+        // Un seul achat à la fois par site : un double clic ou deux onglets ne commandent jamais deux domaines
+        $lock = Cache::lock("joow:domain-order:{$site->id}", 120);
+        abort_unless($lock->get(), 409, 'Une commande de domaine est déjà en cours pour ce site.');
+        try {
+            return $this->placeOrder($request, $site, $data['domain'], $dm, $hostinger);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function placeOrder(Request $request, Site $site, string $input, DomainManager $dm, HostingerClient $hostinger)
+    {
+        $slug = $site->slug;
+        abort_unless($this->domainIncluded($site->fresh()), 422, 'Un domaine a déjà été commandé pour ce site.');
+        $domain = $dm->normalize($input);
         abort_unless($domain, 422, 'Nom de domaine invalide.');
 
         $tld = substr(strrchr($domain, '.'), 1);
@@ -100,16 +116,21 @@ class DomainsController extends Controller
         $avail = collect($hostinger->search(substr($domain, 0, -strlen($tld) - 1), [$tld]))->firstWhere('domain', $domain);
         abort_unless($avail && $avail['available'], 422, 'Ce domaine n\'est plus disponible.');
 
+        // Le domaine inclus est réservé AVANT l'achat : en cas d'échec réseau ambigu, aucun second achat n'est possible
+        $req = DomainRequest::create(['site_id' => $site->id, 'site_slug' => $slug, 'domain' => $domain, 'type' => 'order', 'status' => 'in_progress', 'contact_email' => $request->user()->email, 'notes' => 'Commande en cours']);
         try {
             $order = $hostinger->purchase($domain, $price['item_id']);
         } catch (\Throwable $e) {
             Log::error("Achat domaine $domain : ".$e->getMessage());
+            // Refus explicite d'Hostinger (4xx) : rien n'a été acheté, le client peut réessayer. Sinon on garde la réservation et on vérifie à la main.
+            $refused = method_exists($e, 'getCode') && $e->getCode() >= 400 && $e->getCode() < 500;
+            $req->update(['status' => $refused ? 'failed' : 'in_progress', 'notes' => ($refused ? 'Refusé : ' : 'À vérifier (réponse incertaine) : ').\Illuminate\Support\Str::limit($e->getMessage(), 200)]);
 
-            return response()->json(['error' => 'L\'achat n\'a pas pu être finalisé. Aucun montant n\'a été prélevé de votre côté ; réessayez ou contactez-nous.'], 502);
+            return response()->json(['error' => $refused ? 'L\'achat a été refusé par le registre. Rien n\'a été prélevé ; essayez un autre nom.' : 'La commande est en cours de vérification. Nous revenons vers vous rapidement, inutile de recommencer.'], 502);
         }
 
         $dm->attach($site, $domain, 'hostinger', ['domain_order_id' => (string) ($order['id'] ?? ''), 'domain_expires_at' => now()->addYear()]);
-        DomainRequest::create(['site_id' => $site->id, 'site_slug' => $slug, 'domain' => $domain, 'type' => 'order', 'status' => 'in_progress', 'contact_email' => $request->user()->email, 'notes' => 'Hostinger order '.($order['id'] ?? '?').' · '.($order['status'] ?? '')]);
+        $req->update(['notes' => 'Hostinger order '.($order['id'] ?? '?').' · '.($order['status'] ?? '')]);
 
         // Pointage DNS (la zone existe dès l'achat chez Hostinger ; réessayé par le sync si trop tôt)
         if ($ip = $dm->serverIp()) {
@@ -168,6 +189,8 @@ class DomainsController extends Controller
     private function domainIncluded(Site $site): bool
     {
         return in_array($site->status, ['paid', 'published'], true)
+            // abonnement réellement payé : Pro actif ou Liberté ; pas d'impayé, pas de résiliation
+            && in_array($site->subscription_status ?: ($site->hosting_plan === 'liberte' ? 'lifetime' : 'active'), ['active', 'lifetime'], true)
             && $this->trialEndsAt($site) === null
             && ! DomainRequest::where('site_slug', $site->slug)->where('type', 'order')->whereIn('status', ['in_progress', 'active'])->exists();
     }
