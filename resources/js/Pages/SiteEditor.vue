@@ -907,7 +907,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     <div>
                         <p class="font-display font-bold text-white">Mise en page du haut de page</p>
                         <div class="mt-3 grid grid-cols-3 gap-2">
-                            <button v-for="h in [['editorial','Éditorial'],['split','Deux colonnes'],['center','Centré']]" :key="h[0]" @click="setHeroStyle(h[0])" class="rounded-xl border px-2 py-2.5 text-xs transition" :class="st.hero_style===h[0] ? 'border-brand-400 bg-brand-500/10 text-white' : 'border-white/10 text-slate-300 hover:border-white/25'">{{ h[1] }}</button>
+                            <button v-for="h in [['editorial','Éditorial'],['split','Deux colonnes'],['center','Centré'],['bright','Lumineux'],['poster','Affiche']]" :key="h[0]" @click="setHeroStyle(h[0])" class="rounded-xl border px-2 py-2.5 text-xs transition" :class="st.hero_style===h[0] ? 'border-brand-400 bg-brand-500/10 text-white' : 'border-white/10 text-slate-300 hover:border-white/25'">{{ h[1] }}</button>
                         </div>
                     </div>
                     <div>

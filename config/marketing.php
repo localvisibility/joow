@@ -92,12 +92,16 @@ return [
     ],
 
     'examples' => [
-        ['sector' => 'restaurant', 'name' => 'La Table d\'Émile', 'city' => 'Lyon', 'img' => '/showcase/restaurant.webp', 'full' => '/showcase/restaurant-full.webp', 'mobile' => '/showcase/restaurant-mobile.webp'],
-        ['sector' => 'beaute', 'name' => 'Institut Léa', 'city' => 'Bordeaux', 'img' => '/showcase/beaute.webp', 'full' => '/showcase/beaute-full.webp', 'mobile' => '/showcase/beaute-mobile.webp'],
-        ['sector' => 'renovation', 'name' => 'Rénov\'Habitat', 'city' => 'Toulouse', 'img' => '/showcase/renovation.webp', 'full' => '/showcase/renovation-full.webp', 'mobile' => '/showcase/renovation-mobile.webp'],
-        ['sector' => 'sante', 'name' => 'Cabinet Dr Morel', 'city' => 'Nantes', 'img' => '/showcase/sante.webp', 'full' => '/showcase/sante-full.webp', 'mobile' => '/showcase/sante-mobile.webp'],
-        ['sector' => 'immobilier', 'name' => 'Agence Horizon', 'city' => 'Lille', 'img' => '/showcase/immobilier.webp', 'full' => '/showcase/immobilier-full.webp', 'mobile' => '/showcase/immobilier-mobile.webp'],
-        ['sector' => 'hebergement', 'name' => 'Le Clos des Vignes', 'city' => 'Beaune', 'img' => '/showcase/hebergement.webp', 'full' => '/showcase/hebergement-full.webp', 'mobile' => '/showcase/hebergement-mobile.webp'],
+        ['sector' => 'boulangerie', 'name' => 'Maison Fournil', 'city' => 'Annecy', 'img' => '/showcase/boulangerie.webp', 'full' => '/showcase/boulangerie-full.webp', 'mobile' => '/showcase/boulangerie-mobile.webp'],
+        ['sector' => 'fleuriste', 'name' => 'Atelier Pétale', 'city' => 'Paris 11e', 'img' => '/showcase/fleuriste.webp', 'full' => '/showcase/fleuriste-full.webp', 'mobile' => '/showcase/fleuriste-mobile.webp'],
+        ['sector' => 'barbier', 'name' => 'Barbier du Port', 'city' => 'Marseille', 'img' => '/showcase/barbier.webp', 'full' => '/showcase/barbier-full.webp', 'mobile' => '/showcase/barbier-mobile.webp'],
+        ['sector' => 'sport', 'name' => 'Forge Athletic', 'city' => 'Lille', 'img' => '/showcase/sport.webp', 'full' => '/showcase/sport-full.webp', 'mobile' => '/showcase/sport-mobile.webp'],
+        ['sector' => 'architecte', 'name' => 'Atelier Nord', 'city' => 'Nantes', 'img' => '/showcase/architecte.webp', 'full' => '/showcase/architecte-full.webp', 'mobile' => '/showcase/architecte-mobile.webp'],
+        ['sector' => 'dentiste', 'name' => 'Cabinet Lumière', 'city' => 'Lyon 6e', 'img' => '/showcase/dentiste.webp', 'full' => '/showcase/dentiste-full.webp', 'mobile' => '/showcase/dentiste-mobile.webp'],
+        ['sector' => 'caviste', 'name' => 'La Cave Sauvage', 'city' => 'Bordeaux', 'img' => '/showcase/caviste.webp', 'full' => '/showcase/caviste-full.webp', 'mobile' => '/showcase/caviste-mobile.webp'],
+        ['sector' => 'paysagiste', 'name' => 'Vert d’Eau Paysage', 'city' => 'Toulouse', 'img' => '/showcase/paysagiste.webp', 'full' => '/showcase/paysagiste-full.webp', 'mobile' => '/showcase/paysagiste-mobile.webp'],
+        ['sector' => 'restaurant', 'name' => 'La Table d’Émile', 'city' => 'Lyon', 'img' => '/showcase/restaurant.webp', 'full' => '/showcase/restaurant-full.webp', 'mobile' => '/showcase/restaurant-mobile.webp'],
+        ['sector' => 'hebergement', 'name' => 'Villa Belrose', 'city' => 'Saint-Tropez', 'img' => '/showcase/hebergement.webp', 'full' => '/showcase/hebergement-full.webp', 'mobile' => '/showcase/hebergement-mobile.webp'],
     ],
 
     // Argumentaires par famille de métiers (pages « Site internet pour … »)

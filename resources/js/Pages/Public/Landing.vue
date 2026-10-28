@@ -85,15 +85,19 @@ const stopTypewriter = () => { twStopped.value = true; clearTimeout(twTimer); };
 
 /* ───────────────────────── Vitrine ───────────────────────── */
 const showcase = [
-    { key: 'restaurant', img: '/showcase/restaurant.webp', full: '/showcase/restaurant-full.webp', mobile: '/showcase/restaurant-mobile.webp', name: "La Table d'Émile", city: 'Lyon', sector: 'Restaurant', domain: 'latabledemile', tags: ['Réservation de table', 'Carte & QR code', 'Avis Google'] },
-    { key: 'beaute', img: '/showcase/beaute.webp', full: '/showcase/beaute-full.webp', mobile: '/showcase/beaute-mobile.webp', name: 'Studio Éclat', city: 'Paris', sector: 'Beauté', domain: 'studio-eclat', tags: ['Prise de RDV', 'WhatsApp', 'Galerie'] },
-    { key: 'renovation', img: '/showcase/renovation.webp', full: '/showcase/renovation-full.webp', mobile: '/showcase/renovation-mobile.webp', name: 'ProRénov Bâtiment', city: 'Bordeaux', sector: 'Rénovation', domain: 'prorenov', tags: ['Devis multi-étapes', 'Avant / après', 'Zone d\'intervention'] },
-    { key: 'immobilier', img: '/showcase/immobilier.webp', full: '/showcase/immobilier-full.webp', mobile: '/showcase/immobilier-mobile.webp', name: 'Horizon Immobilier', city: 'Aix-en-Provence', sector: 'Immobilier', domain: 'horizon-immo', tags: ['Estimation en ligne', 'Avis Google', 'Assistant IA'] },
-    { key: 'sante', img: '/showcase/sante.webp', full: '/showcase/sante-full.webp', mobile: '/showcase/sante-mobile.webp', name: 'Ostéo Concorde', city: 'Nantes', sector: 'Santé', domain: 'osteo-concorde', tags: ['Prise de RDV', 'FAQ patients', 'Horaires en direct'] },
-    { key: 'hebergement', img: '/showcase/hebergement.webp', full: '/showcase/hebergement-full.webp', mobile: '/showcase/hebergement-mobile.webp', name: 'Villa Belrose', city: 'Saint-Tropez', sector: 'Hôtellerie', domain: 'villa-belrose', tags: ['Chambres & séjours', 'Acompte Stripe', 'Sync Airbnb / Booking'] },
+    { key: 'boulangerie', img: '/showcase/boulangerie.webp', full: '/showcase/boulangerie-full.webp', mobile: '/showcase/boulangerie-mobile.webp', name: 'Maison Fournil', city: 'Annecy', sector: 'Boulangerie', domain: 'maison-fournil', tags: ['Commande en ligne', 'Gâteaux sur mesure', 'Avis Google'] },
+    { key: 'fleuriste', img: '/showcase/fleuriste.webp', full: '/showcase/fleuriste-full.webp', mobile: '/showcase/fleuriste-mobile.webp', name: 'Atelier Pétale', city: 'Paris 11e', sector: 'Fleuriste', domain: 'atelier-petale', tags: ['Livraison le jour même', 'Abonnement floral', 'Mariages'] },
+    { key: 'barbier', img: '/showcase/barbier.webp', full: '/showcase/barbier-full.webp', mobile: '/showcase/barbier-mobile.webp', name: 'Barbier du Port', city: 'Marseille', sector: 'Barbier', domain: 'barbier-du-port', tags: ['Réservation 7j/7', 'Rasage à l’ancienne', '945 avis'] },
+    { key: 'sport', img: '/showcase/sport.webp', full: '/showcase/sport-full.webp', mobile: '/showcase/sport-mobile.webp', name: 'Forge Athletic', city: 'Lille', sector: 'Salle de sport', domain: 'forge-athletic', tags: ['Séance d’essai offerte', 'Planning des cours', 'Coaching'] },
+    { key: 'architecte', img: '/showcase/architecte.webp', full: '/showcase/architecte-full.webp', mobile: '/showcase/architecte-mobile.webp', name: 'Atelier Nord', city: 'Nantes', sector: 'Architecte', domain: 'atelier-nord', tags: ['Projets avant / après', 'Rendu 3D', 'Prise de RDV'] },
+    { key: 'dentiste', img: '/showcase/dentiste.webp', full: '/showcase/dentiste-full.webp', mobile: '/showcase/dentiste-mobile.webp', name: 'Cabinet Lumière', city: 'Lyon 6e', sector: 'Dentiste', domain: 'cabinet-lumiere', tags: ['RDV en ligne 24h/24', 'Urgences', 'Tiers payant'] },
+    { key: 'caviste', img: '/showcase/caviste.webp', full: '/showcase/caviste-full.webp', mobile: '/showcase/caviste-mobile.webp', name: 'La Cave Sauvage', city: 'Bordeaux', sector: 'Cave à vins', domain: 'cave-sauvage', tags: ['Dégustations', 'Click & collect', 'Bar à vins'] },
+    { key: 'paysagiste', img: '/showcase/paysagiste.webp', full: '/showcase/paysagiste-full.webp', mobile: '/showcase/paysagiste-mobile.webp', name: 'Vert d’Eau Paysage', city: 'Toulouse', sector: 'Paysagiste', domain: 'vert-deau', tags: ['Devis avec photo', 'Crédit d’impôt 50 %', 'Avant / après'] },
+    { key: 'restaurant', img: '/showcase/restaurant.webp', full: '/showcase/restaurant-full.webp', mobile: '/showcase/restaurant-mobile.webp', name: 'La Table d’Émile', city: 'Lyon', sector: 'Restaurant', domain: 'latabledemile', tags: ['Réservation de table', 'Carte & QR code', 'Avis Google'] },
+    { key: 'hebergement', img: '/showcase/hebergement.webp', full: '/showcase/hebergement-full.webp', mobile: '/showcase/hebergement-mobile.webp', name: 'Villa Belrose', city: 'Saint-Tropez', sector: 'Maison d’hôtes', domain: 'villa-belrose', tags: ['Réservation directe', 'Acompte Stripe', 'Sync Airbnb / Booking'] },
 ];
 const rowA = [...showcase, ...showcase];
-const rowB = [...[...showcase].reverse(), ...[...showcase].reverse()];
+const rowB = [...[...showcase.slice(5), ...showcase.slice(0, 5)].reverse(), ...[...showcase.slice(5), ...showcase.slice(0, 5)].reverse()];
 const lightbox = ref(null);
 
 /* Scène du hero : rotation automatique des secteurs */

@@ -13,7 +13,7 @@
     // ── Système de design sectoriel ──
     $design    = $design ?? [];
     $theme     = ($design['theme'] ?? 'light') === 'dark' ? 'dark' : 'light';
-    $heroStyle = in_array($design['hero'] ?? '', ['editorial', 'split', 'center'], true) ? $design['hero'] : 'editorial';
+    $heroStyle = in_array($design['hero'] ?? '', ['editorial', 'split', 'center', 'bright', 'poster'], true) ? $design['hero'] : 'editorial';
     $stock     = array_values(array_filter($design['stock'] ?? []));
     // ── Photos : celles de la fiche Google (déjà triées paysage/HD), complétées par la banque sectorielle ──
     $photos   = array_values(array_filter($b['photos'] ?? []));
@@ -383,6 +383,14 @@ footer.bg-slate-900{background:#07070b!important}
 .joow-img-btn{position:absolute;z-index:30;display:inline-flex;align-items:center;gap:.4rem;background:#fff;color:#0f172a;font:600 12px 'Plus Jakarta Sans',sans-serif;padding:.55rem .8rem;border-radius:999px;box-shadow:0 10px 30px -10px rgba(0,0,0,.6);cursor:pointer;border:0}
 .joow-img-btn:hover{background:#eef2ff}
 @endif
+.hero-bright{background:linear-gradient(180deg,color-mix(in srgb,var(--c) 7%,#fff) 0%,#fff 100%)}
+.theme-dark .hero-bright{background:linear-gradient(180deg,color-mix(in srgb,var(--c) 14%,#0b0b10) 0%,#0b0b10 100%)}
+.theme-dark .hero-bright img.border-white{border-color:#12121a}
+body:has(.hero-poster) #nav:not(.solid) #links a.bg-grad{background:#fff!important;color:#0f172a!important;box-shadow:0 10px 30px -10px rgba(0,0,0,.35)}
+body:has(.hero-poster) #nav:not(.solid) #brand .bg-grad{background:rgba(255,255,255,.2)!important;box-shadow:none}
+.theme-light #nav.solid #nav-phone{background:var(--c);color:#fff}
+footer .accent,footer a.accent{color:color-mix(in srgb,var(--c) 45%,#fff)!important}
+.open-pill-light{background:#fff!important;color:#0f172a!important;border:1px solid rgba(15,23,42,.08)}
 /* Thème clair : textes secondaires assez contrastés sur blanc (slate-400 → slate-500, 4,6:1) */
 .theme-light .text-slate-400{color:#64748b!important}
 /* Menu après défilement : lisible selon le thème (fond blanc en clair, fond sombre en sombre) */
@@ -413,7 +421,7 @@ footer.bg-slate-900{background:#07070b!important}
       @foreach(array_slice($navPages, 0, 5) as $np)<a href="/{{ $np['slug'] }}/" data-page="{{ $np['slug'] }}" class="text-sm font-semibold transition hover:text-white {{ $page && $page['slug'] === $np['slug'] ? 'text-white underline decoration-2 underline-offset-8' : 'text-white/90' }}">{{ $np['title'] }}</a>@endforeach
       <a href="{{ $ctaHref }}" class="rounded-xl bg-grad px-5 py-2.5 text-sm font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="content.cta_label">{{ $ctaLabel }}</span></a>
     </div>
-    @if($phoneHref)<a href="{{ $phoneHref }}" class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white backdrop-blur md:hidden"><i class="fa-solid fa-phone"></i></a>@endif
+    @if($phoneHref)<a href="{{ $phoneHref }}" id="nav-phone" aria-label="Appeler" class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white backdrop-blur md:hidden"><i class="fa-solid fa-phone"></i></a>@endif
   </div>
 </nav>
 
@@ -422,6 +430,91 @@ footer.bg-slate-900{background:#07070b!important}
 @include('generated.partials.page')
 @else
 <!-- HERO ({{ $heroStyle }}) -->
+@php $hoursJson = json_encode(array_values($hours), JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT); @endphp
+@if($heroStyle === 'bright')
+@php $third = $gallery[0] ?? $second; @endphp
+<header id="top" class="hero-bright relative overflow-hidden" data-section="hero" data-label="Accueil">
+  <div class="pointer-events-none absolute -right-40 -top-40 h-[36rem] w-[36rem] rounded-full blur-3xl" style="background:var(--c);opacity:.10"></div>
+  <div class="pointer-events-none absolute -bottom-48 -left-32 h-[30rem] w-[30rem] rounded-full blur-3xl" style="background:var(--grad);opacity:.10"></div>
+  <div class="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-5 pb-16 pt-28 sm:pt-36 lg:min-h-[92svh] lg:grid-cols-[1.05fr,.95fr] lg:pb-24">
+    <div class="stagger">
+      <div class="mb-6 flex flex-wrap items-center gap-2">
+        @if(!empty($b['rating']))
+        <div class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm">
+          <span class="text-amber-500">{{ $stars($b['rating']) }}</span><span class="font-semibold text-slate-900">{{ $b['rating'] }}/5</span><span class="text-slate-500">· {{ $b['reviews_count'] ?? 0 }} avis Google</span>
+        </div>
+        @endif
+        @if(count($hours))<span class="open-pill open-pill-light" id="open-pill" data-hours="{{ $hoursJson }}" style="display:none"><span class="open-dot"></span><span></span></span>@endif
+      </div>
+      <p class="mb-4 text-sm font-bold uppercase tracking-[0.3em] accent" data-edit="content.tagline">{{ $t('tagline', $label) }}</p>
+      <h1 class="font-display font-bold text-slate-900 {{ $serif ? 'text-[3rem] leading-[0.98] sm:text-[5.2rem]' : 'text-[2.7rem] leading-[1.02] sm:text-7xl' }}" data-edit="content.hero_title">{{ $t('hero_title', $b['name'] ?? '') }}</h1>
+      <p class="mt-6 max-w-xl text-lg leading-relaxed text-slate-600" data-edit="content.hero_subtitle">{{ $t('hero_subtitle', $tagline) }}</p>
+      <div class="mt-9 flex flex-wrap gap-3">
+        <a href="{{ $ctaHref }}" class="group shine rounded-2xl bg-grad px-7 py-4 font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="content.cta_label">{{ $ctaLabel }}</span> <i class="fa-solid fa-arrow-right ml-1 transition group-hover:translate-x-1"></i></a>
+        @if($phoneHref)<a href="{{ $phoneHref }}" class="rounded-2xl border-2 border-slate-900/10 bg-white px-7 py-4 font-bold text-slate-900 transition hover:border-slate-900/25"><i class="fa-solid fa-phone mr-2 accent"></i><span data-edit="business.phone">{{ $b['phone'] }}</span></a>@endif
+      </div>
+      @if($badges)
+      <div class="mt-9 flex flex-wrap gap-2">
+        @foreach(array_slice($badges,0,4) as $bi => $bd)<span class="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-sm font-medium text-slate-700 shadow-sm ring-1 ring-slate-900/5"><i class="fa-solid fa-circle-check accent"></i><span data-edit="content.badges.{{ $bi }}">{{ $bd }}</span></span>@endforeach
+      </div>
+      @endif
+    </div>
+    <div class="reveal on relative mx-auto w-full max-w-[34rem]">
+      <div class="relative">
+        <img src="{{ $hero }}" class="hero-img aspect-[4/5] w-full rounded-[2.2rem] object-cover shadow-2xl" alt="{{ $b['name'] ?? '' }}" fetchpriority="high" decoding="async" onload="this.classList.add('ready')" @if($editMode) data-edit-img="images.hero" @endif>
+        <img src="{{ $second }}" class="absolute -bottom-10 -left-8 hidden w-[44%] rounded-[1.6rem] border-[6px] border-white object-cover shadow-2xl sm:block aspect-square" alt="" loading="eager" decoding="async" @if($editMode) data-edit-img="images.about" @endif>
+        @if(!empty($b['rating']))
+        <div class="floaty absolute -right-4 top-8 rounded-2xl bg-white px-4 py-3 text-slate-900 shadow-2xl ring-1 ring-slate-900/5">
+          <p class="text-amber-500">{{ $stars($b['rating']) }}</p>
+          <p class="font-display text-2xl font-bold">{{ $b['rating'] }}<span class="text-sm font-medium text-slate-500">/5</span></p>
+          <p class="text-xs text-slate-500">{{ $b['reviews_count'] ?? 0 }} avis Google</p>
+        </div>
+        @endif
+        @if(count($stats))
+        <div class="absolute -bottom-6 right-6 rounded-2xl bg-grad px-5 py-3 text-white shadow-c">
+          <p class="font-display text-2xl font-bold" data-edit="content.stats.0.v">{{ $stats[0]['v'] }}</p><p class="text-xs text-white/80" data-edit="content.stats.0.l">{{ $stats[0]['l'] }}</p>
+        </div>
+        @endif
+      </div>
+      @if($editMode)<button type="button" class="joow-img-btn" style="right:1rem;top:1rem" data-edit-img="images.hero"><i class="fa-solid fa-image"></i> Changer la photo</button>@endif
+    </div>
+  </div>
+</header>
+@elseif($heroStyle === 'poster')
+@php $strip = array_values(array_unique(array_filter([$hero, $second, $gallery[0] ?? null, $gallery[1] ?? null]))); @endphp
+<header id="top" class="hero-poster relative overflow-hidden text-white" data-section="hero" data-label="Accueil" style="background:var(--grad)">
+  <div class="grain absolute inset-0 opacity-60"></div>
+  <div class="pointer-events-none absolute -right-24 top-24 h-[30rem] w-[30rem] rounded-full border-[70px] border-white/10"></div>
+  <div class="relative mx-auto w-full max-w-6xl px-5 pb-14 pt-32 sm:pt-40">
+    <div class="stagger">
+      <div class="mb-6 flex flex-wrap items-center gap-2">
+        @if(!empty($b['rating']))<div class="inline-flex items-center gap-2 rounded-full bg-black/20 px-4 py-2 text-sm backdrop-blur"><span class="text-amber-300">{{ $stars($b['rating']) }}</span><span class="font-semibold">{{ $b['rating'] }}/5</span><span class="text-white/75">· {{ $b['reviews_count'] ?? 0 }} avis Google</span></div>@endif
+        @if(count($hours))<span class="open-pill" id="open-pill" data-hours="{{ $hoursJson }}" style="display:none"><span class="open-dot"></span><span></span></span>@endif
+      </div>
+      <p class="mb-4 text-sm font-bold uppercase tracking-[0.35em] text-white/80" data-edit="content.tagline">{{ $t('tagline', $label) }}</p>
+      <h1 class="max-w-5xl font-display font-bold {{ $serif ? 'text-[3.2rem] leading-[0.95] sm:text-[6.5rem]' : 'text-[3rem] leading-[0.95] tracking-tight sm:text-[6.2rem]' }}" data-edit="content.hero_title">{{ $t('hero_title', $b['name'] ?? '') }}</h1>
+      <div class="mt-8 grid gap-8 lg:grid-cols-[1fr,auto] lg:items-end">
+        <p class="max-w-xl text-lg leading-relaxed text-white/85 sm:text-xl" data-edit="content.hero_subtitle">{{ $t('hero_subtitle', $tagline) }}</p>
+        <div class="flex flex-wrap gap-3">
+          <a href="{{ $ctaHref }}" class="group rounded-2xl bg-white px-7 py-4 font-bold text-slate-900 shadow-2xl transition hover:-translate-y-0.5"><span data-edit="content.cta_label">{{ $ctaLabel }}</span> <i class="fa-solid fa-arrow-right ml-1 transition group-hover:translate-x-1"></i></a>
+          @if($phoneHref)<a href="{{ $phoneHref }}" class="rounded-2xl border-2 border-white/40 px-7 py-4 font-bold text-white transition hover:bg-white/10"><i class="fa-solid fa-phone mr-2"></i><span data-edit="business.phone">{{ $b['phone'] }}</span></a>@endif
+        </div>
+      </div>
+    </div>
+    <div class="reveal on mt-12 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+      @foreach(array_slice($strip, 0, 4) as $si => $src)
+      <img src="{{ $src }}" class="{{ $si === 0 ? 'hero-img' : '' }} aspect-[3/4] w-full rounded-[1.6rem] object-cover shadow-2xl ring-1 ring-white/20 {{ $si % 2 ? 'sm:translate-y-8' : '' }} {{ $si > 1 ? 'hidden sm:block' : '' }}" alt="" decoding="async" @if($si === 0) fetchpriority="high" onload="this.classList.add('ready')" @endif @if($editMode && $si === 0) data-edit-img="images.hero" @elseif($editMode && $si === 1) data-edit-img="images.about" @endif>
+      @endforeach
+    </div>
+    @if($badges)
+    <div class="mt-14 flex flex-wrap gap-x-7 gap-y-3">
+      @foreach(array_slice($badges,0,4) as $bi => $bd)<span class="flex items-center gap-2 text-sm font-medium text-white/90"><i class="fa-solid fa-circle-check"></i><span data-edit="content.badges.{{ $bi }}">{{ $bd }}</span></span>@endforeach
+    </div>
+    @endif
+  </div>
+</header>
+@else
+
 @php $heroLq = $lqip($hero); $hoursJson = json_encode(array_values($hours), JSON_UNESCAPED_UNICODE | JSON_HEX_APOS | JSON_HEX_QUOT); @endphp
 <header id="top" class="relative flex min-h-[100svh] items-center overflow-hidden" data-section="hero" data-label="Accueil">
   <div class="absolute inset-0 overflow-hidden">
@@ -515,6 +608,7 @@ footer.bg-slate-900{background:#07070b!important}
 
   <a href="#services" class="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/50 transition hover:text-white"><i class="fa-solid fa-chevron-down animate-bounce"></i></a>
 </header>
+@endif
 
 <!-- BANDEAU DE CONFIANCE DÉFILANT -->
 @php
@@ -810,7 +904,8 @@ footer.bg-slate-900{background:#07070b!important}
 
 <script>
 const nav=document.getElementById('nav'),brand=document.getElementById('brand'),hero=document.getElementById('heroimg');
-const onScroll=()=>{const s=scrollY>40;
+const lightHero=document.querySelector('.hero-bright')&&document.documentElement.classList.contains('theme-light');
+const onScroll=()=>{const s=lightHero||scrollY>40;
   nav.classList.toggle('solid',s);nav.classList.toggle('bg-white/95',s);nav.classList.toggle('backdrop-blur-lg',s);nav.classList.toggle('shadow-lg',s);
   brand.classList.toggle('text-slate-900',s);brand.classList.toggle('text-white',!s);
   document.querySelectorAll('#links a:not(.bg-grad)').forEach(a=>{a.classList.toggle('text-slate-700',s);a.classList.toggle('text-white/90',!s)});

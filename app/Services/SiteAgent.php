@@ -254,7 +254,7 @@ class SiteAgent
                             $d['theme'] = $op['theme'];
                             $applied[] = 'Thème '.($op['theme'] === 'dark' ? 'sombre' : 'clair');
                         }
-                        if (! empty($op['hero_style']) && in_array($op['hero_style'], ['editorial', 'split', 'center'], true)) {
+                        if (! empty($op['hero_style']) && in_array($op['hero_style'], ['editorial', 'split', 'center', 'bright', 'poster'], true)) {
                             $d['hero_style'] = $op['hero_style'];
                             $applied[] = 'Mise en page du hero : '.$op['hero_style'];
                         }
@@ -340,7 +340,7 @@ OPÉRATIONS DISPONIBLES (champ "op")
 - {"op":"remove_block","page":"slug","index":0}
 - {"op":"move_block","page":"slug","from":0,"to":2}
 - {"op":"sections","order":["services","gallery",...],"hidden":{"faq":true}} — réorganiser / masquer des sections de l'accueil
-- {"op":"style","accent":"#hex","font":"Playfair Display|Space Grotesk|DM Serif Display|Sora|Poppins|Montserrat|Cormorant Garamond","theme":"light|dark","hero_style":"editorial|split|center"}
+- {"op":"style","accent":"#hex","font":"Playfair Display|Space Grotesk|DM Serif Display|Sora|Poppins|Montserrat|Cormorant Garamond","theme":"light|dark","hero_style":"editorial|split|center|bright|poster"} (bright = en-tête clair lumineux avec collage photo, poster = grande typographie sur fond de couleur avec bande de photos)
 - {"op":"module","key":"whatsapp|bot|reviews|legal|booking|restaurant|rooms|menu|payment|stats","enabled":true}
 - {"op":"brand","bg":"auto|none|light|dark|accent","size":"sm|md|lg","invert":true|false,"show_name":true|false,"hide":true|false} — LOGO de l'en-tête : "bg" = fond derrière le logo (auto = choisi selon la clarté du logo), "invert" = inverse les couleurs d'un logo (blanc ↔ noir), "show_name" = afficher le nom à côté, "hide" = retirer le logo (l'icône du métier le remplace). Un logo blanc invisible sur fond clair → bg "dark" ou invert true. « Logo en double » = le nom apparaît à côté d'un logo qui le contient déjà → show_name false.
 - {"op":"logo_ai","style":"épuré|élégant|moderne|artisanal|chaleureux|premium|ludique","hint":"précisions du client"} — GÉNÈRE 4 propositions de logo vectoriel (2 crédits) ; le client choisit ensuite dans le Studio. À utiliser quand il demande un nouveau logo, un meilleur logo, ou de refaire/générer le logo. Ne jamais tenter de "générer un logo" par une autre opération.

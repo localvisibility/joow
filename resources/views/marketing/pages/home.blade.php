@@ -74,7 +74,7 @@
         <p class="reveal mt-4 text-lg text-slate-400">Chaque métier a son modèle : typographie, couleurs, sections et modules pensés pour ce que cherchent ses clients.</p>
     </div>
     <div class="stagger mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        @foreach($examples as $e)
+        @foreach(array_slice($examples, 0, 6) as $e)
         <a href="{{ route('marketing.sector', $e['sector']) }}" class="reveal group block"><div class="tilt browser"><div class="browser-bar"><i class="bg-rose-400/70"></i><i class="bg-amber-400/70"></i><i class="bg-emerald-400/70"></i><span class="ml-2 truncate rounded-md bg-white/5 px-2 py-0.5 text-[11px] text-slate-400">{{ \Illuminate\Support\Str::slug($e['name']) }}.joow.fr</span></div><div class="relative aspect-[16/10] overflow-hidden"><img src="{{ $e['img'] }}" alt="Site {{ $e['name'] }}" class="h-full w-full object-cover object-top transition duration-700 group-hover:scale-[1.03]" width="1280" height="800" loading="lazy"></div></div><p class="mt-3 font-semibold text-white">{{ $e['name'] }} <span class="font-normal text-slate-500">· {{ config("sectors.{$e['sector']}.label") }}, {{ $e['city'] }}</span></p></a>
         @endforeach
     </div>

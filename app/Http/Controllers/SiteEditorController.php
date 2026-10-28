@@ -234,7 +234,7 @@ class SiteEditorController extends Controller
             'accent'     => ['nullable', 'regex:/^#?[0-9a-fA-F]{6}$/'],
             'font'       => ['nullable', 'string', 'max:40'],
             'theme'      => ['nullable', 'in:light,dark'],
-            'hero_style' => ['nullable', 'in:editorial,split,center'],
+            'hero_style' => ['nullable', 'in:editorial,split,center,bright,poster'],
         ]);
 
         $siteData = $site->site_data ?? [];
