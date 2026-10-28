@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const out = process.env.OUT;
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', proxy: { server: process.env.HTTPS_PROXY }, args: ['--ignore-certificate-errors'] });
+const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, ignoreHTTPSErrors: true });
+await ctx.addCookies([{ name: 'joow_consent', value: 'essential', domain: 'app.joow.fr', path: '/' }]);
+const p = await ctx.newPage();
+await p.goto('https://app.joow.fr/', { waitUntil: 'networkidle', timeout: 60000 });
+const el = p.locator('text=Voir le mien en 90 secondes').first();
+await el.scrollIntoViewIfNeeded(); await p.evaluate(() => window.scrollBy(0, -620)); await p.waitForTimeout(2500);
+await p.screenshot({ path: `${out}/live-landing-showcase.png` });
+await b.close();

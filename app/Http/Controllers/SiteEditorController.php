@@ -205,6 +205,69 @@ class SiteEditorController extends Controller
         return response()->json(['logos' => $out, 'credits' => $credits->state($site)]);
     }
 
+    /** Banque d'images : recherche intelligente selon le métier et l'emplacement de la photo. */
+    public function bank(Request $request, string $slug, \App\Services\StockPhotos $stock)
+    {
+        $site = $this->ownedSite($request, $slug);
+        $data = $request->validate(['q' => ['nullable', 'string', 'max:120'], 'path' => ['nullable', 'string', 'max:120']]);
+        $d = $site->site_data ?? [];
+        $sector = config('sectors.'.($site->sector ?: 'service'));
+        $path = (string) ($data['path'] ?? '');
+        [$place, $subject] = $this->photoContext($d, $path, $sector['label'] ?? 'Commerce');
+        $smart = $stock->smartQueries($sector['label'] ?? 'Commerce', $place, $subject, trim((string) ($data['q'] ?? '')));
+        $orientation = Str::contains($path, ['about', 'team']) ? 'portrait' : 'landscape';
+        $results = array_map(fn ($r) => Arr::only($r, ['url', 'thumb', 'alt', 'credit', 'provider', 'download']), $stock->library($smart['queries'], 12, $orientation));
+
+        return response()->json(['results' => array_slice($results, 0, 30), 'query_fr' => $smart['query_fr'], 'suggestions' => $smart['suggestions']]);
+    }
+
+    /** Photo choisie dans la banque : copiée sur Joow (rapide, pérenne), utilisation signalée à Unsplash, crédit conservé. */
+    public function bankUse(Request $request, string $slug, \App\Services\StockPhotos $stock, \App\Services\ImageStore $images)
+    {
+        $site = $this->ownedSite($request, $slug);
+        $data = $request->validate(['url' => ['required', 'url', 'max:600'], 'download' => ['nullable', 'url', 'max:600'], 'credit' => ['nullable', 'string', 'max:300']]);
+        $host = strtolower((string) parse_url($data['url'], PHP_URL_HOST));
+        $allowed = ['images.unsplash.com', 'images.pexels.com', 'cdn.pixabay.com', 'pixabay.com', 'live.staticflickr.com', 'upload.wikimedia.org', 'images.rawpixel.com', 'cdn.stocksnap.io'];
+        abort_unless(Str::startsWith($data['url'], 'https://') && in_array($host, $allowed, true), 422, 'Source d\'image non autorisée.');
+        $local = $images->mirror([$data['url']], $site->slug, 1)[$data['url']] ?? null;
+        abort_unless($local, 502, 'Impossible de récupérer cette photo, essayez-en une autre.');
+        $stock->trackUse($data['download'] ?? null);
+        if (! empty($data['credit'])) {
+            $d = $site->site_data ?? [];
+            $d['photo_credits'][md5($local)] = ['url' => $local, 'credit' => $data['credit']];
+            $site->update(['site_data' => $d]);
+        }
+
+        return response()->json(['url' => $local]);
+    }
+
+    /** Emplacement et sujet d'une photo d'après son chemin d'édition. */
+    private function photoContext(array $d, string $path, string $label): array
+    {
+        $c = $d['content'] ?? [];
+        if (preg_match('/services\.(\d+)/', $path, $m)) {
+            $svc = $c['services'][(int) $m[1]] ?? [];
+
+            return ['illustration d\'une prestation', trim(($svc['name'] ?? '').' '.($svc['desc'] ?? '')) ?: $label];
+        }
+        if (Str::contains($path, 'hero')) {
+            return ['grande photo d\'accueil en haut du site', trim(($c['hero_title'] ?? '').' — '.($c['tagline'] ?? $label))];
+        }
+        if (Str::contains($path, 'about')) {
+            return ['photo de la section « à propos » (lieu, équipe, savoir-faire)', Str::limit((string) ($c['about_p1'] ?? $label), 160)];
+        }
+        if (Str::contains($path, 'gallery')) {
+            return ['photo de galerie (ambiance, réalisations, produits)', $label];
+        }
+        if (preg_match('/pages\.(\d+)/', $path, $m)) {
+            $pg = $d['pages'][(int) $m[1]] ?? [];
+
+            return ['photo de la page « '.($pg['title'] ?? 'interne').' »', (string) ($pg['hero']['title'] ?? $pg['title'] ?? $label)];
+        }
+
+        return ['photo du site', $label];
+    }
+
     /** Visibilité / ordre des sections de l'accueil. */
     public function sections(Request $request, string $slug, SiteRenderer $renderer)
     {

@@ -227,6 +227,66 @@ TXT;
         return [];
     }
 
+    /** Banque d'images du Studio : plusieurs requêtes fusionnées, sans doublon. */
+    public function library(array $queries, int $per = 12, string $orientation = 'landscape'): array
+    {
+        $out = [];
+        foreach (array_slice(array_values(array_filter(array_map('trim', $queries))), 0, 3) as $q) {
+            foreach ($this->search($q, $per, $orientation) as $r) {
+                $out[$r['url']] ??= $r + ['query' => $q];
+            }
+        }
+
+        return array_values($out);
+    }
+
+    /**
+     * Recherche intelligente : la demande (en français, souvent vague) et le contexte (métier, ville,
+     * emplacement de la photo, prestation concernée) deviennent 3 requêtes précises en anglais,
+     * plus des suggestions en français. Sans demande : propose d'emblée la photo idéale pour l'emplacement.
+     *
+     * @return array{queries: string[], query_fr: string, suggestions: string[]}
+     */
+    public function smartQueries(string $sectorLabel, string $place, string $subject, string $userQuery): array
+    {
+        $fallback = ['queries' => array_values(array_filter([$userQuery ?: null, $subject ?: null, $sectorLabel])), 'query_fr' => $userQuery ?: $subject, 'suggestions' => []];
+        if (! Gemini::enabled()) {
+            return $fallback;
+        }
+        $key = 'joow:stock:smart:'.md5("$sectorLabel|$place|$subject|$userQuery");
+
+        return Cache::remember($key, now()->addDays(7), function () use ($sectorLabel, $place, $subject, $userQuery, $fallback) {
+            $ask = $userQuery !== '' ? "Demande du client : « {$userQuery} »." : 'Le client n\'a encore rien tapé : propose la photo idéale pour cet emplacement.';
+            $prompt = <<<TXT
+Tu aides un commerçant à choisir une photo de banque d'images (Unsplash, Pexels) pour son site.
+Métier : {$sectorLabel}. Emplacement de la photo : {$place}. Sujet de la section : {$subject}.
+{$ask}
+Réponds UNIQUEMENT en JSON :
+{"queries": ["3 requêtes de recherche EN ANGLAIS, 2 à 5 mots, concrètes et visuelles (ce qu'on voit sur la photo), de la plus fidèle à la plus large"],
+ "query_fr": "la demande reformulée en 2 à 6 mots en français",
+ "suggestions": ["5 idées de photos alternatives en français, 2 à 4 mots chacune, adaptées au métier et à l'emplacement"]}
+TXT;
+            try {
+                $res = Gemini::generate(['contents' => [['parts' => [['text' => $prompt]]]], 'generationConfig' => ['temperature' => 0.4, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 300, 'thinkingConfig' => ['thinkingBudget' => 0]]], 15, 'StockPhotos smart', fast: true);
+                $d = json_decode(Gemini::text($res), true);
+                $clean = fn ($a, $n) => array_slice(array_values(array_filter(array_map(fn ($x) => Str::limit(trim((string) $x), 60, ''), (array) $a))), 0, $n);
+                $q = $clean($d['queries'] ?? [], 3);
+
+                return $q ? ['queries' => $q, 'query_fr' => Str::limit(trim((string) ($d['query_fr'] ?? $userQuery)), 60, ''), 'suggestions' => $clean($d['suggestions'] ?? [], 5)] : $fallback;
+            } catch (\Throwable) {
+                return $fallback;
+            }
+        });
+    }
+
+    /** Signale l'utilisation d'une photo Unsplash (obligation de l'API). */
+    public function trackUse(?string $downloadLocation): void
+    {
+        if ($downloadLocation && Str::startsWith($downloadLocation, 'https://api.unsplash.com/') && config('services.stock.unsplash')) {
+            $this->notifyUses([$downloadLocation]);
+        }
+    }
+
     /** L'IA regarde les candidates (vignettes) et choisit la plus juste pour le sujet. */
     private function pick(array $cands, string $subject, string $sectorLabel): array
     {

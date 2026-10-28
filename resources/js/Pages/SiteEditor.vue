@@ -2,6 +2,7 @@
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import BrandLogo from '@/Components/BrandLogo.vue';
+import Icon from '@/Components/Icon.vue';
 
 const props = defineProps({ site: Object, plans: Object });
 const slug = props.site.slug;
@@ -232,7 +233,26 @@ const blockPath = (j) => `pages.${pageIndex.value}.blocks.${j}`;
 const scrollBlock = (j) => { openBlock.value = j; post({ type: 'scrollTo', id: j === -2 ? 'phero' : 'block-' + j }); };
 
 /* ───────────── images ───────────── */
-const openPicker = (path, current = '') => { picker.value = { open: true, path, current, tab: 'upload', url: '', uploading: false }; };
+const openPicker = (path, current = '') => { picker.value = { open: true, path, current, tab: 'upload', url: '', uploading: false }; openBank(); };
+/* Banque d'images : recherche intelligente (français → mots-clés, métier, emplacement) */
+const bank = ref({ q: '', results: [], suggestions: [], loading: false, searched: false, using: null });
+const searchBank = async (initial = false) => {
+    bank.value.loading = true; bank.value.searched = true;
+    try {
+        const qs = new URLSearchParams({ q: initial ? '' : bank.value.q, path: picker.value.path || '' });
+        const r = await fetch(route('sites.editor.bank', slug) + '?' + qs, { headers: headers() });
+        const d = await r.json();
+        bank.value.results = d.results || []; bank.value.suggestions = d.suggestions || [];
+        if (initial && d.query_fr && !bank.value.q) bank.value.q = d.query_fr;
+    } catch { bank.value.results = []; } finally { bank.value.loading = false; }
+};
+const openBank = () => { picker.value.tab = 'bank'; if (!bank.value.searched || bank.value.path !== picker.value.path) { bank.value = { q: '', results: [], suggestions: [], loading: false, searched: false, using: null, path: picker.value.path }; searchBank(true); } };
+const useBankPhoto = async (r, i) => {
+    bank.value.using = i;
+    try { const d = await postJson(route('sites.editor.bank.use', slug), { url: r.url, download: r.download || null, credit: r.credit || null }); applyImage(d.url); }
+    catch (e) { alert(e?.message || 'Impossible d\'ajouter cette photo.'); }
+    finally { bank.value.using = null; }
+};
 const applyImage = (url) => {
     const p = picker.value.path;
     if (p.startsWith('images.gallery.')) {
@@ -504,7 +524,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     <span class="mx-auto block h-1.5 w-12 rounded-full bg-white/20"></span>
                 </div>
                 <div class="flex items-center justify-between px-4 pb-1 pt-2 lg:hidden">
-                    <p class="text-sm font-bold text-white">{{ ({ia:'✨ Assistant IA', contenu:'✏️ Contenu', pages:'📄 Pages', style:'🎨 Style', modules:'⚙️ Modules'})[tab] }}</p>
+                    <p class="flex items-center gap-2 text-sm font-bold text-white"><Icon :name="({ia:'sparkles', contenu:'pencil', pages:'file', style:'palette', modules:'blocks'})[tab]" :size="16" />{{ ({ia:'Assistant IA', contenu:'Contenu', pages:'Pages', style:'Style', modules:'Modules'})[tab] }}</p>
                     <div class="flex items-center gap-2">
                         <button @click="undo" :disabled="!undoStack.length" class="rounded-lg bg-white/5 px-2 py-1 text-sm text-slate-300 disabled:opacity-30">↶</button>
                         <button @click="redo" :disabled="!redoStack.length" class="rounded-lg bg-white/5 px-2 py-1 text-sm text-slate-300 disabled:opacity-30">↷</button>
@@ -512,7 +532,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     </div>
                 </div>
                 <div class="hidden gap-1 border-b border-white/[0.06] p-2 text-sm font-semibold lg:flex">
-                    <button v-for="t in [['ia','✨ IA'],['contenu','✏️ Contenu'],['pages','📄 Pages'],['style','🎨 Style'],['modules','⚙️ Modules']]" :key="t[0]" @click="tab=t[0]" class="flex-1 rounded-lg px-1.5 py-2 transition" :class="tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'">{{ t[1] }}</button>
+                    <button v-for="t in [['ia','sparkles','IA'],['contenu','pencil','Contenu'],['pages','file','Pages'],['style','palette','Style'],['modules','blocks','Modules']]" :key="t[0]" @click="tab=t[0]" class="flex flex-1 flex-col items-center gap-1 rounded-lg px-1.5 py-2 text-[11px] font-semibold transition" :class="tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'"><Icon :name="t[1]" :size="18" />{{ t[2] }}</button>
                 </div>
 
                 <div v-if="loading" class="p-6 text-sm text-slate-400">Chargement…</div>
@@ -828,7 +848,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     </div>
                     <div class="p-4">
                         <button @click="modal='blocktype'" class="w-full rounded-xl border border-dashed border-white/15 py-3 text-sm font-semibold text-slate-300 hover:border-brand-400 hover:text-white">+ Ajouter un bloc</button>
-                        <button @click="tab='ia'; input=`Enrichis la page « ${page.title} » : `" class="mt-2 w-full rounded-xl bg-brand-500/10 py-2.5 text-xs font-semibold text-brand-300 hover:bg-brand-500/20">✨ Demander à l'IA de compléter cette page</button>
+                        <button @click="tab='ia'; input=`Enrichis la page « ${page.title} » : `" class="mt-2 w-full rounded-xl bg-brand-500/10 py-2.5 text-xs font-semibold text-brand-300 hover:bg-brand-500/20"><span class="inline-flex items-center gap-1.5"><Icon name="sparkles" :size="14" />Demander à l'IA de compléter cette page</span></button>
                     </div>
                 </div>
 
@@ -843,7 +863,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                             <button @click="curPage=''; tab='contenu'" class="text-xs font-semibold text-brand-400">Ouvrir</button>
                         </div>
                         <div v-for="(p,i) in pages" :key="p.slug" class="flex items-center gap-3 rounded-xl border px-3 py-2.5" :class="curPage===p.slug ? 'border-brand-500/50 bg-brand-500/[0.08]' : 'border-white/[0.08] bg-white/[0.03]'">
-                            <span class="grid h-8 w-8 place-items-center rounded-lg bg-white/10 text-sm">📄</span>
+                            <span class="grid h-8 w-8 place-items-center rounded-lg bg-white/10 text-slate-300"><Icon name="file" :size="16" /></span>
                             <div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-white">{{ p.title }}</p><p class="truncate text-[11px] text-slate-500">/{{ p.slug }}/ · {{ p.blocks.length }} bloc{{ p.blocks.length>1?'s':'' }}{{ p.nav ? '' : ' · hors menu' }}</p></div>
                             <button @click="movePage(i,-1)" class="text-xs text-slate-500 hover:text-white">▲</button>
                             <button @click="movePage(i,1)" class="text-xs text-slate-500 hover:text-white">▼</button>
@@ -867,7 +887,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                         </div>
                         <div class="mt-2 flex flex-wrap gap-2">
                             <label class="cursor-pointer rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-white/25">Importer<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" class="hidden" @change="uploadLogo" /></label>
-                            <button type="button" @click="logoPanel = !logoPanel" class="rounded-xl bg-brand-gradient px-3 py-2 text-xs font-semibold text-white">✨ Logo IA</button>
+                            <button type="button" @click="logoPanel = !logoPanel" class="inline-flex items-center gap-1.5 rounded-xl bg-brand-gradient px-3 py-2 text-xs font-semibold text-white"><Icon name="sparkles" :size="14" />Logo IA</button>
                             <button v-if="brand.logo" type="button" @click="saveBrand({ remove: true })" class="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white">Retirer</button>
                             <button v-else-if="brand.source_logo" type="button" @click="saveBrand({ logo_url: brand.source_logo })" class="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-400 hover:text-white">Remettre le logo d'origine</button>
                         </div>
@@ -972,8 +992,8 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
 
             <!-- ─── BARRE D'OUTILS MOBILE ─── -->
             <nav class="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/[0.08] bg-ink-900/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-                <button v-for="t in [['ia','✨','IA'],['contenu','✏️','Contenu'],['pages','📄','Pages'],['style','🎨','Style'],['modules','⚙️','Modules']]" :key="t[0]" @click="openTab(t[0])" class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition" :class="sheet && tab===t[0] ? 'text-white' : 'text-slate-400'">
-                    <span class="text-lg leading-none">{{ t[1] }}</span>{{ t[2] }}
+                <button v-for="t in [['ia','sparkles','IA'],['contenu','pencil','Contenu'],['pages','file','Pages'],['style','palette','Style'],['modules','blocks','Modules']]" :key="t[0]" @click="openTab(t[0])" class="flex flex-col items-center gap-0.5 py-2 text-[11px] font-semibold transition" :class="sheet && tab===t[0] ? 'text-white' : 'text-slate-400'">
+                    <Icon :name="t[1]" :size="20" />{{ t[2] }}
                     <span v-if="t[0]==='ia' && st?.credits" class="absolute -mt-1 ml-8 rounded-full bg-brand-500 px-1.5 text-[9px] text-white">{{ st.credits.balance }}</span>
                 </button>
             </nav>
@@ -988,8 +1008,8 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                         <div class="mb-4 flex items-center justify-between"><h3 class="font-display text-lg font-bold text-white">Nouvelle page</h3><button @click="modal=null" class="text-slate-400 hover:text-white">✕</button></div>
                         <label class="lbl">Nom de la page<input v-model="newPage.title" class="fld" placeholder="Ex : Nos réalisations, Tarifs, L'équipe, Nos prestations…" @keydown.enter="createPage" /></label>
                         <div class="mt-3 grid grid-cols-2 gap-2">
-                            <button @click="newPage.mode='ia'" class="rounded-xl border p-3 text-left text-sm transition" :class="newPage.mode==='ia' ? 'border-brand-400 bg-brand-500/10 text-white' : 'border-white/10 text-slate-300'">✨ Rédigée par l'IA<span class="block text-[11px] text-slate-500">Contenu complet, mis en page, adapté à votre établissement</span></button>
-                            <button @click="newPage.mode='blank'" class="rounded-xl border p-3 text-left text-sm transition" :class="newPage.mode==='blank' ? 'border-brand-400 bg-brand-500/10 text-white' : 'border-white/10 text-slate-300'">📄 Page vide<span class="block text-[11px] text-slate-500">Vous ajoutez vos blocs vous-même</span></button>
+                            <button @click="newPage.mode='ia'" class="rounded-xl border p-3 text-left text-sm transition" :class="newPage.mode==='ia' ? 'border-brand-400 bg-brand-500/10 text-white' : 'border-white/10 text-slate-300'"><span class="flex items-center gap-1.5"><Icon name="sparkles" :size="15" />Rédigée par l'IA</span><span class="block text-[11px] text-slate-500">Contenu complet, mis en page, adapté à votre établissement</span></button>
+                            <button @click="newPage.mode='blank'" class="rounded-xl border p-3 text-left text-sm transition" :class="newPage.mode==='blank' ? 'border-brand-400 bg-brand-500/10 text-white' : 'border-white/10 text-slate-300'"><span class="flex items-center gap-1.5"><Icon name="file" :size="15" />Page vide</span><span class="block text-[11px] text-slate-500">Vous ajoutez vos blocs vous-même</span></button>
                         </div>
                         <label v-if="newPage.mode==='ia'" class="lbl mt-3">Précisions pour l'IA (optionnel)<textarea v-model="newPage.brief" class="fld" rows="2" placeholder="Ex : mettre en avant nos 3 dernières rénovations, avec avant/après et témoignages"></textarea></label>
                         <button @click="createPage" :disabled="!newPage.title.trim()" class="btn-brand mt-4 w-full disabled:opacity-50">{{ newPage.mode==='ia' ? 'Créer avec l\'IA →' : 'Créer la page' }}</button>
@@ -1012,7 +1032,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                             <p v-if="gsearch.searching" class="mt-2 text-xs text-slate-500">Recherche…</p>
                             <div v-else-if="gsearch.results.length" class="mt-3 space-y-2">
                                 <button v-for="r in gsearch.results" :key="r.place_id" :disabled="gsearch.attaching" @click="attachGoogle(r)" class="flex w-full items-center gap-3 rounded-xl border border-white/10 px-4 py-3 text-left transition hover:border-sky-400/50 disabled:opacity-50">
-                                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/5">📍</span>
+                                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/5 text-sky-300"><Icon name="pin" :size="16" /></span>
                                     <span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-white">{{ r.main }}</span><span class="block truncate text-xs text-slate-400">{{ r.secondary }}</span></span>
                                     <span class="shrink-0 text-xs font-semibold text-sky-300">{{ gsearch.attaching ? '…' : 'Rattacher →' }}</span>
                                 </button>
@@ -1114,11 +1134,30 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                 <div class="glass max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-ink-800 p-5 sm:p-6" @click.stop>
                     <div class="mb-4 flex items-center justify-between"><h3 class="font-display text-lg font-bold text-white">Choisir une image</h3><button @click="picker.open=false" class="text-slate-400 hover:text-white">✕</button></div>
                     <div class="mb-4 flex gap-1 rounded-xl bg-white/[0.04] p-1 text-sm font-semibold">
-                        <button v-for="t in [['upload','⬆️ Importer'],['google','📍 Photos Google'],['url','🔗 Lien']]" :key="t[0]" @click="picker.tab=t[0]" class="flex-1 rounded-lg px-3 py-2" :class="picker.tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400'">{{ t[1] }}</button>
+                        <button v-for="t in [['bank','image','Banque d\'images'],['upload','upload','Importer'],['google','pin','Photos Google'],['url','link','Lien']]" :key="t[0]" @click="t[0]==='bank' ? openBank() : (picker.tab=t[0])" class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2" :class="picker.tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'"><Icon :name="t[1]" :size="15" /><span class="hidden sm:inline">{{ t[2] }}</span></button>
                     </div>
-                    <div v-if="picker.tab==='upload'">
+                    <div v-if="picker.tab==='bank'">
+                        <form @submit.prevent="searchBank()" class="relative">
+                            <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icon name="search" :size="16" /></span>
+                            <input v-model="bank.q" class="field w-full !pl-9" placeholder="Décrivez la photo : terrasse ensoleillée, mains qui pétrissent…" />
+                        </form>
+                        <div v-if="bank.suggestions.length" class="mt-2 flex flex-wrap gap-1.5">
+                            <button v-for="sg in bank.suggestions" :key="sg" type="button" @click="bank.q = sg; searchBank()" class="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-300 hover:border-brand-400/60 hover:text-white">{{ sg }}</button>
+                        </div>
+                        <div class="mt-3 grid max-h-[52vh] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+                            <template v-if="bank.loading"><div v-for="i in 9" :key="i" class="h-28 animate-pulse rounded-lg bg-white/[0.06]"></div></template>
+                            <button v-for="(r,i) in bank.results" v-else :key="r.url" type="button" :disabled="bank.using !== null" @click="useBankPhoto(r, i)" class="group relative h-28 overflow-hidden rounded-lg ring-2 ring-transparent transition hover:ring-brand-400">
+                                <img :src="r.thumb" :alt="r.alt" class="h-full w-full object-cover" loading="lazy" />
+                                <span class="absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/80 to-transparent px-2 pb-1 pt-4 text-left text-[10px] text-white/80 opacity-0 transition group-hover:opacity-100">{{ (r.credit || '').split(' — ')[0] }}</span>
+                                <span v-if="bank.using === i" class="absolute inset-0 grid place-items-center bg-black/60 text-xs font-semibold text-white">Ajout…</span>
+                            </button>
+                        </div>
+                        <p v-if="!bank.loading && bank.searched && !bank.results.length" class="mt-3 text-sm text-slate-500">Aucune photo trouvée. Essayez d'autres mots, par exemple ce que l'on voit sur la photo.</p>
+                        <p class="mt-3 text-[11px] text-slate-500">Photos libres de droits (Unsplash, Pexels). La recherche comprend le français et tient compte de votre métier et de l'emplacement.</p>
+                    </div>
+                    <div v-else-if="picker.tab==='upload'">
                         <label class="flex h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/15 text-slate-400 transition hover:border-brand-400 hover:text-white">
-                            <span class="text-3xl">🖼️</span><span class="mt-2 text-sm">{{ picker.uploading ? 'Import en cours…' : 'Cliquez pour importer (jpg, png, webp · 8 Mo max)' }}</span>
+                            <Icon name="upload" :size="28" /><span class="mt-2 text-sm">{{ picker.uploading ? 'Import en cours…' : 'Cliquez pour importer (jpg, png, webp · 8 Mo max)' }}</span>
                             <input type="file" accept="image/*" class="hidden" :disabled="picker.uploading" @change="upload" />
                         </label>
                     </div>
