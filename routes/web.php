@@ -82,6 +82,14 @@ Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    // Back-office SaaS (JOOW_ADMIN_EMAILS)
+    Route::middleware(\App\Http\Middleware\EnsureAdmin::class)->prefix('/admin')->name('admin.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AdminController::class, 'index'])->name('index');
+        Route::post('/abonnements/{site}', [\App\Http\Controllers\AdminController::class, 'subscription'])->name('subscription');
+        Route::delete('/sites/{site}', [\App\Http\Controllers\AdminController::class, 'destroySite'])->name('sites.destroy');
+        Route::post('/clients/{user}/connexion', [\App\Http\Controllers\AdminController::class, 'impersonate'])->name('impersonate');
+    });
+    Route::post('/admin/retour', [\App\Http\Controllers\AdminController::class, 'stopImpersonating'])->name('admin.stop');
     // Opérateur : dernières lignes du journal applicatif (diagnostic sans accès SSH)
     Route::get('/admin/journal', function (\Illuminate\Http\Request $request) {
         abort_unless($request->user()->isAdmin(), 403);

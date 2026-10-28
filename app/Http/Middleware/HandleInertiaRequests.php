@@ -33,8 +33,11 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user(),
+                'is_admin' => (bool) $request->user()?->isAdmin(),
+                'impersonating' => (bool) $request->session()->get('admin_impersonator'),
             ],
             // Offre : 0 = paiement à la mise en ligne, N = N jours d'essai gratuit avant le 1er prélèvement
+            'flash' => fn () => ['status' => is_string($request->session()->get('status')) ? $request->session()->get('status') : null],
             'trial_days' => (int) config('services.stripe.trial_days', 0),
             'google_enabled' => \App\Http\Controllers\Auth\GoogleAuthController::enabled(),
             // Mesure publicitaire : identifiant du pixel Meta et événements à déclencher sur cette page

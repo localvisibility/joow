@@ -19,6 +19,7 @@ ic.modules = '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><p
 ic.calendar = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>';
 ic.chart = '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>';
 
+ic.shield = '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>';
 const groups = [
     { title: 'Principal', items: [
         { label: 'Mes sites', route: 'dashboard', icon: ic.sites },
@@ -30,6 +31,7 @@ const groups = [
         { label: 'Modules', route: 'modules.index', icon: ic.modules },
         { label: 'Hébergement', route: 'hosting.index', icon: ic.rocket },
     ]},
+    ...(page.props.auth?.is_admin ? [{ title: 'Joow', items: [{ label: 'Back-office', route: 'admin.index', icon: ic.shield }] }] : []),
     { title: 'Compte', items: [
         { label: 'Mes factures', route: 'invoices.index', icon: ic.receipt },
         { label: 'Paramètres', route: 'profile.edit', icon: ic.settings },
@@ -42,6 +44,10 @@ const isActive = (name) => { try { return route().current(name); } catch (e) { r
 
 <template>
     <div class="min-h-screen bg-ink-950 bg-mesh text-slate-200">
+        <div v-if="page.props.auth?.impersonating" class="sticky top-0 z-[60] flex items-center justify-center gap-3 bg-amber-500 px-4 py-2 text-sm font-semibold text-ink-950">
+            Vous êtes connecté en tant que {{ page.props.auth.user?.email }}
+            <Link :href="route('admin.stop')" method="post" as="button" class="rounded-lg bg-ink-950 px-3 py-1 text-xs text-white">Revenir à mon compte</Link>
+        </div>
         <!-- Sidebar (desktop) -->
         <aside class="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-white/[0.06] bg-ink-900/60 backdrop-blur-xl lg:flex">
             <div class="flex h-16 items-center px-6">
