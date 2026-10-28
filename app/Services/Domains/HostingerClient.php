@@ -3,6 +3,7 @@
 namespace App\Services\Domains;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -56,28 +57,70 @@ class HostingerClient
         })->values()->all();
     }
 
-    /** Prix catalogue des domaines (1 an) par extension, mis en cache. */
+    /** Prix catalogue des domaines (1 an) par extension, mis en cache (jamais un résultat vide). */
     public function prices(): array
     {
-        return Cache::remember('hostinger:domain-prices', now()->addHours(12), function () {
-            $res = $this->http()->get('/api/billing/v1/catalog', ['category' => 'DOMAIN']);
-            if (! $res->ok()) {
-                return [];
-            }
-            $out = [];
-            foreach ($res->json() as $item) {
-                $tld = Str::lower((string) (data_get($item, 'metadata.tld') ?: Str::afterLast((string) ($item['name'] ?? ''), '.')));
-                $tld = ltrim($tld, '.');
-                foreach ($item['prices'] ?? [] as $price) {
-                    if (($price['period_unit'] ?? '') === 'year' && (int) ($price['period'] ?? 0) === 1 && ! Str::contains($price['id'] ?? '', ['transfer', 'renew'])) {
-                        $out[$tld] = ['item_id' => $price['id'], 'price' => $price['price'], 'first_price' => $price['first_period_price'] ?? $price['price'], 'currency' => $price['currency']];
-                        break;
-                    }
-                }
-            }
+        $cached = Cache::get('hostinger:domain-prices:v2');
+        if (is_array($cached) && $cached) {
+            return $cached;
+        }
+        $res = $this->http()->get('/api/billing/v1/catalog', ['category' => 'DOMAIN']);
+        if (! $res->ok()) {
+            Log::warning('Hostinger catalogue : HTTP '.$res->status().' '.Str::limit($res->body(), 300));
 
-            return $out;
-        });
+            return [];
+        }
+        $out = [];
+        foreach ((array) $res->json() as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $tld = $this->tldOf($item);
+            if (! $tld || isset($out[$tld])) {
+                continue;
+            }
+            $best = null;
+            foreach ($item['prices'] ?? [] as $price) {
+                $id = (string) ($price['id'] ?? '');
+                if ($id === '' || Str::contains($id, ['transfer', 'renew', 'trade'])) {
+                    continue;
+                }
+                $years = ($price['period_unit'] ?? '') === 'year' ? (int) ($price['period'] ?? 0) : (($price['period_unit'] ?? '') === 'month' ? (int) ($price['period'] ?? 0) / 12 : 0);
+                if ($years === 1 || $years === 1.0) {
+                    $best = $price;
+                    break;
+                }
+                $best ??= $price; // à défaut, la première offre d'enregistrement
+            }
+            if ($best) {
+                $out[$tld] = ['item_id' => $best['id'], 'price' => $best['price'] ?? null, 'first_price' => $best['first_period_price'] ?? ($best['price'] ?? null), 'currency' => $best['currency'] ?? null];
+            }
+        }
+        if ($out) {
+            Cache::put('hostinger:domain-prices:v2', $out, now()->addHours(12));
+        } else {
+            Log::warning('Hostinger catalogue : aucune extension reconnue. Exemple : '.Str::limit(json_encode(array_slice((array) $res->json(), 0, 2)), 800));
+        }
+
+        return $out;
+    }
+
+    /** Extension d'un article du catalogue : métadonnées, puis nom (« .fr », « Domaine .fr »), puis identifiant (« …-domain-fr »). */
+    private function tldOf(array $item): ?string
+    {
+        foreach ([data_get($item, 'metadata.tld'), data_get($item, 'metadata.extension'), data_get($item, 'metadata.domain_extension')] as $v) {
+            if (is_string($v) && $v !== '') {
+                return Str::lower(ltrim(trim($v), '.'));
+            }
+        }
+        if (preg_match('/\.([a-z]{2,24}(?:\.[a-z]{2,3})?)\b/i', (string) ($item['name'] ?? ''), $m)) {
+            return Str::lower($m[1]);
+        }
+        if (preg_match('/domain-([a-z]{2,24})$/i', (string) ($item['id'] ?? ''), $m)) {
+            return Str::lower($m[1]);
+        }
+
+        return null;
     }
 
     /** Achète le domaine (moyen de paiement par défaut du compte, WHOIS par défaut). */

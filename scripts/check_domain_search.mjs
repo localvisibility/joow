@@ -1,0 +1,15 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', proxy: { server: process.env.HTTPS_PROXY }, args: ['--ignore-certificate-errors'] });
+const ctx = await browser.newContext({ ignoreHTTPSErrors: true });
+await ctx.addCookies([{ name: 'joow_consent', value: 'essential', domain: 'app.joow.fr', path: '/' }]);
+const page = await ctx.newPage();
+await page.goto('https://app.joow.fr/', { waitUntil: 'networkidle' });
+await page.fill('#search-input', 'Le Ruisseau burger Paris');
+await page.waitForSelector('button[type=button].w-full:has-text("Ruisseau")', { timeout: 15000 });
+await page.click('button[type=button].w-full:has-text("Ruisseau")'); await page.waitForTimeout(400);
+await page.fill('input[type=email]', `domain-check-${Date.now()}@joow-test.fr`);
+await Promise.all([page.waitForURL(/\/site\//, { timeout: 60000 }), page.click('button[type=submit]')]);
+const slug = page.url().split('/site/')[1].split(/[?#]/)[0];
+const r = await page.evaluate(async (s) => { const x = await fetch(`/sites/${s}/domaine/recherche?q=leruisseauburger`, { headers: { Accept: 'application/json' } }); return { status: x.status, body: (await x.text()).slice(0, 1200) }; }, slug);
+console.log('slug', slug); console.log(r.status, r.body);
+await browser.close();
