@@ -43,7 +43,7 @@ return [
         'stock' => [$u('1514362545857-3bc16c4c7d1b'), $u('1470337458703-46ad1756a187'), $u('1572116469696-31de0f17cc34'), $u('1559925393-8be0ec4767c8')]],
 
     'boulangerie' => ['label' => 'Boulangerie & pâtisserie', 'color' => '#d97706', 'icon' => 'fa-bread-slice', 'cta' => 'Commander',
-        'font' => 'Fraunces', 'theme' => 'light', 'hero' => 'split', 'order' => $shop, 'modules' => $bookingOn,
+        'font' => 'Fraunces', 'theme' => 'light', 'hero' => 'bright', 'order' => $shop, 'modules' => $bookingOn,
         'keywords' => ['boulanger', 'patisser', 'pâtisser', 'bakery', 'viennoiserie', 'chocolat', 'confiserie', 'glacier', 'ice_cream', 'biscuiterie', 'traiteur sucre'],
         'brief' => "Boulangerie-pâtisserie : savoir-faire artisanal, fournil, farines, fermentation, horaires d'ouverture tôt, gâteaux sur commande (anniversaires, mariages), pièces montées, viennoiseries, sandwichs du midi, snacking. Services = gammes et commandes (pain spécial, gâteau personnalisé, buffet/traiteur, formule déjeuner). FAQ : commandes et délais, allergènes, sans gluten, livraison, horaires, paiement. Ton : chaleureux, gourmand, concret (produits nommés).",
         'stock' => [$u('1509440159596-0249088772ff'), $u('1549931319-a545dcf3bc73'), $u('1517433670267-08bbd4be890f'), $u('1558961363-fa8fdf82db35')]],
@@ -93,7 +93,7 @@ return [
         'stock' => [$u('1544161515-4ab6ce6db874'), $u('1540555700478-4be289fbecef'), $u('1519823551278-64ac92734fb1'), $u('1600334129128-685c5582fd35')]],
 
     'sport' => ['label' => 'Salle de sport & coaching', 'color' => '#ea580c', 'icon' => 'fa-dumbbell', 'cta' => 'Séance d\'essai',
-        'font' => 'Sora', 'theme' => 'dark', 'hero' => 'center', 'order' => $svc, 'modules' => $bookingOn,
+        'font' => 'Sora', 'theme' => 'dark', 'hero' => 'poster', 'order' => $svc, 'modules' => $bookingOn,
         'keywords' => ['gym', 'fitness', 'salle de sport', 'crossfit', 'coach sportif', 'personal trainer', 'musculation', 'pilates', 'yoga', 'boxe', 'boxing', 'escalade', 'danse', 'dance', 'arts martiaux', 'judo', 'karate', 'natation', 'swimming', 'tennis', 'padel', 'golf', 'equitation', 'équitation', 'stadium'],
         'brief' => "Salle de sport, studio ou coach : cours collectifs, coaching personnalisé, programmes (remise en forme, perte de poids, préparation), horaires d'ouverture larges, abonnements sans engagement, séance d'essai. Services = formules et programmes avec prix mensuels. FAQ : séance d'essai, engagement, horaires, niveau débutant, vestiaires/douches, parking. Ton : énergique, motivant, inclusif.",
         'stock' => [$u('1534438327276-14e5300c3a48'), $u('1571019613454-1cb2f99b2d8b'), $u('1517836357463-d25dfeac3438'), $u('1574680096145-d05b474e2155')]],
@@ -187,7 +187,7 @@ return [
         'stock' => [$u('1504148455328-c376907d081c'), $u('1416879595882-3373a0480b5b'), $u('1600566752355-35792bedcfea'), $u('1556909114-f6e7ad7d3136')]],
 
     'paysagiste' => ['label' => 'Paysagiste & jardins', 'color' => '#15803d', 'icon' => 'fa-leaf', 'cta' => 'Devis gratuit',
-        'font' => 'Fraunces', 'theme' => 'light', 'hero' => 'editorial', 'order' => $svc, 'modules' => $bookingOn,
+        'font' => 'Fraunces', 'theme' => 'light', 'hero' => 'poster', 'order' => $svc, 'modules' => $bookingOn,
         'keywords' => ['paysag', 'jardin', 'garden', 'landscap', 'elagage', 'élagage', 'elagueur', 'élagueur', 'arrosage', 'cloture vegetale', 'gazon', 'terrasse bois', 'piscine naturelle', 'pepinier', 'pépinier'],
         'brief' => "Paysagiste : création et aménagement de jardins, terrasses, entretien (tonte, taille, élagage), arrosage automatique, clôtures et allées, plantations locales. Services avec « sur devis » et éventuellement contrat d'entretien. FAQ : saison idéale, entretien et crédit d'impôt (services à la personne, si applicable), délais, évacuation des déchets verts, devis. Ton : nature, apaisant, concret sur le résultat.",
         'stock' => [$u('1558904541-efa843a96f01'), $u('1416879595882-3373a0480b5b'), $u('1585320806297-9794b3e4eeae'), $u('1523348837708-15d4a09cfac2')]],
@@ -233,7 +233,7 @@ return [
         'stock' => [$u('1441986300917-64674bd600d8'), $u('1472851294608-062f824d29cc'), $u('1556742049-0cfed4f6a45d'), $u('1534452203293-494d7ddbf7e0')]],
 
     'fleuriste' => ['label' => 'Fleuriste', 'color' => '#db2777', 'icon' => 'fa-seedling', 'cta' => 'Commander un bouquet',
-        'font' => 'Cormorant Garamond', 'theme' => 'light', 'hero' => 'split', 'order' => $shop, 'modules' => $bookingOn,
+        'font' => 'Cormorant Garamond', 'theme' => 'light', 'hero' => 'poster', 'order' => $shop, 'modules' => $bookingOn,
         'keywords' => ['fleur', 'florist', 'flower', 'bouquet', 'plante', 'jardinerie', 'horticult'],
         'brief' => "Fleuriste : bouquets du jour et sur mesure, mariages et événements, deuil, plantes d'intérieur, abonnement floral, livraison locale, fleurs de saison et producteurs. FAQ : livraison (zones, délais, dimanche), commande par téléphone, mariage (devis, rendez-vous), deuil (livraison en cérémonie), entretien des plantes, paiement. Ton : poétique mais efficace, saisonnier.",
         'stock' => [$u('1487070183336-b863922373d4'), $u('1526047932273-341f2a7631f9'), $u('1563241527-3004b7be0ffd'), $u('1455659817273-f96807779a8a')]],
@@ -245,7 +245,7 @@ return [
         'stock' => [$u('1510812431401-41d2bd2722f3'), $u('1474722883778-792e7990302f'), $u('1528823872057-9c018a7a7553'), $u('1506377247377-2a5b3b417ebb')]],
 
     'mode' => ['label' => 'Mode & accessoires', 'color' => '#0f172a', 'icon' => 'fa-shirt', 'cta' => 'Découvrir la boutique',
-        'font' => 'DM Serif Display', 'theme' => 'light', 'hero' => 'editorial', 'order' => $shop, 'modules' => $bookingOn,
+        'font' => 'DM Serif Display', 'theme' => 'light', 'hero' => 'bright', 'order' => $shop, 'modules' => $bookingOn,
         'keywords' => ['clothing', 'vetement', 'vêtement', 'pret-a-porter', 'prêt-à-porter', 'mode', 'fashion', 'chaussure', 'shoe', 'maroquinerie', 'lingerie', 'friperie', 'vintage', 'couturi', 'tailleur', 'retouch'],
         'brief' => "Boutique de mode : sélection et marques, style (casual, chic, créateurs, vintage), conseil et personal shopping, retouches, nouveautés par saison, cartes cadeaux, click & collect. FAQ : tailles et retours/échanges, marques, retouches, paiement, horaires, nouveautés. Ton : éditorial mode, inspirant, chaleureux.",
         'stock' => [$u('1441986300917-64674bd600d8'), $u('1445205170230-053b83016050'), $u('1483985988355-763728e1935b'), $u('1469334031218-e382a71b716b')]],
@@ -295,7 +295,7 @@ return [
         'stock' => [$u('1560518883-ce09059eeffa'), $u('1600607687939-ce8a6c25118c'), $u('1600566753086-00f18fb6b3ea'), $u('1512917774080-9991f1c4c750')]],
 
     'architecte' => ['label' => 'Architecture & décoration d\'intérieur', 'color' => '#0f172a', 'icon' => 'fa-compass-drafting', 'cta' => 'Parler du projet',
-        'font' => 'Space Grotesk', 'theme' => 'light', 'hero' => 'editorial', 'order' => ['about', 'services', 'gallery', 'process', 'reviews', 'faq', 'booking', 'cta', 'contact'], 'modules' => $bookingOn,
+        'font' => 'Space Grotesk', 'theme' => 'light', 'hero' => 'bright', 'order' => ['about', 'services', 'gallery', 'process', 'reviews', 'faq', 'booking', 'cta', 'contact'], 'modules' => $bookingOn,
         'keywords' => ['architect', 'maitre d\'oeuvre', 'maître d\'œuvre', 'decorateur', 'décorateur', 'interior', 'design d\'interieur', 'design d\'intérieur', 'amenagement interieur', 'aménagement intérieur', 'urbanis'],
         'brief' => "Architecte / architecte d'intérieur / décorateur : conception, permis de construire, extension et rénovation, aménagement intérieur, suivi de chantier, visualisations 3D, style et approche (lumière, matériaux, durable). Parcours = rencontre → esquisse → projet détaillé → chantier. FAQ : honoraires (% ou forfait), quand faire appel, permis, délais, budget minimum, zone. Ton : créatif, précis, inspirant, sobre.",
         'stock' => [$u('1503387762-592deb58ef4e'), $u('1600585154526-990dced4db0d'), $u('1618221195710-dd6b41faaea6'), $u('1600210492486-724fe5c67fb0')]],
@@ -313,7 +313,7 @@ return [
         'stock' => [$u('1452587925148-ce544e77e70d'), $u('1471341971476-ae15ff5dd4ea'), $u('1554048612-b6a482bc67e5'), $u('1500051638674-ff996a0ec29e')]],
 
     'evenementiel' => ['label' => 'Événementiel & animation', 'color' => '#c026d3', 'icon' => 'fa-champagne-glasses', 'cta' => 'Demander un devis',
-        'font' => 'Bricolage Grotesque', 'theme' => 'dark', 'hero' => 'editorial', 'order' => $svc, 'modules' => $bookingOn,
+        'font' => 'Bricolage Grotesque', 'theme' => 'dark', 'hero' => 'poster', 'order' => $svc, 'modules' => $bookingOn,
         'keywords' => ['evenement', 'événement', 'event', 'wedding planner', 'organisat', 'dj', 'animation', 'animateur', 'magicien', 'location de salle', 'salle de reception', 'salle de réception', 'chateau', 'château', 'domaine', 'sonorisation', 'eclairage', 'éclairage', 'photobooth', 'musicien', 'orchestre'],
         'brief' => "Événementiel (wedding planner, DJ, salle de réception, animation) : types d'événements (mariage, anniversaire, séminaire, soirée d'entreprise), prestations (organisation complète, DJ et sonorisation, lumière, animations, photobooth), capacité et équipements si lieu. Parcours = brief → proposition → organisation → jour J. FAQ : budget indicatif, acompte et annulation, déplacement, matériel inclus, horaires de fin, démo/playlist. Ton : festif, pro, rassurant sur l'organisation.",
         'stock' => [$u('1492684223066-81342ee5ff30'), $u('1519671482749-fd09be7ccebf'), $u('1511795409834-ef04bbd61622'), $u('1470229722913-7c0e2dbbafd3')]],
@@ -325,7 +325,7 @@ return [
         'stock' => [$u('1523240795612-9a054b0db644'), $u('1503676260728-1c00da094a0b'), $u('1427504494785-3a9ca7044f45'), $u('1509062522246-3755977927d7')]],
 
     'enfance' => ['label' => 'Petite enfance & famille', 'color' => '#f59e0b', 'icon' => 'fa-baby', 'cta' => 'Demander une place',
-        'font' => 'Outfit', 'theme' => 'light', 'hero' => 'split', 'order' => $care, 'modules' => $bookingOn,
+        'font' => 'Outfit', 'theme' => 'light', 'hero' => 'poster', 'order' => $care, 'modules' => $bookingOn,
         'keywords' => ['creche', 'crèche', 'micro-creche', 'micro crèche', 'child_care', 'garde d', 'nounou', 'assistante maternelle', 'baby-sitting', 'babysitting', 'halte', 'periscolaire', 'périscolaire', 'centre de loisirs', 'ludotheque', 'ludothèque', 'parc de jeux', 'anniversaire enfant'],
         'brief' => "Crèche, garde d'enfants ou loisirs enfants : projet pédagogique, équipe et taux d'encadrement, horaires et flexibilité, repas et couches, sécurité, inscriptions et places disponibles, tarifs et aides (CAF, PAJE, crédit d'impôt). FAQ : inscription et délais, période d'adaptation, tarifs et aides, horaires, repas, maladie. Ton : bienveillant, rassurant pour les parents, concret.",
         'stock' => [$u('1587654780291-39c9404d746b'), $u('1503454537195-1dcabb73ffb9'), $u('1596464716127-f2a82984de30'), $u('1544776193-352d25ca82cd')]],
@@ -364,7 +364,7 @@ return [
         'stock' => [$u('1581091226825-a6a2a5aee158'), $u('1461749280684-dccba630e2f6'), $u('1517245386807-bb43f82c33c4'), $u('1559526324-4b87b5e36e44')]],
 
     'coach' => ['label' => 'Coaching & développement personnel', 'color' => '#c2410c', 'icon' => 'fa-seedling', 'cta' => 'Réserver un premier échange',
-        'font' => 'Cormorant Garamond', 'theme' => 'light', 'hero' => 'editorial', 'order' => $care, 'modules' => $bookingOn,
+        'font' => 'Cormorant Garamond', 'theme' => 'light', 'hero' => 'bright', 'order' => $care, 'modules' => $bookingOn,
         'keywords' => ['coach', 'coaching', 'life_coach', 'coach de vie', 'coach professionnel', 'developpement personnel', 'développement personnel', 'hypnose', 'hypnotherap', 'sophrolog', 'pnl', 'mentor', 'accompagnement', 'preparateur mental', 'préparateur mental', 'bilan de competences', 'bilan de compétences', 'reconversion', 'confiance en soi'],
         'brief' => "Coach (vie, professionnel, mental, hypnose, sophrologie) : parler des situations du client (transition, stress, confiance, objectif) avant des méthodes. Services = formats d'accompagnement (séance découverte, pack de séances, programme, atelier) avec prix et durée. Parcours : premier échange offert → séances → autonomie. FAQ : différence coaching/thérapie, nombre de séances, visio ou présentiel, confidentialité, tarifs, remboursement éventuel. Pas de promesse de résultat garanti. Ton : chaleureux, posé, vouvoiement.",
         'stock' => [$u('1493962853295-0fd70327578a'), $u('1573164713714-d95e436ab8d6'), $u('1507003211169-0a1dd7228f2d'), $u('1522071820081-009f0129c71c')]],
@@ -453,13 +453,13 @@ return [
         'stock' => [$u('1607623814075-e51df1bdc82f'), $u('1603048297172-c92544798d5a'), $u('1588168333986-5078d3ae3976'), $u('1551218808-94e220e084d2')]],
 
     'primeur' => ['label' => 'Primeur, épicerie & produits frais', 'color' => '#15803d', 'icon' => 'fa-carrot', 'cta' => 'Commander / nous rendre visite',
-        'font' => 'Bricolage Grotesque', 'theme' => 'light', 'hero' => 'split', 'order' => $shop, 'modules' => $bookingOn,
+        'font' => 'Bricolage Grotesque', 'theme' => 'light', 'hero' => 'bright', 'order' => $shop, 'modules' => $bookingOn,
         'keywords' => ['primeur', 'fruits et legumes', 'fruits et légumes', 'greengrocer', 'epicerie', 'épicerie', 'grocery_store', 'grocery', 'fromager', 'fromagerie', 'cheese', 'cremerie', 'crèmerie', 'produits frais', 'bio', 'organic', 'vrac', 'marche couvert', 'marché couvert', 'halles', 'superette', 'supérette', 'alimentation generale', 'alimentation générale'],
         'brief' => "Primeur, épicerie, fromagerie, magasin bio : la fraîcheur et la saison, les producteurs partenaires, les arrivages, le vrac, les paniers et commandes, la livraison locale. Services = rayons (fruits et légumes de saison, fromages affinés, épicerie fine, vrac, paniers hebdomadaires, plateaux). FAQ : arrivages, bio ou local, commandes et paniers, livraison, horaires, paiement. Ton : chaleureux, concret, gourmand sans excès.",
         'stock' => [$u('1542838132-92c53300491e'), $u('1488459716781-31db52582fe9'), $u('1506617420156-8e4536971650'), $u('1534723452862-4c874018d66d')]],
 
     'librairie' => ['label' => 'Librairie, papeterie & presse', 'color' => '#92400e', 'icon' => 'fa-book-open', 'cta' => 'Commander / réserver un livre',
-        'font' => 'Cormorant Garamond', 'theme' => 'light', 'hero' => 'editorial', 'order' => $shop, 'modules' => $bookingOn,
+        'font' => 'Cormorant Garamond', 'theme' => 'light', 'hero' => 'bright', 'order' => $shop, 'modules' => $bookingOn,
         'keywords' => ['librairie', 'book_store', 'bookstore', 'libraire', 'papeterie', 'stationery', 'presse', 'tabac', 'tabac presse', 'bureau de tabac', 'loto', 'française des jeux', 'bd', 'bande dessinee', 'bande dessinée', 'comics', 'manga', 'jeux de societe', 'jeux de société', 'ludotheque', 'ludothèque'],
         'brief' => "Librairie / papeterie / tabac-presse : la sélection et les coups de cœur, les commandes de livres (délais), les rencontres et dédicaces, les services (presse, jeux, colis, cadeaux), les horaires étendus. Services = univers (littérature, jeunesse, BD, papeterie, presse, jeux) et services pratiques. FAQ : commande d'un titre, délais, horaires, click & collect, cartes cadeaux, événements. Ton : cultivé mais simple, accueillant.",
         'stock' => [$u('1507842217343-583bb7270b66'), $u('1512820790803-83ca734da794'), $u('1521587760476-6c12a4b040da'), $u('1481627834876-b7833e8f5570')]],
