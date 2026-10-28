@@ -1134,7 +1134,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                 <div class="glass max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-ink-800 p-5 sm:p-6" @click.stop>
                     <div class="mb-4 flex items-center justify-between"><h3 class="font-display text-lg font-bold text-white">Choisir une image</h3><button @click="picker.open=false" class="text-slate-400 hover:text-white">✕</button></div>
                     <div class="mb-4 flex gap-1 rounded-xl bg-white/[0.04] p-1 text-sm font-semibold">
-                        <button v-for="t in [['bank','image','Banque d\'images'],['upload','upload','Importer'],['google','pin','Photos Google'],['url','link','Lien']]" :key="t[0]" @click="t[0]==='bank' ? openBank() : (picker.tab=t[0])" class="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2" :class="picker.tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'"><Icon :name="t[1]" :size="15" /><span class="hidden sm:inline">{{ t[2] }}</span></button>
+                        <button v-for="t in [['bank','image','Banque d\'images'],['upload','upload','Importer'],['google','pin','Photos Google'],['url','link','Lien']]" :key="t[0]" @click="t[0]==='bank' ? openBank() : (picker.tab=t[0])" class="flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2" :class="picker.tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'"><Icon :name="t[1]" :size="15" /><span class="hidden sm:inline">{{ t[2] }}</span></button>
                     </div>
                     <div v-if="picker.tab==='bank'">
                         <form @submit.prevent="searchBank()" class="relative">
