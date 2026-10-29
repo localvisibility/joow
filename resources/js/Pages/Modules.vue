@@ -46,19 +46,56 @@ const openConfig = async (m) => {
 const saveConfig = () => save(open.value, { ...cfg, enabled: true }, () => { open.value = null; });
 
 /* ───────── chambres ───────── */
-const rooms = ref([]); const blocks = ref([]); const roomForm = reactive({ id: null, name: '', capacity: 2, price_night: '', description: '', amenities: '', ical_url: '', photo: '' });
+const rooms = ref([]); const blocks = ref([]);
+const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+const blankRoom = () => ({ id: null, name: '', capacity: 2, price_night: '', weekend_price: '', min_nights: 1, max_nights: '', cleaning_fee: '', included_guests: '', extra_guest_fee: '', tourist_tax: '',
+    description: '', amenities: '', photo: '', seasons: [], feeds: [], export_url: '' });
+const roomForm = reactive(blankRoom());
+const showAdvanced = ref(false);
 const blockForm = reactive({ room_id: '', start: '', end: '', summary: '' });
 const busy = ref(false); const info = ref('');
 const loadRooms = async () => { try { const d = await api('GET', route('rooms.index', props.current)); rooms.value = d.rooms; blocks.value = d.blocks; } catch {} };
-const editRoom = (r) => Object.assign(roomForm, { id: r.id, name: r.name, capacity: r.capacity, price_night: r.price_night ?? '', description: r.description || '', amenities: (r.amenities || []).join(', '), ical_url: r.ical_url || '', photo: r.photos?.[0] || '' });
-const resetRoom = () => Object.assign(roomForm, { id: null, name: '', capacity: 2, price_night: '', description: '', amenities: '', ical_url: '', photo: '' });
+const v = (x) => (x === null || x === undefined || x === '' ? '' : Number(x));
+const splitMd = (md) => { const [m, d] = String(md || '01-01').split('-').map(Number); return { m, d }; };
+const editRoom = (r) => {
+    Object.assign(roomForm, blankRoom(), {
+        id: r.id, name: r.name, capacity: r.capacity, price_night: v(r.price_night), weekend_price: v(r.weekend_price), min_nights: r.min_nights || 1, max_nights: v(r.max_nights),
+        cleaning_fee: v(r.cleaning_fee), included_guests: v(r.included_guests), extra_guest_fee: v(r.extra_guest_fee), tourist_tax: v(r.tourist_tax),
+        description: r.description || '', amenities: (r.amenities || []).join(', '), photo: r.photos?.[0] || '', export_url: r.export_url || '',
+        seasons: (r.seasons || []).map((x) => ({ name: x.name, from: splitMd(x.from), to: splitMd(x.to), price: v(x.price), weekend_price: v(x.weekend_price), min_nights: v(x.min_nights) })),
+        feeds: [...(r.ical_url ? [{ label: 'iCal', url: r.ical_url }] : []), ...(r.ical_urls || [])],
+    });
+    showAdvanced.value = !!(r.cleaning_fee || r.extra_guest_fee || r.tourist_tax || r.max_nights);
+};
+const resetRoom = () => { Object.assign(roomForm, blankRoom()); showAdvanced.value = false; };
+const addSeason = () => roomForm.seasons.push({ name: 'Haute saison', from: { d: 1, m: 7 }, to: { d: 31, m: 8 }, price: '', weekend_price: '', min_nights: '' });
+const addFeed = () => roomForm.feeds.push({ label: '', url: '' });
+const num = (x) => (x === '' || x === null || x === undefined ? null : Number(x));
+const md = (o) => `${String(o.m).padStart(2, '0')}-${String(Math.min(31, Math.max(1, Number(o.d) || 1))).padStart(2, '0')}`;
 const submitRoom = async () => {
     busy.value = true;
-    const body = { name: roomForm.name, capacity: Number(roomForm.capacity) || 1, price_night: roomForm.price_night === '' ? null : Number(roomForm.price_night), description: roomForm.description || null,
-        amenities: roomForm.amenities.split(',').map((s) => s.trim()).filter(Boolean), ical_url: roomForm.ical_url || null, photos: roomForm.photo ? [roomForm.photo] : [] };
-    try { if (roomForm.id) await api('PATCH', route('rooms.update', [props.current, roomForm.id]), body); else await api('POST', route('rooms.store', props.current), body); resetRoom(); await loadRooms(); }
-    catch (e) { alert(e?.message || 'Erreur'); } finally { busy.value = false; }
+    const body = {
+        name: roomForm.name, capacity: Number(roomForm.capacity) || 1, price_night: num(roomForm.price_night), weekend_price: num(roomForm.weekend_price),
+        min_nights: Number(roomForm.min_nights) || 1, max_nights: num(roomForm.max_nights), cleaning_fee: num(roomForm.cleaning_fee),
+        included_guests: num(roomForm.included_guests), extra_guest_fee: num(roomForm.extra_guest_fee), tourist_tax: num(roomForm.tourist_tax),
+        description: roomForm.description || null, amenities: roomForm.amenities.split(',').map((s) => s.trim()).filter(Boolean), photos: roomForm.photo ? [roomForm.photo] : [],
+        seasons: roomForm.seasons.map((x) => ({ name: x.name, from: md(x.from), to: md(x.to), price: num(x.price), weekend_price: num(x.weekend_price), min_nights: num(x.min_nights) })),
+        ical_url: null, ical_urls: roomForm.feeds.filter((f) => f.url.trim()).map((f) => ({ label: f.label.trim() || 'iCal', url: f.url.trim() })),
+    };
+    try { if (roomForm.id) await api('PATCH', route('rooms.update', [props.current, roomForm.id]), body); else await api('POST', route('rooms.store', props.current), body); resetRoom(); await loadRooms(); info.value = 'Chambre enregistrée, le site est à jour.'; }
+    catch (e) { alert(e?.errors ? Object.values(e.errors)[0][0] : (e?.message || 'Erreur')); } finally { busy.value = false; }
 };
+const roomSummary = (r) => {
+    const parts = [`${r.capacity} pers.`];
+    if (r.price_night) parts.push(`${Number(r.price_night)} €/nuit`);
+    if (r.weekend_price) parts.push(`week-end ${Number(r.weekend_price)} €`);
+    if ((r.seasons || []).length) parts.push(`${r.seasons.length} saison${r.seasons.length > 1 ? 's' : ''}`);
+    if ((r.min_nights || 1) > 1) parts.push(`${r.min_nights} nuits min.`);
+    return parts.join(' · ');
+};
+const feedCount = (r) => (r.ical_url ? 1 : 0) + (r.ical_urls || []).length;
+const copied = ref('');
+const copy = async (t) => { try { await navigator.clipboard.writeText(t); copied.value = t; setTimeout(() => (copied.value = ''), 2000); } catch {} };
 const deleteRoom = async (r) => { if (!confirm(`Supprimer « ${r.name} » ?`)) return; await api('DELETE', route('rooms.destroy', [props.current, r.id])); loadRooms(); };
 const addBlock = async () => { if (!blockForm.start || !blockForm.end) return; await api('POST', route('rooms.block', props.current), { ...blockForm, room_id: blockForm.room_id || null }); Object.assign(blockForm, { start: '', end: '', summary: '' }); loadRooms(); };
 const removeBlock = async (b) => { await api('DELETE', route('rooms.unblock', [props.current, b.id])); loadRooms(); };
@@ -236,21 +273,79 @@ const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch
                             <label class="lbl">Titre de la section<input v-model="cfg.title" class="fld" placeholder="Nos chambres" /></label>
                             <label class="lbl">Email de notification<input v-model="cfg.notify_email" class="fld" placeholder="vous@exemple.fr" /></label>
                             <label class="lbl sm:col-span-2">Introduction<input v-model="cfg.intro" class="fld" placeholder="Des chambres au calme, petit-déjeuner inclus…" /></label>
+                            <label class="flex items-start gap-3 rounded-xl border border-white/[0.06] p-3 sm:col-span-2">
+                                <input type="checkbox" v-model="cfg.instant" class="mt-0.5 rounded border-white/20 bg-white/5 text-brand-500" />
+                                <span class="text-sm"><span class="font-semibold text-white">Réservation instantanée</span><span class="block text-slate-400">Si les dates sont libres, la réservation est confirmée tout de suite (et l'acompte demandé si le module Paiement est actif). Sinon, vous validez chaque demande.</span></span>
+                            </label>
                         </div>
                         <div class="rounded-xl border border-white/[0.06] p-4">
                             <p class="mb-3 text-sm font-semibold text-white">Vos chambres / hébergements ({{ rooms.length }})</p>
                             <div v-for="r in rooms" :key="r.id" class="mb-2 flex items-center justify-between gap-3 rounded-lg bg-white/[0.03] px-3 py-2 text-sm">
-                                <span class="min-w-0"><span class="font-semibold text-white">{{ r.name }}</span><span class="text-slate-400"> · {{ r.capacity }} pers.{{ r.price_night ? ' · ' + r.price_night + ' €/nuit' : '' }}</span><span v-if="r.ical_url" class="chip ml-2 bg-emerald-500/15 text-emerald-300">iCal</span></span>
+                                <span class="min-w-0"><span class="font-semibold text-white">{{ r.name }}</span><span class="text-slate-400"> · {{ roomSummary(r) }}</span><span v-if="feedCount(r)" class="chip ml-2 bg-emerald-500/15 text-emerald-300">{{ feedCount(r) }} iCal</span></span>
                                 <span class="flex shrink-0 gap-2"><button @click="editRoom(r)" class="text-brand-400">Modifier</button><button @click="deleteRoom(r)" class="text-slate-500 hover:text-rose-300">✕</button></span>
                             </div>
-                            <div class="mt-3 grid gap-3 sm:grid-cols-2">
+
+                            <p class="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-slate-500">{{ roomForm.id ? 'Modifier « ' + roomForm.name + ' »' : 'Nouvelle chambre' }}</p>
+                            <div class="grid gap-3 sm:grid-cols-2">
                                 <label class="lbl">Nom<input v-model="roomForm.name" class="fld" placeholder="Chambre Double Vue Mer" /></label>
-                                <div class="grid grid-cols-2 gap-3"><label class="lbl">Capacité<input type="number" v-model="roomForm.capacity" class="fld" min="1" /></label><label class="lbl">Prix / nuit (€)<input type="number" v-model="roomForm.price_night" class="fld" min="0" /></label></div>
+                                <div class="grid grid-cols-2 gap-3"><label class="lbl">Capacité (pers.)<input type="number" v-model="roomForm.capacity" class="fld" min="1" /></label><label class="lbl">Nuits minimum<input type="number" v-model="roomForm.min_nights" class="fld" min="1" /></label></div>
                                 <label class="lbl sm:col-span-2">Description<input v-model="roomForm.description" class="fld" /></label>
                                 <label class="lbl">Équipements (séparés par des virgules)<input v-model="roomForm.amenities" class="fld" placeholder="Wifi, Climatisation, Balcon" /></label>
                                 <label class="lbl">Photo (URL)<input v-model="roomForm.photo" class="fld" placeholder="https://…" /></label>
-                                <label class="lbl sm:col-span-2">Lien iCal (Airbnb / Booking / Abritel) — synchronise les indisponibilités<input v-model="roomForm.ical_url" class="fld" placeholder="https://www.airbnb.fr/calendar/ical/…ics" /></label>
                             </div>
+
+                            <!-- Tarifs -->
+                            <div class="mt-4 rounded-lg bg-white/[0.02] p-3">
+                                <p class="text-sm font-semibold text-white">Tarifs par nuit</p>
+                                <div class="mt-2 grid grid-cols-2 gap-3">
+                                    <label class="lbl">Semaine (€)<input type="number" v-model="roomForm.price_night" class="fld" min="0" placeholder="95" /></label>
+                                    <label class="lbl">Vendredi et samedi (€)<input type="number" v-model="roomForm.weekend_price" class="fld" min="0" placeholder="Identique" /></label>
+                                </div>
+                                <div v-for="(sz, i) in roomForm.seasons" :key="i" class="mt-3 rounded-lg border border-white/[0.06] p-3">
+                                    <div class="flex items-center gap-2">
+                                        <input v-model="sz.name" class="fld flex-1" placeholder="Haute saison" />
+                                        <button @click="roomForm.seasons.splice(i, 1)" class="text-slate-500 hover:text-rose-300" title="Retirer">✕</button>
+                                    </div>
+                                    <div class="mt-2 grid grid-cols-[auto_4.5rem_1fr] items-center gap-2 text-sm text-slate-400 sm:grid-cols-[auto_4.5rem_1fr_auto_4.5rem_1fr]">
+                                        <span>du</span><input type="number" v-model="sz.from.d" min="1" max="31" class="fld" /><select v-model.number="sz.from.m" class="fld"><option v-for="(mn, k) in MONTHS" :key="k" :value="k + 1">{{ mn }}</option></select>
+                                        <span>au</span><input type="number" v-model="sz.to.d" min="1" max="31" class="fld" /><select v-model.number="sz.to.m" class="fld"><option v-for="(mn, k) in MONTHS" :key="k" :value="k + 1">{{ mn }}</option></select>
+                                    </div>
+                                    <p class="mt-1 text-xs text-slate-500">Revient chaque année.</p>
+                                    <div class="mt-2 grid grid-cols-3 gap-2">
+                                        <label class="lbl">Prix / nuit (€)<input type="number" v-model="sz.price" class="fld" min="0" /></label>
+                                        <label class="lbl">Ven. et sam. (€)<input type="number" v-model="sz.weekend_price" class="fld" min="0" placeholder="Identique" /></label>
+                                        <label class="lbl">Nuits min.<input type="number" v-model="sz.min_nights" class="fld" min="1" :placeholder="String(roomForm.min_nights || 1)" /></label>
+                                    </div>
+                                </div>
+                                <button @click="addSeason" class="mt-3 rounded-lg border border-dashed border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-white/30">+ Ajouter une saison (été, vacances, fêtes…)</button>
+
+                                <button @click="showAdvanced = !showAdvanced" class="mt-3 block text-xs font-semibold text-brand-400">{{ showAdvanced ? '▾' : '▸' }} Frais, taxe de séjour et durée maximale</button>
+                                <div v-if="showAdvanced" class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                    <label class="lbl">Frais de ménage (€, par séjour)<input type="number" v-model="roomForm.cleaning_fee" class="fld" min="0" /></label>
+                                    <label class="lbl">Taxe de séjour (€ / pers. / nuit)<input type="number" step="0.01" v-model="roomForm.tourist_tax" class="fld" min="0" /></label>
+                                    <label class="lbl">Nuits maximum<input type="number" v-model="roomForm.max_nights" class="fld" min="1" /></label>
+                                    <label class="lbl">Personnes incluses dans le prix<input type="number" v-model="roomForm.included_guests" class="fld" min="1" placeholder="Toutes" /></label>
+                                    <label class="lbl">Supplément / pers. en plus / nuit (€)<input type="number" v-model="roomForm.extra_guest_fee" class="fld" min="0" /></label>
+                                </div>
+                            </div>
+
+                            <!-- Calendriers -->
+                            <div class="mt-4 rounded-lg bg-white/[0.02] p-3">
+                                <p class="text-sm font-semibold text-white">Calendriers synchronisés</p>
+                                <p class="mt-0.5 text-xs text-slate-500">Les dates réservées sur Airbnb, Booking, Abritel ou Bed-Booking sont bloquées automatiquement (toutes les heures).</p>
+                                <div v-for="(f, i) in roomForm.feeds" :key="i" class="mt-2 flex gap-2">
+                                    <input v-model="f.label" class="fld !w-32 shrink-0" placeholder="Booking" />
+                                    <input v-model="f.url" class="fld flex-1" placeholder="https://…/calendar.ics" />
+                                    <button @click="roomForm.feeds.splice(i, 1)" class="text-slate-500 hover:text-rose-300">✕</button>
+                                </div>
+                                <button @click="addFeed" class="mt-2 rounded-lg border border-dashed border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-white/30">+ Importer un calendrier</button>
+                                <div v-if="roomForm.export_url" class="mt-3 rounded-lg border border-brand-400/20 bg-brand-500/5 p-2.5">
+                                    <p class="text-xs text-slate-300">À coller dans Airbnb / Booking pour qu'ils bloquent les réservations faites sur votre site :</p>
+                                    <div class="mt-1.5 flex gap-2"><input :value="roomForm.export_url" readonly class="fld flex-1 text-xs" @focus="$event.target.select()" /><button @click="copy(roomForm.export_url)" class="rounded-lg bg-white/10 px-3 text-xs font-semibold text-white">{{ copied === roomForm.export_url ? 'Copié ✓' : 'Copier' }}</button></div>
+                                </div>
+                                <p v-else class="mt-2 text-xs text-slate-500">Le lien d'export apparaîtra une fois la chambre enregistrée.</p>
+                            </div>
+
                             <div class="mt-3 flex gap-2"><button @click="submitRoom" :disabled="busy || !roomForm.name" class="btn-brand text-sm">{{ roomForm.id ? 'Enregistrer' : '+ Ajouter la chambre' }}</button><button v-if="roomForm.id" @click="resetRoom" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">Annuler</button><button @click="syncIcal" :disabled="busy" class="ml-auto rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 hover:border-white/25">🔄 Synchroniser iCal</button></div>
                             <p v-if="info" class="mt-2 text-xs text-emerald-300">{{ info }}</p>
                         </div>

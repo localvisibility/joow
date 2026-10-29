@@ -14,7 +14,12 @@ class SiteStat extends Model
     public static function bump(string $slug, string $column, int $by = 1): void
     {
         $day = now()->toDateString();
-        $row = static::firstOrCreate(['site_slug' => $slug, 'day' => $day]);
-        $row->increment($column, $by);
+        $find = fn () => static::where('site_slug', $slug)->whereDate('day', $day)->first();
+        try {
+            $row = $find() ?? static::create(['site_slug' => $slug, 'day' => $day]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            $row = $find(); // créée au même instant par une autre requête
+        }
+        $row?->increment($column, $by);
     }
 }

@@ -12,7 +12,7 @@ class RoomBooking extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['check_in' => 'date', 'check_out' => 'date', 'total' => 'decimal:2'];
+    protected $casts = ['check_in' => 'date', 'check_out' => 'date', 'total' => 'decimal:2', 'breakdown' => 'array'];
 
     public function room(): BelongsTo
     {

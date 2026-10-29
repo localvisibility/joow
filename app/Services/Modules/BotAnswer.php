@@ -105,7 +105,19 @@ TXT;
             ->map(fn ($g, $cat) => $cat.' : '.$g->map(fn ($i) => $i->name.($i->price ? ' ('.number_format((float) $i->price, 2, ',', ' ').' €)' : '').(! empty($i->description) ? ' — '.$i->description : ''))->implode(' ; '))
             ->implode("\n");
         $rooms = $site->rooms()->where('active', true)->get()
-            ->map(fn ($r) => $r->name.' — '.$r->capacity.' pers.'.($r->price_night ? ', '.number_format((float) $r->price_night, 0, ',', ' ').' €/nuit' : '').(! empty($r->description) ? ' — '.Str::limit($r->description, 160) : ''))->implode("\n");
+            ->map(function ($r) {
+                $eur = fn ($v) => number_format((float) $v, 0, ',', ' ').' €';
+                $tarifs = array_filter([
+                    $r->price_night ? $eur($r->price_night).'/nuit' : null,
+                    $r->weekend_price ? 'vendredi et samedi '.$eur($r->weekend_price) : null,
+                    ...array_map(fn ($sz) => ! empty($sz['price']) ? ($sz['name'] ?? 'saison').' (du '.implode('/', array_reverse(explode('-', $sz['from']))).' au '.implode('/', array_reverse(explode('-', $sz['to']))).') '.$eur($sz['price']).'/nuit'.(! empty($sz['min_nights']) ? ', '.$sz['min_nights'].' nuits min.' : '') : null, (array) ($r->seasons ?? [])),
+                    ($r->min_nights ?? 1) > 1 ? $r->min_nights.' nuits minimum' : null,
+                    $r->cleaning_fee ? 'ménage '.$eur($r->cleaning_fee) : null,
+                    $r->tourist_tax ? 'taxe de séjour '.number_format((float) $r->tourist_tax, 2, ',', ' ').' €/pers./nuit' : null,
+                ]);
+
+                return $r->name.' — '.$r->capacity.' pers.'.($tarifs ? ', '.implode(', ', $tarifs) : '').(! empty($r->description) ? ' — '.Str::limit($r->description, 160) : '');
+            })->implode("\n");
 
         // Pages secondaires : tout le texte lisible des blocs
         $pages = collect(PageSchema::normalizePages($d['pages'] ?? []))->map(function ($p) {
@@ -143,7 +155,7 @@ TXT;
         $pay = $mod('payment');
         $booking = array_filter([
             $on('restaurant') ? 'réservation de table en ligne (créneaux, confirmation par email'.(! empty($mod('restaurant')['sms_confirm']) ? ' et SMS' : '').')' : null,
-            $on('rooms') ? 'demande de séjour en ligne (dates, chambre, estimation du prix)' : null,
+            $on('rooms') ? (! empty($site->module('rooms')['instant']) ? 'réservation de séjour en ligne avec confirmation immédiate (calendrier des disponibilités et prix exact)' : 'demande de séjour en ligne (calendrier des disponibilités et prix exact)') : null,
             $on('booking') && ! $on('restaurant') && ! $on('rooms') ? 'formulaire de demande / réservation sur le site' : null,
             $on('payment') ? (($pay['type'] ?? 'deposit') === 'deposit' ? 'acompte de '.($pay['deposit_percent'] ?? 30).' % demandé en ligne pour les séjours' : 'empreinte bancaire anti no-show pour les tables') : null,
             $on('whatsapp') && ! empty($mod('whatsapp')['number']) ? 'contact WhatsApp possible (bouton sur le site)' : null,

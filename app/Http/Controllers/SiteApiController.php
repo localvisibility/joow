@@ -10,6 +10,8 @@ use App\Models\Site;
 use App\Models\SiteStat;
 use App\Services\Modules\BotAnswer;
 use App\Services\Modules\ReservationAvailability;
+use App\Services\Modules\StayConfirmation;
+use App\Services\Modules\StayPlanner;
 use App\Services\Notifier;
 use App\Services\Payments\StripeConnect;
 use Carbon\Carbon;
@@ -98,27 +100,45 @@ class SiteApiController extends Controller
     }
 
     /** Chambres + disponibilité sur une période (module Chambres). */
-    public function rooms(Request $request, string $slug)
+    public function rooms(Request $request, string $slug, StayPlanner $planner)
     {
         $site = Site::where('slug', $slug)->firstOrFail();
         abort_unless($site->moduleEnabled('rooms'), 404);
-        $data = $request->validate(['from' => ['nullable', 'date'], 'to' => ['nullable', 'date', 'after:from']]);
+        $data = $request->validate(['from' => ['nullable', 'date'], 'to' => ['nullable', 'date', 'after:from'], 'guests' => ['nullable', 'integer', 'min:1', 'max:30']]);
+        $guests = (int) ($data['guests'] ?? 2);
 
         $rooms = $site->rooms()->where('active', true)->get();
-        $out = $rooms->map(function (Room $r) use ($data) {
-            $available = null;
+        $out = $rooms->map(function (Room $r) use ($data, $planner, $guests) {
+            $row = ['id' => $r->id, 'name' => $r->name, 'capacity' => $r->capacity, 'price_night' => $r->price_night, 'from_price' => $planner->fromPrice($r), 'min_nights' => $r->min_nights ?: 1, 'available' => null];
             if (! empty($data['from']) && ! empty($data['to'])) {
-                $available = $this->roomFree($r, $data['from'], $data['to']);
+                $q = $planner->quote($r, $data['from'], $data['to'], $guests);
+                $row['available'] = $planner->free($r, $data['from'], $data['to']);
+                $row['bookable'] = $row['available'] && $q['ok'];
+                $row['error'] = ! $row['available'] ? 'Indisponible à ces dates' : ($q['ok'] ? null : $q['error']);
+                $row['total'] = $q['ok'] ? $q['total'] : null;
+                $row['lines'] = $q['ok'] ? $q['lines'] : [];
+                $row['nights'] = $q['nights'] ?? null;
             }
 
-            return ['id' => $r->id, 'name' => $r->name, 'capacity' => $r->capacity, 'price_night' => $r->price_night, 'available' => $available];
+            return $row;
         });
 
         return response()->json(['rooms' => $out]);
     }
 
-    /** Demande de séjour. */
-    public function stay(Request $request, string $slug)
+    /** Calendrier des disponibilités et prix par nuit (une chambre, ou toutes). */
+    public function calendar(Request $request, string $slug, StayPlanner $planner)
+    {
+        $site = Site::where('slug', $slug)->firstOrFail();
+        abort_unless($site->moduleEnabled('rooms'), 404);
+        $data = $request->validate(['from' => ['nullable', 'date'], 'days' => ['nullable', 'integer', 'min:1', 'max:120'], 'room' => ['nullable', 'uuid']]);
+        $rooms = $site->rooms()->where('active', true)->when($data['room'] ?? null, fn ($q, $id) => $q->where('id', $id))->get();
+
+        return response()->json(['days' => $planner->calendar($rooms, $data['from'] ?? now()->toDateString(), (int) ($data['days'] ?? 62))]);
+    }
+
+    /** Demande de séjour (ou réservation instantanée si le propriétaire l'a activée). */
+    public function stay(Request $request, string $slug, StayPlanner $planner)
     {
         $site = Site::where('slug', $slug)->firstOrFail();
         abort_unless($site->moduleEnabled('rooms'), 404);
@@ -131,7 +151,7 @@ class SiteApiController extends Controller
             'room_id'   => ['nullable', 'uuid'],
             'name'      => ['required', 'string', 'max:120'],
             'phone'     => ['required', 'string', 'max:40'],
-            'email'     => ['nullable', 'email', 'max:160'],
+            'email'     => [! empty($cfg['instant']) ? 'required' : 'nullable', 'email', 'max:160'],
             'notes'     => ['nullable', 'string', 'max:1000'],
             'hp'        => ['nullable', 'string', 'max:0'],
         ]);
@@ -139,23 +159,61 @@ class SiteApiController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $room = ! empty($data['room_id']) ? Room::where('site_slug', $slug)->find($data['room_id']) : null;
-        if ($room && ! $this->roomFree($room, $data['check_in'], $data['check_out'])) {
-            return response()->json(['ok' => false, 'error' => "Cette chambre n'est pas disponible sur ces dates."], 422);
+        $rooms = $site->rooms()->where('active', true)->get();
+        if (! empty($data['room_id'])) {
+            $room = $rooms->firstWhere('id', $data['room_id']);
+            abort_unless($room, 422, 'Chambre inconnue.');
+            $candidates = collect([$room]);
+        } else {
+            $candidates = $rooms;
         }
-        $nights = Carbon::parse($data['check_in'])->diffInDays(Carbon::parse($data['check_out']));
-        $total = $room && $room->price_night ? round($nights * (float) $room->price_night, 2) : null;
 
+        // Chambre choisie, ou la moins chère qui respecte les règles et est libre
+        $chosen = null;
+        $quote = null;
+        $firstError = null;
+        foreach ($candidates as $r) {
+            $q = $planner->quote($r, $data['check_in'], $data['check_out'], (int) $data['guests']);
+            if (! $q['ok']) {
+                $firstError ??= $q['error'];
+                continue;
+            }
+            if (! $planner->free($r, $data['check_in'], $data['check_out'])) {
+                $firstError ??= $candidates->count() > 1 ? 'Aucune chambre n\'est disponible sur ces dates.' : 'Cette chambre n\'est pas disponible sur ces dates.';
+                continue;
+            }
+            if (! $chosen || ($q['total'] ?? INF) < ($quote['total'] ?? INF)) {
+                [$chosen, $quote] = [$r, $q];
+            }
+        }
+        if ($rooms->isNotEmpty() && ! $chosen) {
+            return response()->json(['ok' => false, 'error' => $firstError ?: 'Aucune chambre n\'est disponible sur ces dates.'], 422);
+        }
+
+        $nights = Carbon::parse($data['check_in'])->diffInDays(Carbon::parse($data['check_out']));
+        $instant = ! empty($cfg['instant']) && $chosen;
         $bk = RoomBooking::create([
-            'site_id' => $site->id, 'site_slug' => $slug, 'room_id' => $room?->id,
-            'check_in' => $data['check_in'], 'check_out' => $data['check_out'], 'guests' => $data['guests'], 'nights' => $nights, 'total' => $total,
+            'site_id' => $site->id, 'site_slug' => $slug, 'room_id' => $chosen?->id,
+            'check_in' => $data['check_in'], 'check_out' => $data['check_out'], 'guests' => $data['guests'], 'nights' => $nights,
+            'total' => $quote['total'] ?? null,
+            'breakdown' => $quote ? ['lines' => $quote['lines'], 'nightly' => array_map(fn ($n) => ['date' => $n['date'], 'price' => $n['price']], $quote['nightly'])] : null,
             'name' => $data['name'], 'phone' => $data['phone'], 'email' => $data['email'] ?? null, 'notes' => $data['notes'] ?? null,
-            'status' => 'pending', 'source' => 'website',
+            'status' => $instant ? 'confirmed' : 'pending', 'source' => 'website',
         ]);
         SiteStat::bump($slug, 'bookings');
-        app(Notifier::class)->stayRequested($site, $bk->load('room'), $cfg);
 
-        return response()->json(['ok' => true, 'nights' => $nights, 'total' => $total, 'id' => $bk->id]);
+        $payUrl = null;
+        if ($instant) {
+            app(Notifier::class)->stayRequested($site, $bk->load('room'), $cfg, ownerOnly: true);
+            $payUrl = app(StayConfirmation::class)->confirm($site, $bk);
+        } else {
+            app(Notifier::class)->stayRequested($site, $bk->load('room'), $cfg);
+        }
+
+        return response()->json([
+            'ok' => true, 'id' => $bk->id, 'status' => $bk->status, 'nights' => $nights, 'total' => $bk->total !== null ? (float) $bk->total : null,
+            'room' => $chosen?->name, 'lines' => $quote['lines'] ?? [], 'pay_url' => $payUrl,
+        ]);
     }
 
     /** Assistant IA. */
@@ -183,15 +241,6 @@ class SiteApiController extends Controller
         }
 
         return response()->json(['ok' => true]);
-    }
-
-    private function roomFree(Room $room, string $from, string $to): bool
-    {
-        $overlapBooking = RoomBooking::where('room_id', $room->id)->whereIn('status', ['pending', 'confirmed'])
-            ->where('check_in', '<', $to)->where('check_out', '>', $from)->exists();
-        $overlapBlock = RoomBlock::where('room_id', $room->id)->where('start', '<', $to)->where('end', '>', $from)->exists();
-
-        return ! $overlapBooking && ! $overlapBlock;
     }
 
     private function notify(Site $site, ?string $to, string $subject, string $body): void

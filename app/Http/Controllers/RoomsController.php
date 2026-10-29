@@ -15,7 +15,7 @@ class RoomsController extends Controller
     public function index(Request $request, string $slug)
     {
         $site = $this->ownedSite($request, $slug);
-        $rooms = $site->rooms()->get();
+        $rooms = $site->rooms()->get()->each(fn (Room $r) => $r->setAttribute('export_url', $r->exportUrl()));
         $blocks = RoomBlock::where('site_slug', $slug)->where('end', '>=', now()->subMonth()->toDateString())->orderBy('start')->get();
 
         return response()->json(['rooms' => $rooms, 'blocks' => $blocks]);
@@ -77,21 +77,58 @@ class RoomsController extends Controller
     {
         $site = $this->ownedSite($request, $slug);
         $n = 0;
-        foreach ($site->rooms()->whereNotNull('ical_url')->get() as $room) {
-            $n += $ical->syncRoom($room);
+        foreach ($site->rooms()->get() as $room) {
+            if ($room->icalFeeds()) {
+                $n += $ical->syncRoom($room);
+            }
         }
 
         return response()->json(['ok' => true, 'events' => $n]);
     }
 
+    /** Flux iCal public d'une chambre (protégé par jeton). */
+    public function export(Room $room, string $token, IcalSync $ical)
+    {
+        abort_unless($room->ical_token && hash_equals($room->ical_token, $token), 404);
+
+        return response($ical->export($room), 200, [
+            'Content-Type' => 'text/calendar; charset=utf-8',
+            'Content-Disposition' => 'inline; filename="'.\Illuminate\Support\Str::slug($room->name).'.ics"',
+            'Cache-Control' => 'no-cache, max-age=0',
+        ]);
+    }
+
     private function validated(Request $request): array
     {
-        return $request->validate([
+        $d = $request->validate([
             'name' => ['required', 'string', 'max:120'], 'description' => ['nullable', 'string', 'max:1000'],
             'capacity' => ['nullable', 'integer', 'min:1', 'max:50'], 'price_night' => ['nullable', 'numeric', 'min:0'],
             'photos' => ['nullable', 'array', 'max:8'], 'photos.*' => ['url'], 'amenities' => ['nullable', 'array', 'max:20'], 'amenities.*' => ['string', 'max:40'],
             'ical_url' => ['nullable', 'url', 'max:500'], 'active' => ['nullable', 'boolean'], 'sort_order' => ['nullable', 'integer'],
+            'weekend_price' => ['nullable', 'numeric', 'min:0'], 'min_nights' => ['nullable', 'integer', 'min:1', 'max:60'], 'max_nights' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'cleaning_fee' => ['nullable', 'numeric', 'min:0'], 'included_guests' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'extra_guest_fee' => ['nullable', 'numeric', 'min:0'], 'tourist_tax' => ['nullable', 'numeric', 'min:0', 'max:20'],
+            'seasons' => ['nullable', 'array', 'max:12'],
+            'seasons.*.name' => ['nullable', 'string', 'max:40'],
+            'seasons.*.from' => ['required', 'regex:/^(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$/'],
+            'seasons.*.to' => ['required', 'regex:/^(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$/'],
+            'seasons.*.price' => ['nullable', 'numeric', 'min:0'], 'seasons.*.weekend_price' => ['nullable', 'numeric', 'min:0'],
+            'seasons.*.min_nights' => ['nullable', 'integer', 'min:1', 'max:60'],
+            'ical_urls' => ['nullable', 'array', 'max:6'], 'ical_urls.*.label' => ['nullable', 'string', 'max:40'], 'ical_urls.*.url' => ['required', 'url', 'max:500'],
         ]);
+        if (array_key_exists('min_nights', $d) && ! $d['min_nights']) {
+            $d['min_nights'] = 1;
+        }
+        if (isset($d['seasons'])) {
+            $d['seasons'] = array_values(array_map(fn ($x) => [
+                'name' => trim((string) ($x['name'] ?? '')) ?: 'Haute saison', 'from' => $x['from'], 'to' => $x['to'],
+                'price' => isset($x['price']) && $x['price'] !== '' ? (float) $x['price'] : null,
+                'weekend_price' => isset($x['weekend_price']) && $x['weekend_price'] !== '' ? (float) $x['weekend_price'] : null,
+                'min_nights' => ! empty($x['min_nights']) ? (int) $x['min_nights'] : null,
+            ], $d['seasons']));
+        }
+
+        return $d;
     }
 
     private function republish(Site $site, SiteRenderer $renderer): void

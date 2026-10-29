@@ -16,8 +16,10 @@ Artisan::command('inspire', function () {
 // Synchronisation des calendriers iCal (Airbnb / Booking / Abritel) — module Chambres
 Artisan::command('modules:ical-sync', function (IcalSync $ical) {
     $n = 0;
-    foreach (Room::whereNotNull('ical_url')->where('active', true)->get() as $room) {
-        $n += $ical->syncRoom($room);
+    foreach (Room::where('active', true)->get() as $room) {
+        if ($room->icalFeeds()) {
+            $n += $ical->syncRoom($room);
+        }
     }
     $this->info("iCal : $n événement(s) synchronisé(s).");
 })->purpose('Importe les indisponibilités iCal des chambres');

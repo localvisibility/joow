@@ -1099,31 +1099,110 @@ dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)
     });
   }
 
-  // ── Chambres / séjour
+  // ── Chambres / séjour : calendrier des disponibilités avec prix par nuit, devis détaillé
   const sf=document.getElementById('joow-stay');
   window.joowPickRoom=(id)=>{const s=document.getElementById('stay-room');if(s){s.value=id;s.dispatchEvent(new Event('change'));}document.getElementById('stay-box')?.scrollIntoView({behavior:'smooth',block:'start'});};
   if(sf){
-    const av=document.getElementById('stay-avail'),roomSel=document.getElementById('stay-room');
-    const check=async()=>{
-      const a=sf.check_in.value,b=sf.check_out.value;if(!a||!b||b<=a){av.textContent='';return;}
-      av.textContent='Vérification des disponibilités…';
-      try{const r=await fetch(API+'/rooms?from='+a+'&to='+b,{headers:J});const j=await r.json();
-        const n=Math.round((new Date(b)-new Date(a))/86400000);
-        [...roomSel.options].forEach(o=>{if(!o.value)return;const rm=j.rooms.find(x=>x.id===o.value);o.disabled=rm&&rm.available===false;o.textContent=(rm?rm.name:o.textContent).replace(/ \(.*\)$/,'')+(rm&&rm.available===false?' (indisponible)':'');});
-        const sel=j.rooms.find(x=>x.id===roomSel.value);
-        av.textContent=n+' nuit'+(n>1?'s':'')+(sel&&sel.price_night?' · total estimé '+(n*sel.price_night).toLocaleString('fr-FR')+' €':'')+(sel&&sel.available===false?' · cette chambre est indisponible sur ces dates':' · '+j.rooms.filter(x=>x.available!==false).length+' hébergement(s) disponible(s)');
-      }catch(e){av.textContent='';}
+    const roomSel=document.getElementById('stay-room'),monthsEl=document.getElementById('stay-months'),hint=document.getElementById('stay-hint'),quoteEl=document.getElementById('stay-quote'),btn=document.getElementById('joow-stay-btn');
+    const pad=n=>String(n).padStart(2,'0'),iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    const parse=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+    const add=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return iso(d);};
+    const nightsBetween=(a,b)=>Math.round((parse(b)-parse(a))/86400000);
+    const eur=v=>v==null?'':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:v%1?2:0})+' €';
+    const fmt=s=>parse(s).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+    const today=iso(new Date());
+    let view=new Date();view.setDate(1);
+    let ci=null,co=null,days={},quoteOk=!document.querySelector('#stay-room option[value]:not([value=""])');
+    const twoUp=()=>window.matchMedia('(min-width:768px)').matches;
+    btn.disabled=!quoteOk;
+
+    const load=async()=>{
+      const from=iso(view)<today?today:iso(view);const end=new Date(view.getFullYear(),view.getMonth()+2,1);
+      const n=Math.max(1,nightsBetween(from,iso(end))+1);
+      try{const r=await fetch(API+'/calendar?from='+from+'&days='+n+(roomSel.value?'&room='+roomSel.value:''),{headers:J});const j=await r.json();(j.days||[]).forEach(x=>days[x.d]=x);}catch(e){}
+      render();
     };
-    ['check_in','check_out'].forEach(k=>sf[k].addEventListener('change',check));roomSel.addEventListener('change',check);
-    sf.addEventListener('submit',async ev=>{ev.preventDefault();
-      const ok=document.getElementById('joow-stay-ok'),er=document.getElementById('joow-stay-err'),btn=document.getElementById('joow-stay-btn');
-      ok.classList.add('hidden');er.classList.add('hidden');btn.disabled=true;
-      try{const r=await fetch(API+'/stay',{method:'POST',headers:J,body:JSON.stringify(form2json(sf))});const j=await r.json();
-        if(!r.ok||!j.ok)throw new Error(j.error||(j.errors&&Object.values(j.errors)[0][0])||'Erreur');
-        ok.textContent='✓ Demande envoyée pour '+j.nights+' nuit(s)'+(j.total?' · '+j.total.toLocaleString('fr-FR')+' € estimés':'')+'. Nous vous confirmons très vite.';ok.classList.remove('hidden');sf.reset();av.textContent='';
-      }catch(e){er.textContent=e.message||'Une erreur est survenue.';er.classList.remove('hidden');}
-      finally{btn.disabled=false;}
+    const free=d=>days[d]&&days[d].a;
+    const rangeOk=(a,b)=>{for(let d=a;d<b;d=add(d,1)){if(!free(d))return false;}return true;};
+    const minFor=d=>(days[d]&&days[d].m)||1;
+
+    const render=()=>{
+      const months=twoUp()?2:1;monthsEl.innerHTML='';
+      for(let k=0;k<months;k++){
+        const m=new Date(view.getFullYear(),view.getMonth()+k,1);
+        const wrap=document.createElement('div');
+        wrap.innerHTML='<p class="mb-2 text-center font-display font-bold capitalize">'+m.toLocaleDateString('fr-FR',{month:'long',year:'numeric'})+'</p><div class="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase text-slate-400">'+['lu','ma','me','je','ve','sa','di'].map(x=>'<span>'+x+'</span>').join('')+'</div>';
+        const grid=document.createElement('div');grid.className='mt-1 grid grid-cols-7 gap-1';
+        const lead=(m.getDay()+6)%7;for(let i=0;i<lead;i++)grid.appendChild(document.createElement('span'));
+        const last=new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
+        for(let dn=1;dn<=last;dn++){
+          const d=iso(new Date(m.getFullYear(),m.getMonth(),dn)),info=days[d];
+          const b=document.createElement('button');b.type='button';b.dataset.d=d;
+          let can,cls='relative flex h-12 flex-col items-center justify-center rounded-lg text-sm transition ';
+          const inRange=ci&&co&&d>ci&&d<co,isEdge=d===ci||d===co;
+          if(ci&&!co&&d>ci){can=rangeOk(ci,d)&&nightsBetween(ci,d)>=minFor(ci);}else{can=d>=today&&free(d);}
+          if(isEdge)cls+='bg-accent font-bold text-white shadow';
+          else if(inRange)cls+='bg-accent/15 font-semibold';
+          else if(can)cls+='bg-white ring-1 ring-slate-200 hover:ring-2 hover:ring-[color:var(--c)]';
+          else cls+=(d<today?'text-slate-300':'bg-slate-200/70 text-slate-400 line-through decoration-slate-300')+' cursor-not-allowed';
+          b.className=cls;b.disabled=!can&&!isEdge;
+          if(inRange)b.style.background='color-mix(in srgb,var(--c) 14%,transparent)';
+          const price=info&&info.a&&info.p!=null&&d>=today&&!(ci&&!co&&d>ci)?'<span class="text-[10px] font-medium '+(isEdge?'text-white/85':'text-slate-500')+'">'+Math.round(info.p)+'€</span>':'';
+          b.innerHTML='<span>'+dn+'</span>'+price;
+          if(ci&&!co&&d>ci&&!can&&rangeOk(ci,d))b.title=minFor(ci)+' nuits minimum';
+          grid.appendChild(b);
+        }
+        wrap.appendChild(grid);monthsEl.appendChild(wrap);
+      }
+      if(!ci)hint.textContent="Choisissez votre date d'arrivée";
+      else if(!co)hint.textContent='Arrivée '+fmt(ci)+' · choisissez le départ'+(minFor(ci)>1?' ('+minFor(ci)+' nuits min.)':'');
+      else{const n=nightsBetween(ci,co);hint.textContent=fmt(ci)+' → '+fmt(co)+' · '+n+' nuit'+(n>1?'s':'');}
+    };
+
+    monthsEl.addEventListener('click',e=>{
+      const b=e.target.closest('button[data-d]');if(!b||b.disabled)return;const d=b.dataset.d;
+      if(!ci||co||d<=ci){ci=d;co=null;}else{co=d;}
+      sf.check_in.value=ci||'';sf.check_out.value=co||'';
+      render();co?quote():clearQuote();
     });
+    sf.querySelector('[data-cal="prev"]').addEventListener('click',()=>{const t=new Date();t.setDate(1);if(view>t){view.setMonth(view.getMonth()-1);load();}});
+    sf.querySelector('[data-cal="next"]').addEventListener('click',()=>{view.setMonth(view.getMonth()+1);load();});
+
+    const clearQuote=()=>{quoteEl.classList.add('hidden');quoteEl.innerHTML='';quoteOk=!roomSel.options.length;btn.disabled=!quoteOk;};
+    const quote=async()=>{
+      quoteEl.classList.remove('hidden');quoteEl.innerHTML='<p class="text-sm text-slate-500">Calcul du tarif…</p>';btn.disabled=true;
+      try{
+        const r=await fetch(API+'/rooms?from='+ci+'&to='+co+'&guests='+(sf.guests.value||2),{headers:J});const j=await r.json();
+        const rows=roomSel.value?j.rooms.filter(x=>x.id===roomSel.value):j.rooms.filter(x=>x.bookable).sort((a,b)=>(a.total??1e9)-(b.total??1e9));
+        if(!rows.length||!rows[0].bookable){
+          const err=roomSel.value?(rows[0]&&rows[0].error)||'Indisponible à ces dates':'Aucun hébergement disponible à ces dates pour '+(sf.guests.value||2)+' personne(s).';
+          quoteEl.innerHTML='<p class="text-sm font-semibold text-rose-600">'+err+'</p>';quoteOk=false;btn.disabled=true;return;
+        }
+        const card=(x,pick)=>'<div class="'+(pick?'mt-3 border-t border-slate-100 pt-3':'')+'"><div class="flex items-baseline justify-between gap-3"><p class="font-display text-lg font-bold">'+x.name+'</p>'+(x.total!=null?'<p class="font-display text-xl font-bold accent">'+eur(x.total)+'</p>':'')+'</div>'
+          +(x.lines||[]).map(l=>'<div class="mt-1 flex justify-between text-sm text-slate-600"><span>'+l.label+'</span><span>'+eur(l.amount)+'</span></div>').join('')
+          +(pick?'<button type="button" data-pick="'+x.id+'" class="mt-2 rounded-lg border-2 border-accent px-3 py-1.5 text-xs font-bold accent transition hover:bg-accent hover:text-white">Choisir cet hébergement</button>':'')+'</div>';
+        quoteEl.innerHTML=roomSel.value?card(rows[0],false):'<p class="text-sm font-semibold text-slate-500">'+rows.length+' hébergement'+(rows.length>1?'s disponibles':' disponible')+' · le meilleur prix sera retenu</p>'+rows.map(x=>card(x,true)).join('');
+        quoteOk=true;btn.disabled=false;
+      }catch(e){quoteEl.innerHTML='';quoteOk=true;btn.disabled=false;}
+    };
+    quoteEl.addEventListener('click',e=>{const b=e.target.closest('[data-pick]');if(b){roomSel.value=b.dataset.pick;roomSel.dispatchEvent(new Event('change'));}});
+    roomSel.addEventListener('change',()=>{days={};const keep=ci&&co?[ci,co]:null;load().then(()=>{if(keep&&rangeOk(keep[0],keep[1])){quote();}else{ci=co=null;sf.check_in.value=sf.check_out.value='';render();clearQuote();}});});
+    sf.guests.addEventListener('change',()=>{if(ci&&co)quote();});
+    window.addEventListener('resize',()=>render());
+
+    sf.addEventListener('submit',async ev=>{ev.preventDefault();
+      const ok=document.getElementById('joow-stay-ok'),er=document.getElementById('joow-stay-err');
+      ok.classList.add('hidden');er.classList.add('hidden');
+      if(!sf.check_in.value||!sf.check_out.value){er.textContent='Choisissez vos dates dans le calendrier.';er.classList.remove('hidden');return;}
+      btn.disabled=true;
+      try{const r=await fetch(API+'/stay',{method:'POST',headers:J,body:JSON.stringify(form2json(sf))});const j=await r.json();
+        if(!r.ok||!j.ok)throw new Error(j.error||j.message||(j.errors&&Object.values(j.errors)[0][0])||'Erreur');
+        if(j.pay_url){ok.textContent='✓ Réservation confirmée · redirection vers le paiement sécurisé de l\'acompte…';ok.classList.remove('hidden');location.href=j.pay_url;return;}
+        ok.textContent=(j.status==='confirmed'?'✓ Réservation confirmée':'✓ Demande envoyée')+' : '+j.nights+' nuit'+(j.nights>1?'s':'')+(j.room?' · '+j.room:'')+(j.total?' · '+eur(j.total):'')+'. '+(j.status==='confirmed'?'Un email de confirmation vous a été envoyé.':'Nous vous confirmons très vite.');
+        ok.classList.remove('hidden');sf.reset();ci=co=null;days={};clearQuote();load();
+      }catch(e){er.textContent=e.message||'Une erreur est survenue.';er.classList.remove('hidden');btn.disabled=!quoteOk;}
+    });
+    load();
   }
 
   // ── Assistant IA

@@ -84,21 +84,7 @@ class ReservationsController extends Controller
         }
 
         if ($status === 'confirmed') {
-            $payUrl = null;
-            $pay = $site->module('payment');
-            $type = $pay['type'] ?? 'deposit';
-            if ($site->moduleEnabled('payment') && in_array($type, ['deposit', 'full'], true) && $booking->total && $booking->payment_status !== 'paid' && $connect->ready($site)) {
-                $amount = $type === 'full' ? (float) $booking->total : round((float) $booking->total * max(1, min(100, (float) ($pay['deposit_percent'] ?? 30))) / 100, 2);
-                try {
-                    $ret = route('public.pay.return', ['kind' => 'deposit', 'site' => $site->slug]);
-                    $sess = $connect->checkoutForStay($site, $booking->load('room'), $amount, $ret.'&status=ok', $ret.'&status=cancel');
-                    $booking->update(['deposit_amount' => $amount, 'payment_status' => 'pending', 'payment_url' => $sess['url'], 'stripe_session_id' => $sess['id']]);
-                    $payUrl = $sess['url'];
-                } catch (\Throwable $e) {
-                    Log::warning('Acompte Stripe : '.$e->getMessage());
-                }
-            }
-            $notifier->stayConfirmed($site, $booking->fresh()->load('room'), $payUrl);
+            app(\App\Services\Modules\StayConfirmation::class)->confirm($site, $booking);
         } elseif ($status === 'cancelled') {
             $notifier->stayCancelled($site, $booking->load('room'));
         }
@@ -131,6 +117,15 @@ class ReservationsController extends Controller
         $this->authorizeSlug($request, $data['site_slug']);
         $site = Site::where('slug', $data['site_slug'])->first();
         $nights = Carbon::parse($data['check_in'])->diffInDays(Carbon::parse($data['check_out']));
+        $room = ! empty($data['room_id']) ? \App\Models\Room::where('site_slug', $data['site_slug'])->find($data['room_id']) : null;
+        if ($room && ($data['total'] ?? null) === null) {
+            // Saisie au téléphone : prix calculé avec les tarifs de la chambre (règles de durée non imposées)
+            $q = app(\App\Services\Modules\StayPlanner::class)->quote($room, $data['check_in'], $data['check_out'], (int) $data['guests'], enforce: false);
+            if ($q['ok'] && $q['total'] !== null) {
+                $data['total'] = $q['total'];
+                $data['breakdown'] = ['lines' => $q['lines']];
+            }
+        }
         RoomBooking::create($data + ['site_id' => $site?->id, 'nights' => $nights, 'status' => 'confirmed', 'source' => 'manual']);
 
         return back();

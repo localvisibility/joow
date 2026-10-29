@@ -103,7 +103,7 @@ class ModulesController extends Controller
             'bot'        => BotAnswer::defaults(),
             'whatsapp'   => ['enabled' => false, 'number' => '', 'message' => 'Bonjour, je souhaite avoir des informations.', 'position' => 'right'],
             'reviews'    => ['enabled' => true, 'min_rating' => 4, 'count' => 6],
-            'rooms'      => ['enabled' => false, 'notify_email' => '', 'intro' => ''],
+            'rooms'      => ['enabled' => false, 'notify_email' => '', 'title' => '', 'intro' => '', 'instant' => false],
             'menu'       => ['enabled' => false, 'title' => 'Notre carte', 'qr' => true],
             'zenchef'    => ['enabled' => false, 'restaurant_id' => ''],
             'payment'    => ['enabled' => false, 'type' => 'deposit', 'deposit_percent' => 30, 'hold_per_cover' => 10, 'notify_email' => ''],
@@ -127,6 +127,9 @@ class ModulesController extends Controller
         }
         if (isset($cfg['enabled'])) {
             $out['enabled'] = (bool) $cfg['enabled'];
+        }
+        if (array_key_exists('instant', $out)) {
+            $out['instant'] = (bool) $out['instant'];
         }
         if ($key === 'whatsapp' && ! empty($out['number'])) {
             $out['number'] = preg_replace('/\D+/', '', $out['number']);

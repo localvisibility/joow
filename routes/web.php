@@ -20,6 +20,7 @@ Route::prefix('/api/site/{slug}')->middleware('throttle:120,1')->group(function 
     Route::get('/availability', [\App\Http\Controllers\SiteApiController::class, 'availability'])->name('api.site.availability');
     Route::post('/reserve', [\App\Http\Controllers\SiteApiController::class, 'reserve'])->middleware('throttle:15,1')->name('api.site.reserve');
     Route::get('/rooms', [\App\Http\Controllers\SiteApiController::class, 'rooms'])->name('api.site.rooms');
+    Route::get('/calendar', [\App\Http\Controllers\SiteApiController::class, 'calendar'])->name('api.site.calendar');
     Route::post('/stay', [\App\Http\Controllers\SiteApiController::class, 'stay'])->middleware('throttle:15,1')->name('api.site.stay');
     Route::post('/bot', [\App\Http\Controllers\SiteApiController::class, 'bot'])->middleware('throttle:30,1')->name('api.site.bot');
     Route::post('/view', [\App\Http\Controllers\SiteApiController::class, 'view'])->name('api.site.view');
@@ -203,6 +204,8 @@ Route::get('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthContro
 
 // ─── Liens publics signés (emails / SMS) & retour de paiement ───
 Route::get('/r/{reservation}/annuler', [\App\Http\Controllers\PaymentController::class, 'cancelReservation'])->middleware('signed')->name('public.reservation.cancel');
+// Flux iCal exporté d'une chambre (à coller dans Airbnb / Booking / Bed-Booking)
+Route::get('/ical/chambre/{room}/{token}.ics', [\App\Http\Controllers\RoomsController::class, 'export'])->middleware('throttle:60,1')->name('public.room.ical');
 Route::get('/s/{booking}/annuler', [\App\Http\Controllers\PaymentController::class, 'cancelStay'])->middleware('signed')->name('public.stay.cancel');
 Route::get('/paiement/retour', [\App\Http\Controllers\PaymentController::class, 'paymentReturn'])->name('public.pay.return');
 

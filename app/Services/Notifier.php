@@ -85,11 +85,11 @@ class Notifier
 
     // ───────────────────────────────── Séjours ─────────────────────────────────
 
-    public function stayRequested(Site $site, RoomBooking $bk, array $cfg): void
+    public function stayRequested(Site $site, RoomBooking $bk, array $cfg, bool $ownerOnly = false): void
     {
         $b = $this->brand($site);
         $rows = $this->stayRows($bk);
-        if ($bk->email) {
+        if ($bk->email && ! $ownerOnly) {
             $this->mail($site, $bk->email, 'Demande de séjour reçue — '.$b['name'], [
                 'title' => 'Demande bien reçue',
                 'intro' => 'Merci ! Nous vérifions les disponibilités et revenons vers vous très rapidement.',
@@ -97,10 +97,10 @@ class Notifier
                 'cta2'  => ['label' => 'Annuler ma demande', 'url' => URL::signedRoute('public.stay.cancel', ['booking' => $bk->id])],
             ]);
         }
-        $this->owner($site, $cfg['notify_email'] ?? null, 'Nouvelle demande de séjour — '.$b['name'], [
-            'title' => 'Nouvelle demande de séjour',
+        $this->owner($site, $cfg['notify_email'] ?? null, ($bk->status === 'confirmed' ? 'Nouvelle réservation — ' : 'Nouvelle demande de séjour — ').$b['name'], [
+            'title' => $bk->status === 'confirmed' ? 'Nouvelle réservation (confirmée automatiquement)' : 'Nouvelle demande de séjour',
             'rows'  => array_merge($rows, array_filter([['Nom', $bk->name], ['Téléphone', $bk->phone], $bk->email ? ['Email', $bk->email] : null, $bk->notes ? ['Message', $bk->notes] : null])),
-            'cta'   => ['label' => 'Confirmer ou refuser', 'url' => route('reservations.index')],
+            'cta'   => ['label' => $bk->status === 'confirmed' ? 'Voir la réservation' : 'Confirmer ou refuser', 'url' => route('reservations.index')],
         ]);
     }
 
@@ -233,6 +233,7 @@ class Notifier
             ['Arrivée', $ci->locale('fr')->isoFormat('dddd D MMMM YYYY')], ['Départ', $co->locale('fr')->isoFormat('dddd D MMMM YYYY')],
             ['Nuits', $bk->nights], ['Personnes', $bk->guests],
             $bk->room ? ['Hébergement', $bk->room->name] : null,
+            ...array_map(fn ($l) => [$l['label'], number_format((float) $l['amount'], 2, ',', ' ').' €'], (array) ($bk->breakdown['lines'] ?? [])),
             $bk->total ? ['Total', number_format((float) $bk->total, 2, ',', ' ').' €'] : null,
             $bk->deposit_amount ? ['Acompte', number_format((float) $bk->deposit_amount, 2, ',', ' ').' €'.($bk->payment_status === 'paid' ? ' (réglé)' : '')] : null,
         ]));
