@@ -226,10 +226,10 @@ class AdminController extends Controller
         if (! $emails) {
             return;
         }
-        $this->mails = \App\Models\EmailLog::whereIn('to', $emails)->orderByDesc('sent_at')->get(['to', 'subject', 'sent_at', 'opened_at', 'opens'])
+        $this->mails = \App\Models\EmailLog::whereIn('to', $emails)->orderByDesc('sent_at')->get(['to', 'subject', 'sent_at', 'opened_at', 'opens', 'tracked'])
             ->groupBy('to')->map(fn ($g) => [
-                'sent' => $g->count(), 'opened' => $g->whereNotNull('opened_at')->count(),
-                'last' => $g->take(8)->map(fn ($m) => ['subject' => $m->subject, 'at' => $m->sent_at->toIso8601String(), 'opened' => optional($m->opened_at)->toIso8601String()])->values()->all(),
+                'sent' => $g->count(), 'opened' => $g->whereNotNull('opened_at')->count(), 'tracked' => $g->where('tracked', true)->count(),
+                'last' => $g->take(8)->map(fn ($m) => ['subject' => $m->subject, 'at' => $m->sent_at->toIso8601String(), 'opened' => optional($m->opened_at)->toIso8601String(), 'tracked' => (bool) $m->tracked])->values()->all(),
             ])->all();
     }
 
@@ -243,9 +243,10 @@ class AdminController extends Controller
         $recent = \App\Models\EmailLog::where('sent_at', '>=', $since);
 
         return [
-            'rows' => $rows->map(fn ($m) => ['id' => $m->id, 'to' => $m->to, 'subject' => $m->subject, 'sent_at' => $m->sent_at->toIso8601String(), 'opened_at' => optional($m->opened_at)->toIso8601String(), 'opens' => $m->opens])->all(),
+            'rows' => $rows->map(fn ($m) => ['id' => $m->id, 'to' => $m->to, 'subject' => $m->subject, 'sent_at' => $m->sent_at->toIso8601String(), 'opened_at' => optional($m->opened_at)->toIso8601String(), 'opens' => $m->opens, 'tracked' => (bool) ($m->tracked ?? true)])->all(),
             'sent_30' => (clone $recent)->count(),
             'opened_30' => (clone $recent)->whereNotNull('opened_at')->count(),
+            'tracked_30' => (clone $recent)->where('tracked', true)->count(),
         ];
     }
 

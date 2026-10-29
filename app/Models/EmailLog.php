@@ -11,5 +11,5 @@ class EmailLog extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['sent_at' => 'datetime', 'opened_at' => 'datetime'];
+    protected $casts = ['sent_at' => 'datetime', 'opened_at' => 'datetime', 'tracked' => 'boolean'];
 }

@@ -281,7 +281,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                         <td class="px-3 py-3">
                             <div class="flex flex-wrap gap-1">
                                 <span v-for="[k, ic, label] in ACT" :key="k" v-show="r.activity?.[k]" class="chip bg-white/[0.06] text-slate-200" :title="`${label} · ${r.activity?.[k]?.n} fois · dernière ${ago(r.activity?.[k]?.last)}`">{{ ic }} {{ r.activity?.[k]?.n }}</span>
-                                <span v-if="r.mails" class="chip bg-sky-500/15 text-sky-300" :title="r.mails.last.map((m) => (m.opened ? '✓ ouvert ' : '· non ouvert ') + ago(m.at) + ' · ' + m.subject).join('\n')">📬 {{ r.mails.opened }}/{{ r.mails.sent }}</span>
+                                <span v-if="r.mails" class="chip bg-sky-500/15 text-sky-300" :title="r.mails.last.map((m) => (m.opened ? '✓ ouvert ' : (m.tracked ? '· non ouvert ' : '· (non suivi) ')) + ago(m.at) + ' · ' + m.subject).join('\n')">📬 {{ r.mails.opened }}/{{ r.mails.sent }}</span>
                                 <span v-if="r.messages?.length" class="chip bg-brand-500/15 text-brand-300" :title="r.messages.map((m) => ago(m.at) + ' · ' + m.subject).join('\n')">📨 {{ r.messages.length }}</span>
                                 <span v-if="r.checkout_at" class="chip bg-amber-500/15 text-amber-300" :title="'Page de paiement ouverte ' + ago(r.checkout_at)">💳</span>
                                 <span v-if="!Object.keys(r.activity || {}).length && !r.checkout_at && !r.mails" class="text-xs text-slate-600">aucune</span>
@@ -306,7 +306,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
 
         <!-- Emails -->
         <div v-else-if="tab === 'emails'" class="mt-5">
-            <p class="mb-3 text-sm text-slate-400">30 derniers jours : <span class="font-semibold text-white">{{ data.sent_30 }}</span> envoyés · <span class="font-semibold text-white">{{ data.opened_30 }}</span> ouverts<span v-if="data.sent_30"> ({{ Math.round(data.opened_30 / data.sent_30 * 100) }} %)</span></p>
+            <p class="mb-3 text-sm text-slate-400">30 derniers jours : <span class="font-semibold text-white">{{ data.sent_30 }}</span> envoyés · <span class="font-semibold text-white">{{ data.opened_30 }}</span> ouverts<span v-if="data.tracked_30"> ({{ Math.round(data.opened_30 / data.tracked_30 * 100) }} % des emails suivis)</span></p>
             <div class="glass overflow-x-auto rounded-2xl">
                 <table class="w-full text-sm">
                     <thead class="border-b border-white/[0.06] text-left text-xs uppercase tracking-wide text-slate-500">
@@ -317,7 +317,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                             <td class="max-w-[14rem] truncate px-5 py-3 text-slate-200" :title="m.to">{{ m.to }}</td>
                             <td class="max-w-md truncate px-3 py-3 text-slate-300" :title="m.subject">{{ m.subject }}</td>
                             <td class="whitespace-nowrap px-3 py-3 text-slate-400">{{ ago(m.sent_at) }}</td>
-                            <td class="whitespace-nowrap px-5 py-3"><span v-if="m.opened_at" class="chip bg-emerald-500/15 text-emerald-300">✓ ouvert {{ ago(m.opened_at) }}<span v-if="m.opens > 1"> · {{ m.opens }}×</span></span><span v-else class="text-xs text-slate-500">non ouvert</span></td>
+                            <td class="whitespace-nowrap px-5 py-3"><span v-if="!m.tracked" class="text-xs text-slate-600" title="Envoyé avant la mise en place du suivi">non suivi</span><span v-else-if="m.opened_at" class="chip bg-emerald-500/15 text-emerald-300">✓ ouvert {{ ago(m.opened_at) }}<span v-if="m.opens > 1"> · {{ m.opens }}×</span></span><span v-else class="text-xs text-slate-500">non ouvert</span></td>
                         </tr>
                         <tr v-if="!rows.length"><td colspan="4" class="px-5 py-10 text-center text-slate-500">Aucun email journalisé pour le moment.</td></tr>
                     </tbody>
@@ -432,7 +432,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                     <p class="mt-2 font-semibold text-white">{{ preview(mail.subject) }}</p><p class="mt-1 whitespace-pre-line text-slate-300">{{ preview(mail.message) }}</p></details>
                 <div v-if="mail.site.mails" class="mt-3 rounded-xl border border-white/[0.06] p-3 text-xs">
                     <p class="font-semibold text-slate-400">Emails déjà reçus ({{ mail.site.mails.opened }} ouvert{{ mail.site.mails.opened > 1 ? 's' : '' }} sur {{ mail.site.mails.sent }})</p>
-                    <p v-for="(m, i) in mail.site.mails.last" :key="i" class="mt-1 flex justify-between gap-3"><span class="truncate text-slate-300">{{ m.subject }}</span><span class="shrink-0" :class="m.opened ? 'text-emerald-300' : 'text-slate-500'">{{ m.opened ? '✓ ouvert' : 'non ouvert' }} · {{ ago(m.at) }}</span></p>
+                    <p v-for="(m, i) in mail.site.mails.last" :key="i" class="mt-1 flex justify-between gap-3"><span class="truncate text-slate-300">{{ m.subject }}</span><span class="shrink-0" :class="m.opened ? 'text-emerald-300' : 'text-slate-500'">{{ m.opened ? '✓ ouvert' : (m.tracked ? 'non ouvert' : 'non suivi') }} · {{ ago(m.at) }}</span></p>
                 </div>
                 <p v-if="page.props.errors?.message || page.props.errors?.subject" class="mt-3 text-sm text-rose-300">{{ page.props.errors.message || page.props.errors.subject }}</p>
                 <div class="mt-5 flex justify-end gap-2">
