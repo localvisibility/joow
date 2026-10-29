@@ -38,6 +38,31 @@ class Site extends Model
     }
 
     /** L'utilisateur (ou la session invitée) peut-il modifier ce site dans le Studio ? */
+    /**
+     * Identifiant du site, aussi sous-domaine <slug>.joow.fr : un label DNS fait 63 caractères au plus.
+     * Nom coupé proprement (~40 caractères, sur un tiret) + 4 caractères aléatoires, unique.
+     */
+    public static function makeSlug(string $name, int $max = 40): string
+    {
+        $base = \Illuminate\Support\Str::slug($name) ?: 'site';
+        if (strlen($base) > $max) {
+            $cut = substr($base, 0, $max + 1);
+            $base = strrpos($cut, '-') > 12 ? substr($cut, 0, strrpos($cut, '-')) : substr($base, 0, $max);
+        }
+        $base = trim($base, '-') ?: 'site';
+        do {
+            $slug = $base.'-'.\Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(4));
+        } while (static::where('slug', $slug)->exists());
+
+        return $slug;
+    }
+
+    /** Site renommé (identifiant raccourci) : retrouve-le par son ancien identifiant. */
+    public static function byOldSlug(string $slug): ?self
+    {
+        return static::whereJsonContains('site_data->old_slugs', $slug)->first();
+    }
+
     public function editableBy(?User $user, array $guestSlugs = []): bool
     {
         if ($user) {

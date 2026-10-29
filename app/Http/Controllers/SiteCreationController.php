@@ -54,7 +54,7 @@ class SiteCreationController extends Controller
             'lng'           => ['nullable', 'numeric'],
         ]);
 
-        $slug = Str::slug($data['name']).'-'.Str::lower(Str::random(4));
+        $slug = Site::makeSlug($data['name']);
 
         $site = Site::create([
             ...$data,

@@ -32,8 +32,7 @@ class RedesignController extends Controller
         }
 
         $host = preg_replace('/^www\./', '', (string) parse_url($final, PHP_URL_HOST));
-        $base = Str::slug(explode('.', $host)[0]) ?: 'site';
-        $slug = $base.'-'.Str::lower(Str::random(4));
+        $slug = Site::makeSlug(explode('.', $host)[0]);
 
         $site = Site::create([
             'slug'        => $slug,

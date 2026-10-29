@@ -52,7 +52,7 @@ class PublicSiteController extends Controller
         }
 
         $sector = $detector->detect($b['name'], $b['types'] ?? [], ['primary_type' => $b['primary_type'] ?? null, 'address' => $b['address'] ?? null, 'reviews' => $b['reviews'] ?? []]);
-        $slug = Str::slug($b['name']).'-'.Str::lower(Str::random(4));
+        $slug = Site::makeSlug($b['name']);
 
         $site = Site::create([
             'slug'          => $slug,
@@ -96,7 +96,16 @@ class PublicSiteController extends Controller
 
     public function show(Request $request, string $slug)
     {
-        $site = Site::where('slug', $slug)->firstOrFail();
+        $site = Site::where('slug', $slug)->first();
+        if (! $site && ($moved = Site::byOldSlug($slug))) {
+            $guest = (array) $request->session()->get('joow_sites', []);
+            if (in_array($slug, $guest, true)) {
+                $request->session()->put('joow_sites', array_values(array_unique([...$guest, $moved->slug])));
+            }
+
+            return redirect()->route('public.site', $moved->slug, 301);
+        }
+        abort_unless($site, 404);
 
         $ttl = (int) config('services.preview_ttl_days', 7);
 

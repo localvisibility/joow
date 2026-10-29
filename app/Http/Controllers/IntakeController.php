@@ -116,7 +116,7 @@ class IntakeController extends Controller
             ? $data['sector']
             : $detector->detect($data['name'], [], ['primary_type' => $data['sector_hint'] ?? null, 'address' => $data['city'], 'description' => $data['description'] ?? null]);
 
-        $slug = Str::slug($data['name']).'-'.Str::lower(Str::random(4));
+        $slug = Site::makeSlug($data['name']);
         $photos = $images->move($data['photos'] ?? [], 'intake-'.$this->token($request), $slug);
 
         $site = Site::create([

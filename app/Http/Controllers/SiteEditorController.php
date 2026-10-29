@@ -29,6 +29,15 @@ class SiteEditorController extends Controller
 
     public function show(Request $request, string $slug)
     {
+        if (! Site::where('slug', $slug)->exists() && ($moved = Site::byOldSlug($slug))) {
+            // Identifiant raccourci : la session du créateur suit le nouveau nom
+            $guest = (array) $request->session()->get('joow_sites', []);
+            if (in_array($slug, $guest, true)) {
+                $request->session()->put('joow_sites', array_values(array_unique([...$guest, $moved->slug])));
+            }
+
+            return redirect()->route('sites.editor', $moved->slug);
+        }
         $site = $this->ownedSite($request, $slug);
 
         // Sans email ni compte, pas de Studio : retour à l'aperçu, qui demande l'email
