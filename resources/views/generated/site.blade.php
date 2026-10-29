@@ -1065,7 +1065,7 @@ dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)
 
   @if(!$editMode)
   // Mesure d'audience anonyme
-  try{fetch(API+'/view',{method:'POST',headers:J,body:'{}',keepalive:true}).catch(()=>{});}catch(e){}
+  try{let full=false;try{full=window.top===window;}catch(e){}fetch(API+'/view',{method:'POST',headers:J,body:JSON.stringify({full}),keepalive:true}).catch(()=>{});}catch(e){}
   @endif
 
   // ── Réservation restaurant (module natif)

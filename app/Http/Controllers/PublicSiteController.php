@@ -106,6 +106,7 @@ class PublicSiteController extends Controller
             return redirect()->route('public.site', $moved->slug, 301);
         }
         abort_unless($site, 404);
+        $site->track('preview');
 
         $ttl = (int) config('services.preview_ttl_days', 7);
 

@@ -57,6 +57,31 @@ class Site extends Model
         return $slug;
     }
 
+    /**
+     * Activité du prospect sur son site (aperçu, site plein écran, Studio, modifications…) :
+     * compteur + première / dernière date, dans site_data.activity. Ignore l'équipe Joow.
+     */
+    public function track(string $event): void
+    {
+        $req = request();
+        if ($req && ($req->user()?->isAdmin() || ($req->hasSession() && $req->session()->get('admin_impersonator')))) {
+            return;
+        }
+        $data = $this->site_data ?? [];
+        $a = $data['activity'][$event] ?? ['n' => 0, 'first' => null, 'last' => null];
+        // Une même personne qui recharge : on ne compte qu'une fois toutes les 10 minutes
+        if ($a['last'] && now()->diffInMinutes(\Carbon\Carbon::parse($a['last'])) < 10) {
+            return;
+        }
+        $a['n'] = (int) $a['n'] + 1;
+        $a['first'] ??= now()->toIso8601String();
+        $a['last'] = now()->toIso8601String();
+        $data['activity'][$event] = $a;
+        $this->timestamps = false;
+        $this->forceFill(['site_data' => $data])->saveQuietly();
+        $this->timestamps = true;
+    }
+
     /** Site renommé (identifiant raccourci) : retrouve-le par son ancien identifiant. */
     public static function byOldSlug(string $slug): ?self
     {

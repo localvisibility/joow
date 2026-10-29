@@ -41,7 +41,7 @@ class AdminController extends Controller
                 'overview' => $this->overview($days),
                 'subscriptions' => $this->subscriptions($q),
                 'clients' => $this->clients($q),
-                'sites' => $this->sites($q, (string) $request->query('status', '')),
+                'sites' => $this->sites($q, (string) $request->query('status', ''), (string) $request->query('f', '')),
                 'invoices' => $this->invoices($q),
                 'domains' => $this->domains(),
                 'ai' => $this->ai($days),
@@ -119,10 +119,14 @@ class AdminController extends Controller
 
         $withEmail = $sites->filter(fn ($s) => $s->owner_email || $s->user_id)->count();
         $checkout = $sites->filter(fn ($s) => ! empty($s->site_data['emails']['checkout_started_at']))->count();
+        $studio = $sites->filter(fn ($s) => ! empty($s->site_data['activity']['studio']))->count();
+        $viewed = $sites->filter(fn ($s) => ! empty($s->site_data['activity']['preview']) || ! empty($s->site_data['activity']['fullpage']))->count();
         $paid = $sites->whereNotNull('paid_at')->count();
         $funnel = [
             ['label' => 'Sites générés', 'n' => $sites->count()],
+            ['label' => 'Site consulté', 'n' => $viewed],
             ['label' => 'Email laissé', 'n' => $withEmail],
+            ['label' => 'Studio ouvert', 'n' => $studio],
             ['label' => 'Paiement ouvert', 'n' => $checkout],
             ['label' => 'Payés', 'n' => $paid],
         ];
@@ -163,6 +167,8 @@ class AdminController extends Controller
             'domain' => $s->custom_domain, 'campaign' => $a['utm_campaign'] ?? ($a['utm_source'] ?? null),
             'url' => 'https://'.$s->slug.'.joow.fr', 'mrr' => $s->hosting_plan === 'pro' && in_array($s->subscription_status, ['active', 'trialing'], true) ? $this->price('pro') : 0,
             'stripe' => $s->user?->stripe_id ? 'https://dashboard.stripe.com/customers/'.$s->user->stripe_id : null,
+            'activity' => (array) ($s->site_data['activity'] ?? []),
+            'checkout_at' => $s->site_data['emails']['checkout_started_at'] ?? null,
             'error' => $s->status === 'failed' ? Str::limit((string) GenerationJob::where('site_slug', $s->slug)->latest()->value('error'), 300) : null,
         ];
     }
@@ -192,14 +198,18 @@ class AdminController extends Controller
         ])->all()];
     }
 
-    private function sites(string $q, string $status): array
+    private function sites(string $q, string $status, string $f = ''): array
     {
         $rows = Site::with('user')
             ->when($status !== '', fn ($w) => $w->where('status', $status))
+            ->when($f === 'email', fn ($w) => $w->where(fn ($x) => $x->whereNotNull('owner_email')->orWhereNotNull('user_id')))
+            ->when($f === 'noemail', fn ($w) => $w->whereNull('owner_email')->whereNull('user_id'))
             ->when($q !== '', fn ($w) => $w->where(fn ($x) => $x->whereRaw('lower(name) like ?', [$this->like])->orWhereRaw('lower(slug) like ?', [$this->like])->orWhereRaw('lower(owner_email) like ?', [$this->like])))
-            ->orderByDesc('created_at')->take(300)->get();
+            ->orderByDesc('created_at')->take(300)->get()
+            ->when($f === 'studio', fn ($c) => $c->filter(fn ($s) => ! empty($s->site_data['activity']['studio'])))
+            ->when($f === 'checkout', fn ($c) => $c->filter(fn ($s) => ! empty($s->site_data['emails']['checkout_started_at'])));
 
-        return ['rows' => $rows->map(fn ($s) => $this->siteRow($s))->all(), 'statuses' => Site::selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status')];
+        return ['rows' => $rows->map(fn ($s) => $this->siteRow($s))->values()->all(), 'statuses' => Site::selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status')];
     }
 
     private function invoices(string $q): array

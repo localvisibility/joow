@@ -14,9 +14,11 @@ const tabs = [
     ['sites', 'Sites'], ['invoices', 'Factures'], ['domains', 'Domaines'], ['ai', 'IA & coûts'],
 ];
 const search = ref(props.q || '');
-const status = ref(new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('status') || '');
+const qs = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+const status = ref(qs.get('status') || '');
+const f = ref(qs.get('f') || '');
 
-const go = (extra = {}) => router.get(route('admin.index'), { tab: props.tab, days: props.days, q: search.value || undefined, status: status.value || undefined, ...extra }, { preserveState: true, preserveScroll: true });
+const go = (extra = {}) => router.get(route('admin.index'), { tab: props.tab, days: props.days, q: search.value || undefined, status: status.value || undefined, f: f.value || undefined, ...extra }, { preserveState: true, preserveScroll: true });
 
 const eur = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: n % 1 ? 2 : 0 }).format(n || 0);
 const date = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
@@ -69,6 +71,9 @@ const exportCsv = (rows, name) => {
     a.click();
 };
 const rows = computed(() => props.data?.rows || []);
+const ACT = [['preview', '👁', 'Aperçu ouvert'], ['fullpage', '🌐', 'Site vu en plein écran'], ['email_click', '📧', 'Lien email cliqué'], ['studio', '✏️', 'Studio ouvert'], ['edit', '🛠', 'Modifications']];
+const ago = (d) => { if (!d) return ''; const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
+const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filter(Boolean).sort().pop();
 </script>
 
 <template>
@@ -115,6 +120,13 @@ const rows = computed(() => props.data?.rows || []);
             <select v-if="tab === 'sites'" v-model="status" @change="go()" class="rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white">
                 <option value="">Tous les statuts</option>
                 <option v-for="(n, s) in data.statuses" :key="s" :value="s">{{ s }} ({{ n }})</option>
+            </select>
+            <select v-if="tab === 'sites'" v-model="f" @change="go()" class="rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white">
+                <option value="">Tous les prospects</option>
+                <option value="email">A laissé son email</option>
+                <option value="noemail">Sans email</option>
+                <option value="studio">A ouvert le Studio</option>
+                <option value="checkout">A ouvert le paiement</option>
             </select>
             <button class="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15">Rechercher</button>
             <button type="button" @click="exportCsv(rows, tab)" class="ml-auto rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/5">Exporter CSV</button>
@@ -240,13 +252,21 @@ const rows = computed(() => props.data?.rows || []);
         <div v-else-if="tab === 'sites'" class="glass mt-5 overflow-x-auto rounded-2xl">
             <table class="w-full text-sm">
                 <thead class="border-b border-white/[0.06] text-left text-xs uppercase tracking-wide text-slate-500">
-                    <tr><th class="px-5 py-3">Site</th><th class="px-3 py-3">Métier</th><th class="px-3 py-3">Email</th><th class="px-3 py-3">Campagne</th><th class="px-3 py-3">Statut</th><th class="px-3 py-3">Créé</th><th class="px-5 py-3"></th></tr>
+                    <tr><th class="px-5 py-3">Site</th><th class="px-3 py-3">Métier</th><th class="px-3 py-3">Email</th><th class="px-3 py-3">Activité</th><th class="px-3 py-3">Campagne</th><th class="px-3 py-3">Statut</th><th class="px-3 py-3">Créé</th><th class="px-5 py-3"></th></tr>
                 </thead>
                 <tbody class="divide-y divide-white/[0.04]">
                     <tr v-for="r in rows" :key="r.id" class="hover:bg-white/[0.02]">
                         <td class="px-5 py-3"><a :href="r.url" target="_blank" class="font-semibold text-white hover:text-brand-300">{{ r.name }}</a><span class="block text-xs text-slate-500">{{ r.slug }}</span></td>
                         <td class="px-3 py-3 text-slate-300">{{ r.sector || '—' }}</td>
-                        <td class="px-3 py-3 text-slate-300">{{ r.email || '—' }}</td>
+                        <td class="px-3 py-3"><span v-if="r.email" class="text-slate-200">{{ r.email }}</span><span v-else class="text-xs text-slate-500">pas d'email</span></td>
+                        <td class="px-3 py-3">
+                            <div class="flex flex-wrap gap-1">
+                                <span v-for="[k, ic, label] in ACT" :key="k" v-show="r.activity?.[k]" class="chip bg-white/[0.06] text-slate-200" :title="`${label} · ${r.activity?.[k]?.n} fois · dernière ${ago(r.activity?.[k]?.last)}`">{{ ic }} {{ r.activity?.[k]?.n }}</span>
+                                <span v-if="r.checkout_at" class="chip bg-amber-500/15 text-amber-300" :title="'Page de paiement ouverte ' + ago(r.checkout_at)">💳</span>
+                                <span v-if="!Object.keys(r.activity || {}).length && !r.checkout_at" class="text-xs text-slate-600">aucune</span>
+                            </div>
+                            <span v-if="lastSeen(r)" class="mt-1 block text-[11px] text-slate-500">vu {{ ago(lastSeen(r)) }}</span>
+                        </td>
                         <td class="max-w-[9rem] truncate px-3 py-3 text-slate-400">{{ r.campaign || 'direct' }}</td>
                         <td class="px-3 py-3"><span class="chip" :class="statusStyle(r.status)">{{ r.status }}</span><span v-if="r.error" class="mt-1 block max-w-xs text-xs text-rose-300/90" :title="r.error">{{ r.error }}</span></td>
                         <td class="px-3 py-3 text-slate-400">{{ date(r.created_at) }}</td>
@@ -255,7 +275,7 @@ const rows = computed(() => props.data?.rows || []);
                             <button v-if="!['paid', 'published'].includes(r.status)" @click="destroy(r)" class="rounded-lg bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/20">Supprimer</button>
                         </td>
                     </tr>
-                    <tr v-if="!rows.length"><td colspan="7" class="px-5 py-10 text-center text-slate-500">Aucun site.</td></tr>
+                    <tr v-if="!rows.length"><td colspan="8" class="px-5 py-10 text-center text-slate-500">Aucun site.</td></tr>
                 </tbody>
             </table>
         </div>

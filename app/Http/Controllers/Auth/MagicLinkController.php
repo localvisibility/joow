@@ -55,6 +55,9 @@ class MagicLinkController extends Controller
         app(\App\Services\Accounts::class)->afterLogin($user);
 
         $to = (string) $request->query('to');
+        if (preg_match('#^/sites/([a-z0-9-]+)/#', $to, $m) && ($s = Site::where('slug', $m[1])->first())) {
+            $s->track('email_click');
+        }
         if ($to && Str::startsWith($to, '/') && ! Str::startsWith($to, '//')) {
             return redirect($to);
         }

@@ -643,6 +643,11 @@ class SiteEditorController extends Controller
         }
 
         abort_unless($site->editableBy($request->user(), $guest), 403);
+        if (! $request->isMethod('GET')) {
+            $site->track('edit');
+        } elseif ($request->route()?->getName() === 'sites.editor') {
+            $site->track('studio');
+        }
 
         return $site;
     }

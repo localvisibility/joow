@@ -234,10 +234,14 @@ class SiteApiController extends Controller
     }
 
     /** Balise de mesure d'audience (anonyme). */
-    public function view(string $slug)
+    public function view(Request $request, string $slug)
     {
-        if (Site::where('slug', $slug)->exists()) {
+        if ($site = Site::where('slug', $slug)->first()) {
             SiteStat::bump($slug, 'views');
+            // Avant paiement, les visites viennent surtout du prospect : site ouvert en plein écran
+            if ($request->boolean('full') && ! in_array($site->status, ['paid', 'published'], true)) {
+                $site->track('fullpage');
+            }
         }
 
         return response()->json(['ok' => true]);

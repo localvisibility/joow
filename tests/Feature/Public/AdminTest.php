@@ -45,7 +45,7 @@ class AdminTest extends TestCase
             ->where('kpis.new_paid', 3)
             ->where('kpis.generated', 4)
             ->where('kpis.mrr', fn ($v) => (float) $v === 78.0)
-            ->has('data.funnel', 4));
+            ->has('data.funnel', 6));
 
         foreach (['subscriptions', 'clients', 'sites', 'invoices', 'domains', 'ai'] as $tab) {
             $this->actingAs($admin)->get("/admin?tab=$tab&q=demo")->assertOk();
