@@ -16,7 +16,7 @@ class GenerateSiteJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout = 300;
+    public int $timeout = 360;
 
     public int $tries = 2;
 

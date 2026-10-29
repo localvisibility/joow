@@ -21,7 +21,7 @@ const f = ref(qs.get('f') || '');
 const go = (extra = {}) => router.get(route('admin.index'), { tab: props.tab, days: props.days, q: search.value || undefined, status: status.value || undefined, f: f.value || undefined, ...extra }, { preserveState: true, preserveScroll: true });
 
 const eur = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: n % 1 ? 2 : 0 }).format(n || 0);
-const date = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+const date = (d) => d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
 const pct = (n) => `${String(n ?? 0).replace('.', ',')} %`;
 
 const subLabel = { active: 'Actif', trialing: 'Essai', past_due: 'Impayé', canceled: 'Résilié', incomplete: 'Incomplet', unpaid: 'Impayé' };
@@ -272,13 +272,12 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
         <div v-else-if="tab === 'sites'" class="glass mt-5 overflow-x-auto rounded-2xl">
             <table class="w-full text-sm">
                 <thead class="border-b border-white/[0.06] text-left text-xs uppercase tracking-wide text-slate-500">
-                    <tr><th class="px-5 py-3">Site</th><th class="px-3 py-3">Métier</th><th class="px-3 py-3">Email</th><th class="px-3 py-3">Activité</th><th class="px-3 py-3">Campagne</th><th class="px-3 py-3">Statut</th><th class="px-3 py-3">Créé</th><th class="px-5 py-3"></th></tr>
+                    <tr><th class="px-4 py-3">Site · métier</th><th class="px-3 py-3">Email</th><th class="px-3 py-3">Activité</th><th class="px-3 py-3">Campagne</th><th class="px-3 py-3">Statut</th><th class="px-3 py-3">Créé</th><th class="px-5 py-3"></th></tr>
                 </thead>
                 <tbody class="divide-y divide-white/[0.04]">
                     <tr v-for="r in rows" :key="r.id" class="hover:bg-white/[0.02]">
-                        <td class="px-5 py-3"><a :href="r.url" target="_blank" class="font-semibold text-white hover:text-brand-300">{{ r.name }}</a><span class="block text-xs text-slate-500">{{ r.slug }}</span></td>
-                        <td class="px-3 py-3 text-slate-300">{{ r.sector || '—' }}</td>
-                        <td class="px-3 py-3"><span v-if="r.email" class="text-slate-200">{{ r.email }}</span><span v-else class="text-xs text-slate-500">pas d'email</span></td>
+                        <td class="max-w-[14rem] px-4 py-3"><a :href="r.url" target="_blank" class="line-clamp-2 font-semibold text-white hover:text-brand-300" :title="r.name">{{ r.name }}</a><span class="block truncate text-xs text-slate-500">{{ r.sector || '—' }}</span></td>
+                                                <td class="max-w-[13rem] px-3 py-3"><span v-if="r.email" class="block truncate text-slate-200" :title="r.email">{{ r.email }}</span><span v-else class="text-xs text-slate-500">pas d'email</span></td>
                         <td class="px-3 py-3">
                             <div class="flex flex-wrap gap-1">
                                 <span v-for="[k, ic, label] in ACT" :key="k" v-show="r.activity?.[k]" class="chip bg-white/[0.06] text-slate-200" :title="`${label} · ${r.activity?.[k]?.n} fois · dernière ${ago(r.activity?.[k]?.last)}`">{{ ic }} {{ r.activity?.[k]?.n }}</span>
@@ -288,16 +287,18 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                             </div>
                             <span v-if="lastSeen(r)" class="mt-1 block text-[11px] text-slate-500">vu {{ ago(lastSeen(r)) }}</span>
                         </td>
-                        <td class="max-w-[9rem] truncate px-3 py-3 text-slate-400">{{ r.campaign || 'direct' }}</td>
+                        <td class="max-w-[7rem] truncate px-3 py-3 text-slate-400" :title="r.campaign || 'direct'">{{ r.campaign || 'direct' }}</td>
                         <td class="px-3 py-3"><span class="chip" :class="statusStyle(r.status)">{{ r.status }}</span><span v-if="r.error" class="mt-1 block max-w-xs text-xs text-rose-300/90" :title="r.error">{{ r.error }}</span></td>
-                        <td class="px-3 py-3 text-slate-400">{{ date(r.created_at) }}</td>
-                        <td class="whitespace-nowrap px-5 py-3 text-right">
-                            <button v-if="r.email" @click="openMail(r)" class="mr-2 rounded-lg bg-brand-500/15 px-2.5 py-1 text-xs font-semibold text-brand-300 hover:bg-brand-500/25">✉ Écrire</button>
-                            <Link :href="route('sites.editor', r.slug)" class="mr-2 text-xs text-slate-400 hover:text-white">Studio</Link>
-                            <button v-if="!['paid', 'published'].includes(r.status)" @click="destroy(r)" class="rounded-lg bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/20">Supprimer</button>
+                        <td class="whitespace-nowrap px-3 py-3 text-slate-400">{{ date(r.created_at) }}</td>
+                        <td class="whitespace-nowrap px-4 py-3 text-right">
+                            <div class="inline-flex items-center gap-1">
+                                <button v-if="r.email" @click="openMail(r)" class="rounded-lg bg-brand-500/15 px-2.5 py-1 text-xs font-semibold text-brand-300 hover:bg-brand-500/25" title="Écrire au prospect">✉ Écrire</button>
+                                <Link :href="route('sites.editor', r.slug)" class="rounded-lg bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-white/10" title="Ouvrir dans le Studio">Studio</Link>
+                                <button v-if="!['paid', 'published'].includes(r.status)" @click="destroy(r)" class="rounded-lg bg-rose-500/10 px-2 py-1 text-xs text-rose-300 hover:bg-rose-500/20" title="Supprimer l'aperçu">🗑</button>
+                            </div>
                         </td>
                     </tr>
-                    <tr v-if="!rows.length"><td colspan="8" class="px-5 py-10 text-center text-slate-500">Aucun site.</td></tr>
+                    <tr v-if="!rows.length"><td colspan="7" class="px-5 py-10 text-center text-slate-500">Aucun site.</td></tr>
                 </tbody>
             </table>
         </div>
