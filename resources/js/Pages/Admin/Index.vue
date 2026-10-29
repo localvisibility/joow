@@ -307,7 +307,7 @@ const rows = computed(() => props.data?.rows || []);
                     <thead class="text-left text-[11px] uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-2">Domaine</th><th class="px-3 py-2">Type</th><th class="px-3 py-2">Statut</th><th class="px-5 py-2">Date</th></tr></thead>
                     <tbody class="divide-y divide-white/[0.04]">
                         <tr v-for="(d, i) in rows" :key="i">
-                            <td class="px-5 py-2"><span class="text-white">{{ d.domain }}</span><span class="block text-xs text-slate-500">{{ d.site }} · {{ d.email }}</span></td>
+                            <td class="px-5 py-2"><span class="text-white">{{ d.domain }}</span><span class="block text-xs text-slate-500">{{ d.site }} · {{ d.email }}</span><span v-if="d.notes" class="mt-1 block max-w-md text-xs" :class="d.status === 'failed' ? 'text-rose-300' : 'text-slate-400'">{{ d.notes }}</span></td>
                             <td class="px-3 py-2 text-slate-400">{{ d.type }}</td>
                             <td class="px-3 py-2"><span class="chip" :class="statusStyle(d.status === 'done' || d.status === 'active' ? 'published' : d.status)">{{ d.status }}</span></td>
                             <td class="px-5 py-2 text-slate-400">{{ date(d.created_at) }}</td>

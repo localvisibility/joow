@@ -146,6 +146,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Hébergement & formules
     Route::get('/hebergement', [HostingController::class, 'index'])->name('hosting.index');
+    Route::get('/hebergement/abonnement', [HostingController::class, 'portal'])->name('hosting.portal');
 
     // Factures
     Route::get('/factures', [InvoicesController::class, 'index'])->name('invoices.index');

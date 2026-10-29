@@ -110,6 +110,10 @@ class Subscription
         $billing = app(Billing::class);
         $user = $billing->owner($site);
         if ($site->status === 'paid' || $site->status === 'published') {
+            // Bascule Pro → Liberté : paiement unique reçu pour un site déjà abonné
+            if ($plan === 'liberte' && $site->hosting_plan === 'pro') {
+                return $this->switchToLiberte($site, $session);
+            }
             // Déjà traité : on s'assure seulement que la facture existe (webhook arrivé après le retour)
             if ($session) {
                 $billing->recordFromCheckoutSession($session, $site, $plan);
@@ -138,6 +142,37 @@ class Subscription
             app(MetaConversions::class)->event('Purchase', ['value' => MetaConversions::PRICES[$plan], 'currency' => 'EUR', 'content_ids' => [$plan], 'content_type' => 'product', 'order_id' => (string) $sessionId], $site->owner_email, $site->user_id, 'purchase-'.$sessionId, $request);
         } catch (\Throwable $e) {
             Log::info('Tracking Purchase : '.$e->getMessage());
+        }
+
+        return true;
+    }
+
+    /**
+     * Passe un site Pro en Liberté : le site reste en ligne, l'abonnement s'arrête à la fin de la
+     * période déjà payée (aucun nouveau prélèvement). Idempotent.
+     */
+    public function switchToLiberte(Site $site, object|array|null $session = null): bool
+    {
+        $billing = app(Billing::class);
+        $user = $billing->owner($site);
+        $site->update(['hosting_plan' => 'liberte', 'subscription_status' => 'lifetime', 'purchase_type' => 'one_time']);
+        $this->credits->onPaid($site->fresh(), 'liberte');
+        if ($session) {
+            $billing->recordFromCheckoutSession($session, $site->fresh(), 'liberte');
+        }
+
+        // L'abonnement Stripe est rattaché au compte : on ne l'arrête que s'il ne finance plus aucun autre site
+        $otherPro = $user ? Site::where('user_id', $user->id)->where('id', '!=', $site->id)->where('hosting_plan', 'pro')->whereIn('status', ['paid', 'published'])->exists() : false;
+        $sub = $user?->subscription('hosting');
+        if ($sub && ! $otherPro && ! $sub->canceled()) {
+            try {
+                $sub->cancel();
+                Log::info("Bascule Liberté {$site->slug} : abonnement Stripe arrêté en fin de période");
+            } catch (\Throwable $e) {
+                Log::error("Bascule Liberté {$site->slug} : arrêt de l'abonnement impossible : ".$e->getMessage());
+            }
+        } elseif ($otherPro) {
+            Log::warning("Bascule Liberté {$site->slug} : abonnement conservé (autres sites Pro sur le compte {$user->email}), à ajuster à la main si besoin");
         }
 
         return true;

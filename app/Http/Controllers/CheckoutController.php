@@ -28,6 +28,13 @@ class CheckoutController extends Controller
         ]);
         $plan = $data['plan'] ?? 'pro';
 
+        // Site déjà en ligne : seule la bascule Pro → Liberté a un sens (jamais un second abonnement)
+        if (in_array($site->status, ['paid', 'published'], true)) {
+            if ($plan === 'pro' || $site->hosting_plan === 'liberte') {
+                return back()->withErrors(['email' => $site->hosting_plan === 'liberte' ? 'Ce site est déjà en formule Liberté.' : 'Ce site est déjà en ligne avec la formule Pro.']);
+            }
+        }
+
         $price = $plan === 'liberte'
             ? config('services.stripe.price_liberte')
             : config('services.stripe.price_pro');

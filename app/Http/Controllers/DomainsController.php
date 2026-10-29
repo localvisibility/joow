@@ -121,12 +121,19 @@ class DomainsController extends Controller
         try {
             $order = $hostinger->purchase($domain, $price['item_id']);
         } catch (\Throwable $e) {
-            Log::error("Achat domaine $domain : ".$e->getMessage());
+            $why = HostingerClient::errorMessage($e);
+            Log::error("Achat domaine $domain : $why");
+            foreach ((array) config('joow.admins') as $admin) {
+                try {
+                    \Illuminate\Support\Facades\Mail::raw("Achat du domaine $domain (site $slug, client {$request->user()->email}) en échec.\n\nRéponse Hostinger : $why\n\nBack-office : ".route('admin.index', ['tab' => 'domains']), fn ($m) => $m->to($admin)->subject("Joow · achat de domaine en échec : $domain"));
+                } catch (\Throwable) {
+                }
+            }
             // Refus explicite d'Hostinger (4xx) : rien n'a été acheté, le client peut réessayer. Sinon on garde la réservation et on vérifie à la main.
             $refused = method_exists($e, 'getCode') && $e->getCode() >= 400 && $e->getCode() < 500;
-            $req->update(['status' => $refused ? 'failed' : 'in_progress', 'notes' => ($refused ? 'Refusé : ' : 'À vérifier (réponse incertaine) : ').\Illuminate\Support\Str::limit($e->getMessage(), 200)]);
+            $req->update(['status' => $refused ? 'failed' : 'in_progress', 'notes' => ($refused ? 'Refusé : ' : 'À vérifier (réponse incertaine) : ').\Illuminate\Support\Str::limit($why, 480)]);
 
-            return response()->json(['error' => $refused ? 'L\'achat a été refusé par le registre. Rien n\'a été prélevé ; essayez un autre nom.' : 'La commande est en cours de vérification. Nous revenons vers vous rapidement, inutile de recommencer.'], 502);
+            return response()->json(['error' => $refused ? 'L\'enregistrement de ce domaine n\'a pas abouti et rien n\'a été prélevé. Notre équipe est prévenue et revient vers vous ; vous pouvez aussi essayer une autre extension.' : 'La commande est en cours de vérification. Nous revenons vers vous rapidement, inutile de recommencer.'], 502);
         }
 
         $dm->attach($site, $domain, 'hostinger', ['domain_order_id' => (string) ($order['id'] ?? ''), 'domain_expires_at' => now()->addYear()]);

@@ -130,13 +130,75 @@ class HostingerClient
         if ($pm = config('services.hostinger.payment_method_id')) {
             $body['payment_method_id'] = (int) $pm;
         }
-        if ($w = config('services.hostinger.whois_id')) {
-            $body['domain_contacts'] = ['owner_id' => (int) $w, 'admin_id' => (int) $w, 'billing_id' => (int) $w, 'tech_id' => (int) $w];
+        // Le registre exige un contact WHOIS propre à l'extension (.fr ≠ .com) : on prend celui du compte
+        if ($w = $this->whoisFor(substr(strrchr($domain, '.'), 1))) {
+            $body['domain_contacts'] = ['owner_id' => $w, 'admin_id' => $w, 'billing_id' => $w, 'tech_id' => $w];
         }
         $res = $this->http()->post('/api/domains/v1/portfolio', $body);
         $res->throw();
 
         return $res->json();
+    }
+
+    /**
+     * Contact WHOIS à utiliser pour une extension. S'il n'en existe pas encore pour cette extension,
+     * on duplique le profil Joow existant (même société, mêmes coordonnées) pour elle.
+     */
+    public function whoisFor(string $tld): ?int
+    {
+        $tld = strtolower(ltrim($tld, '.'));
+        $cached = Cache::get("joow:hostinger:whois:$tld");
+        if ($cached) {
+            return (int) $cached;
+        }
+        try {
+            $list = (array) $this->http()->get('/api/domains/v1/whois', ['tld' => $tld])->throw()->json();
+            $pick = collect($list)->filter(fn ($p) => is_array($p) && ($p['tld'] ?? $tld) === $tld)->sortByDesc(fn ($p) => (int) ! empty($p['is_default']))->first();
+            if (! $pick) {
+                $all = collect((array) $this->http()->get('/api/domains/v1/whois')->throw()->json())->filter(fn ($p) => is_array($p) && ! empty($p['whois_details']));
+                $model = $all->sortByDesc(fn ($p) => ((int) (($p['country'] ?? '') === 'FR')) * 2 + (int) ! empty($p['is_default']))->first();
+                if (! $model) {
+                    Log::warning("Hostinger : aucun profil WHOIS dans le compte (extension .$tld)");
+
+                    return null;
+                }
+                $res = $this->http()->post('/api/domains/v1/whois', array_filter([
+                    'tld' => $tld, 'country' => $model['country'] ?? 'FR', 'entity_type' => $model['entity_type'] ?? 'organization',
+                    'whois_details' => $model['whois_details'], 'tld_details' => $model['tld_details'] ?? null,
+                ], fn ($v) => $v !== null));
+                if (! $res->successful()) {
+                    Log::warning("Hostinger : création du profil WHOIS .$tld refusée : ".$res->body());
+
+                    return null;
+                }
+                $pick = $res->json();
+                Log::info("Hostinger : profil WHOIS .$tld créé (#".($pick['id'] ?? '?').')');
+            }
+            $id = (int) ($pick['id'] ?? 0);
+            if ($id) {
+                Cache::put("joow:hostinger:whois:$tld", $id, now()->addHours(12));
+            }
+
+            return $id ?: null;
+        } catch (\Throwable $e) {
+            Log::warning("Hostinger WHOIS .$tld : ".$e->getMessage());
+            $fallback = config('services.hostinger.whois_id');
+
+            return $fallback ? (int) $fallback : null;
+        }
+    }
+
+    /** Message lisible d'une erreur Hostinger (corps JSON « message » / « errors »). */
+    public static function errorMessage(\Throwable $e): string
+    {
+        $body = method_exists($e, 'response') && $e->response ? $e->response->json() : null;
+        if (is_array($body)) {
+            $errs = collect($body['errors'] ?? [])->flatten()->filter()->implode(' ');
+
+            return trim(($body['message'] ?? '').' '.$errs) ?: $e->getMessage();
+        }
+
+        return $e->getMessage();
     }
 
     /** Abonnement Hostinger correspondant à un domaine (le nom de l'abonnement contient le domaine). */

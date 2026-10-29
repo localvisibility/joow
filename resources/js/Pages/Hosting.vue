@@ -4,15 +4,18 @@ import DomainPanel from '@/Components/DomainPanel.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
-const trialDays = usePage().props.trial_days || 0;
+const page = usePage();
+const trialDays = page.props.trial_days || 0;
 const props = defineProps({
     sites: { type: Array, default: () => [] },
     userEmail: String,
+    cancelAtEnd: Boolean,
+    subEndsAt: String,
 });
 
 const offline = computed(() => props.sites.filter((s) => !s.online));
 const online = computed(() => props.sites.filter((s) => s.online));
-const selected = ref(offline.value[0]?.slug || props.sites[0]?.slug || null);
+const selected = ref(offline.value[0]?.slug || null);
 const domainSite = ref(online.value[0]?.slug || null);
 
 const form = useForm({ email: props.userEmail, plan: 'pro' });
@@ -21,6 +24,16 @@ const buy = (plan) => {
     form.plan = plan;
     form.post(route('public.checkout', selected.value));
 };
+const switching = ref(null);
+const toLiberte = (s) => {
+    if (!confirm(`Passer « ${s.name} » en formule Liberté pour 349 € HT, en paiement unique ?\n\nVotre site reste en ligne sans interruption et l'abonnement Pro s'arrête à la fin de la période déjà payée : plus aucun prélèvement mensuel.`)) return;
+    switching.value = s.slug;
+    form.plan = 'liberte';
+    form.post(route('public.checkout', s.slug), { onFinish: () => (switching.value = null) });
+};
+const err = computed(() => form.errors.email || page.props.errors?.email);
+const date = (d) => (d ? new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : null);
+const subLabel = (s) => ({ active: 'Abonnement actif', trialing: 'Période d\'essai', past_due: 'Paiement en échec', canceled: 'Abonnement résilié', lifetime: 'Payé · sans abonnement' }[s.sub] || 'En ligne');
 
 const included = [
     'Hébergement illimité', 'Certificat SSL', 'Sauvegardes auto',
@@ -33,20 +46,20 @@ const included = [
     <AuthenticatedLayout>
         <template #header>
             <div>
-                <h1 class="font-display text-3xl font-bold tracking-tight text-white">Mettre en ligne</h1>
-                <p class="mt-1 text-sm text-slate-400">Configurez l'hébergement et le domaine de votre site.</p>
+                <h1 class="font-display text-3xl font-bold tracking-tight text-white">Hébergement</h1>
+                <p class="mt-1 text-sm text-slate-400">Votre formule, votre abonnement et votre nom de domaine.</p>
             </div>
         </template>
 
-        <!-- Inclus -->
-        <div class="glass rounded-2xl p-6">
+        <!-- Inclus (avant la mise en ligne) -->
+        <div v-if="offline.length || !online.length" class="glass rounded-2xl p-6">
             <p class="mb-4 flex items-center gap-2 font-semibold text-white">🎁 Inclus dans votre abonnement</p>
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <p v-for="f in included" :key="f" class="flex items-center gap-2 text-sm text-slate-300"><span class="text-emerald-400">✓</span> {{ f }}</p>
             </div>
         </div>
 
-        <div class="mt-5 overflow-hidden rounded-2xl bg-gradient-to-r from-ink-800 to-ink-700 p-6 sm:flex sm:items-center sm:gap-5">
+        <div v-if="offline.length || !online.length" class="mt-5 overflow-hidden rounded-2xl bg-gradient-to-r from-ink-800 to-ink-700 p-6 sm:flex sm:items-center sm:gap-5">
             <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-brand-gradient text-2xl shadow-glow">🚀</span>
             <div class="mt-3 sm:mt-0">
                 <p class="font-display text-lg font-bold text-white">Hébergement professionnel tout inclus</p>
@@ -55,24 +68,54 @@ const included = [
         </div>
 
         <!-- Sélecteur de site -->
-        <div v-if="sites.length" class="mt-8">
-            <label class="mb-2 block text-sm font-semibold text-white">Site à mettre en ligne</label>
-            <select v-model="selected" class="field max-w-md">
-                <option v-for="s in sites" :key="s.slug" :value="s.slug" :disabled="s.online">
-                    {{ s.name }}{{ s.city ? ' · ' + s.city : '' }}{{ s.online ? ' (déjà en ligne)' : '' }}
-                </option>
-            </select>
-            <p v-if="form.errors.email" class="mt-2 text-sm text-rose-400">{{ form.errors.email }}</p>
+        <p v-if="err" class="mt-6 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{{ err }}</p>
+
+        <!-- Sites en ligne : formule actuelle -->
+        <div v-if="online.length" class="mt-8">
+            <p class="mb-3 flex items-center gap-2 font-semibold text-white">✅ Vos sites en ligne</p>
+            <div class="space-y-3">
+                <div v-for="s in online" :key="s.slug" class="glass rounded-2xl p-5 transition" :class="domainSite === s.slug ? 'ring-1 ring-brand-500/40' : ''">
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <p class="flex flex-wrap items-center gap-2"><span class="font-display text-lg font-bold text-white">{{ s.name }}</span>
+                                <span class="chip" :class="s.plan === 'liberte' ? 'bg-violet-500/15 text-violet-300' : 'bg-brand-500/15 text-brand-300'">{{ s.plan === 'liberte' ? 'Liberté' : 'Pro' }}</span>
+                                <span class="chip" :class="s.sub === 'past_due' ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'">{{ subLabel(s) }}</span></p>
+                            <p class="mt-1 text-sm text-slate-400">
+                                <template v-if="s.plan === 'pro'">39 € HT / mois<span v-if="cancelAtEnd && subEndsAt"> · s'arrête le {{ date(subEndsAt) }}</span><span v-else-if="s.period_end"> · prochain prélèvement le {{ date(s.period_end) }}</span></template>
+                                <template v-else>Payé en une fois<span v-if="s.paid_at"> le {{ date(s.paid_at) }}</span></template>
+                                · <a :href="`https://${s.slug}.joow.fr`" target="_blank" rel="noopener" class="text-brand-400 hover:text-brand-300">voir le site ↗</a>
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" @click="domainSite = s.slug" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">🌐 Nom de domaine</button>
+                            <a v-if="s.plan === 'pro'" :href="route('hosting.portal')" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">Gérer l'abonnement</a>
+                        </div>
+                    </div>
+                    <!-- Bascule vers Liberté -->
+                    <div v-if="s.plan === 'pro'" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/[0.05] px-4 py-3">
+                        <p class="text-sm text-slate-300"><span class="font-semibold text-emerald-300">Passer en Liberté</span> · 349 € HT une seule fois, plus d'abonnement. Votre site reste en ligne, sans interruption.</p>
+                        <button type="button" @click="toLiberte(s)" :disabled="form.processing" class="rounded-xl border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/10">{{ switching === s.slug ? '…' : 'Passer en Liberté' }}</button>
+                    </div>
+                    <div v-if="domainSite === s.slug" class="mt-5"><DomainPanel :key="s.slug" :slug="s.slug" /></div>
+                </div>
+            </div>
         </div>
 
-        <div v-else class="glass mt-8 rounded-2xl p-10 text-center">
+        <div v-if="offline.length" class="mt-10">
+            <label class="mb-2 block text-sm font-semibold text-white">Site à mettre en ligne</label>
+            <select v-model="selected" class="field max-w-md">
+                <option v-for="s in offline" :key="s.slug" :value="s.slug">{{ s.name }}{{ s.city ? ' · ' + s.city : '' }}</option>
+            </select>
+        </div>
+
+        <div v-if="!sites.length" class="glass mt-8 rounded-2xl p-10 text-center">
             <p class="font-display text-lg font-bold text-white">Aucun site à héberger</p>
             <p class="mx-auto mt-2 max-w-sm text-sm text-slate-400">Créez d'abord un site, vous pourrez le mettre en ligne ici.</p>
             <Link :href="route('sites.create')" class="btn-brand mt-6 inline-flex">Créer un site →</Link>
         </div>
 
-        <!-- Formules -->
-        <div v-if="sites.length" class="mt-6">
+        <!-- Formules (sites pas encore en ligne) -->
+        <div v-if="offline.length" class="mt-6">
             <p class="mb-4 flex items-center gap-2 font-semibold text-white">📦 Choisissez votre formule</p>
             <div class="grid gap-5 lg:grid-cols-2">
                 <!-- Pro -->
@@ -117,17 +160,5 @@ const included = [
             <p class="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500"><span>🔒</span> Paiement sécurisé Stripe</p>
         </div>
 
-        <!-- Sites déjà en ligne -->
-        <div v-if="online.length" class="mt-8">
-            <p class="mb-3 text-sm font-semibold text-white">Déjà en ligne</p>
-            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <button v-for="s in online" :key="s.slug" type="button" @click="domainSite = s.slug" class="glass flex items-center justify-between rounded-xl p-4 text-left transition" :class="domainSite === s.slug ? 'border-brand-500/50' : ''">
-                    <span class="min-w-0"><span class="block truncate text-sm font-semibold text-white">{{ s.name }}</span><span class="chip mt-1 bg-emerald-500/15 text-emerald-300 capitalize">{{ s.plan || 'en ligne' }}</span></span>
-                    <a :href="`https://${s.slug}.joow.fr`" target="_blank" rel="noopener" class="shrink-0 text-sm font-semibold text-brand-400" @click.stop>Voir →</a>
-                </button>
-            </div>
-            <!-- Nom de domaine du site sélectionné -->
-            <div v-if="domainSite" class="mt-5"><DomainPanel :key="domainSite" :slug="domainSite" /></div>
-        </div>
     </AuthenticatedLayout>
 </template>
