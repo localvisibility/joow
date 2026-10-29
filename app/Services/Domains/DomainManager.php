@@ -118,6 +118,11 @@ class DomainManager
         $apexOk = in_array($ip, $this->resolveA($d), true);
         $wwwOk = in_array($ip, $this->resolveA('www.'.$d), true);
 
+        // Domaine acheté chez nous : attendre l'enregistrement au registre, puis (re)pointer le DNS nous-mêmes
+        if (! $apexOk && $site->domain_source === 'hostinger') {
+            return $this->followPurchase($site, $ip, $wwwOk);
+        }
+
         $status = $site->domain_status;
         if ($site->domain_ssl_active && $apexOk) {
             $status = 'active';
@@ -135,6 +140,75 @@ class DomainManager
         ])->save();
 
         return $site;
+    }
+
+    /**
+     * Domaine commandé chez Hostinger mais pas encore servi : tant que le registre ne le connaît pas,
+     * on reste en « commande en cours » ; ensuite on pose la zone DNS (réessayée toutes les 10 min).
+     */
+    private function followPurchase(Site $site, string $ip, bool $wwwOk): Site
+    {
+        $d = $site->custom_domain;
+        $registered = $this->registered($d);
+        $patch = ['domain_verified' => false, 'domain_www_ok' => $wwwOk, 'domain_checked_at' => now()];
+
+        if ($registered === false) {
+            $patch['domain_status'] = 'registering';
+            $patch['domain_error'] = null;
+            // Toujours inconnu du registre 3 h après la commande : paiement Hostinger en attente ou dossier bloqué → prévenir l'équipe
+            $data = $site->site_data ?? [];
+            $orderedAt = $this->orderedAt($site);
+            if (empty($data['domain_alert_sent']) && $orderedAt && $orderedAt->diffInHours(now()) >= 3) {
+                $data['domain_alert_sent'] = now()->toIso8601String();
+                $patch['site_data'] = $data;
+                foreach ((array) config('joow.admins') as $admin) {
+                    try {
+                        \Illuminate\Support\Facades\Mail::raw("Le domaine $d (site {$site->slug}) a été commandé chez Hostinger il y a plus de 3 h mais le registre ne le connaît toujours pas.\nVérifiez la commande dans hPanel (paiement en attente, dossier .fr incomplet…).", fn ($m) => $m->to($admin)->subject("Joow · domaine $d toujours pas enregistré"));
+                    } catch (\Throwable) {
+                    }
+                }
+            }
+        } else {
+            $patch['domain_status'] = 'pending_dns';
+            $patch['domain_error'] = null;
+            if (\Illuminate\Support\Facades\Cache::add("joow:domain-point:$d", 1, now()->addMinutes(10))) {
+                try {
+                    $ok = app(HostingerClient::class)->pointToServer($d, $ip, $site->slug);
+                    Log::info("DNS $d ".($ok ? 'pointé' : 'non pointé (zone pas encore prête)')." vers $ip");
+                } catch (\Throwable $e) {
+                    Log::warning("DNS $d : ".$e->getMessage());
+                }
+            }
+        }
+        $site->forceFill($patch)->save();
+
+        return $site;
+    }
+
+    private function orderedAt(Site $site): ?\Carbon\CarbonInterface
+    {
+        $at = \App\Models\DomainRequest::where('site_id', $site->id)->where('domain', $site->custom_domain)->where('type', 'order')->latest()->value('created_at');
+
+        return $at ? \Carbon\Carbon::parse($at) : null;
+    }
+
+    /** Le registre connaît-il le domaine ? (RDAP ; null si on ne sait pas). Mis en cache 5 min. */
+    public function registered(string $domain): ?bool
+    {
+        return \Illuminate\Support\Facades\Cache::remember("joow:rdap:$domain", now()->addMinutes(5), function () use ($domain) {
+            $tld = substr(strrchr($domain, '.'), 1);
+            $url = $tld === 'fr' ? "https://rdap.nic.fr/domain/$domain" : "https://rdap.org/domain/$domain";
+            try {
+                $res = \Illuminate\Support\Facades\Http::timeout(8)->withOptions(['allow_redirects' => true])->get($url);
+                if ($res->status() === 404) {
+                    return false;
+                }
+
+                return $res->successful() ? true : null;
+            } catch (\Throwable) {
+                return null;
+            }
+        });
     }
 
     /** Résolution A (via le résolveur système), sans exception. */
@@ -196,8 +270,11 @@ class DomainManager
                 }
                 continue;
             }
-            if (! $ssl && $err && $site->domain_status !== 'active') {
+            // « DNS ne pointe pas encore » = attente normale, pas une panne
+            if (! $ssl && $err && $site->domain_status !== 'active' && $site->domain_verified) {
                 $patch['domain_status'] = 'error';
+            } elseif (! $ssl && ! $site->domain_verified) {
+                $patch['domain_error'] = null;
             }
             $site->forceFill($patch)->save();
         }

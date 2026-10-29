@@ -137,7 +137,8 @@ class DomainsController extends Controller
         }
 
         $dm->attach($site, $domain, 'hostinger', ['domain_order_id' => (string) ($order['id'] ?? ''), 'domain_expires_at' => now()->addYear()]);
-        $req->update(['notes' => 'Hostinger order '.($order['id'] ?? '?').' · '.($order['status'] ?? '')]);
+        $req->update(['notes' => 'Hostinger order '.($order['id'] ?? '?').' · '.($order['status'] ?? '').(($order['_http'] ?? 200) === 202 ? ' · paiement en cours de traitement chez Hostinger (enregistrement en attente)' : '')]);
+        Log::info("Achat domaine $domain : HTTP ".($order['_http'] ?? '?').' · '.json_encode(array_diff_key($order, ['_http' => 1])));
 
         // Pointage DNS (la zone existe dès l'achat chez Hostinger ; réessayé par le sync si trop tôt)
         if ($ip = $dm->serverIp()) {

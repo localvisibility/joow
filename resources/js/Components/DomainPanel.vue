@@ -56,8 +56,10 @@ const steps = computed(() => {
     if (!st.value?.domain) return [];
     const s = st.value;
     return [
-        { label: s.source === 'hostinger' ? 'Domaine commandé' : 'Domaine enregistré', done: true },
-        { label: 'DNS pointé vers le serveur', done: s.dns_ok, hint: s.dns_ok ? (s.www_ok ? 'Apex et www OK' : 'Apex OK · www pas encore') : 'En attente de propagation (jusqu\'à 24 h, souvent quelques minutes)' },
+        s.source === 'hostinger'
+            ? { label: s.status === 'registering' ? 'Enregistrement du domaine' : 'Domaine enregistré', done: s.status !== 'registering', hint: s.status === 'registering' ? 'Commande validée · enregistrement auprès du registre en cours (souvent quelques minutes, parfois quelques heures pour un .fr). Tout se configure ensuite automatiquement.' : '' }
+            : { label: 'Domaine enregistré', done: true },
+        { label: 'DNS pointé vers le serveur', done: s.dns_ok, hint: s.dns_ok ? (s.www_ok ? 'Apex et www OK' : 'Apex OK · www pas encore') : (s.status === 'registering' ? 'Après l\'enregistrement' : (s.source === 'hostinger' ? 'Configuré automatiquement · propagation en cours (souvent quelques minutes)' : 'En attente de propagation (jusqu\'à 24 h, souvent quelques minutes)')) },
         { label: 'Certificat HTTPS', done: s.ssl, hint: s.ssl ? 'Let\'s Encrypt, renouvelé automatiquement' : (s.dns_ok ? 'Émission en cours (1 à 2 minutes)' : 'Après le DNS') },
         { label: 'Site en ligne sur votre domaine', done: s.status === 'active' },
     ];

@@ -137,7 +137,8 @@ class HostingerClient
         $res = $this->http()->post('/api/domains/v1/portfolio', $body);
         $res->throw();
 
-        return $res->json();
+        // 202 : paiement encore en traitement chez Hostinger, domaine pas encore enregistré
+        return (array) $res->json() + ['_http' => $res->status()];
     }
 
     /**
