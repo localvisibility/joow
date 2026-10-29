@@ -206,6 +206,15 @@ Route::get('/auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthContro
 
 // ─── Liens publics signés (emails / SMS) & retour de paiement ───
 Route::get('/r/{reservation}/annuler', [\App\Http\Controllers\PaymentController::class, 'cancelReservation'])->middleware('signed')->name('public.reservation.cancel');
+// Pixel d'ouverture des emails Joow
+Route::get('/e/o/{log}.gif', function (string $log) {
+    if (\Illuminate\Support\Str::isUuid($log) && ($l = \App\Models\EmailLog::find($log))) {
+        $l->forceFill(['opens' => $l->opens + 1, 'opened_at' => $l->opened_at ?? now()])->save();
+    }
+
+    return response(base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'), 200, ['Content-Type' => 'image/gif', 'Cache-Control' => 'no-store, max-age=0']);
+})->middleware('throttle:120,1')->name('email.open');
+
 // Flux iCal exporté d'une chambre (à coller dans Airbnb / Booking / Bed-Booking)
 Route::get('/ical/chambre/{room}/{token}.ics', [\App\Http\Controllers\RoomsController::class, 'export'])->middleware('throttle:60,1')->name('public.room.ical');
 Route::get('/s/{booking}/annuler', [\App\Http\Controllers\PaymentController::class, 'cancelStay'])->middleware('signed')->name('public.stay.cancel');

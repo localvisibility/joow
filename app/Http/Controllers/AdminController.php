@@ -25,7 +25,10 @@ class AdminController extends Controller
 {
     private string $like = '%%';
 
-    public const TABS = ['overview', 'subscriptions', 'clients', 'sites', 'invoices', 'domains', 'ai'];
+    public const TABS = ['overview', 'subscriptions', 'clients', 'sites', 'emails', 'invoices', 'domains', 'ai'];
+
+    /** Emails envoyés, par destinataire (préchargés pour la liste en cours). */
+    private array $mails = [];
 
     public function index(Request $request)
     {
@@ -42,6 +45,7 @@ class AdminController extends Controller
                 'subscriptions' => $this->subscriptions($q),
                 'clients' => $this->clients($q),
                 'sites' => $this->sites($q, (string) $request->query('status', ''), (string) $request->query('f', '')),
+                'emails' => $this->emails($q),
                 'invoices' => $this->invoices($q),
                 'domains' => $this->domains(),
                 'ai' => $this->ai($days),
@@ -170,6 +174,7 @@ class AdminController extends Controller
             'activity' => (array) ($s->site_data['activity'] ?? []),
             'checkout_at' => $s->site_data['emails']['checkout_started_at'] ?? null,
             'messages' => array_slice((array) ($s->site_data['emails']['admin_messages'] ?? []), -5),
+            'mails' => $this->mails[strtolower((string) ($s->owner_email ?? $s->user?->email))] ?? null,
             'owner_name' => $s->owner_name,
             'error' => $s->status === 'failed' ? Str::limit((string) GenerationJob::where('site_slug', $s->slug)->latest()->value('error'), 300) : null,
         ];
@@ -210,8 +215,38 @@ class AdminController extends Controller
             ->orderByDesc('created_at')->take(300)->get()
             ->when($f === 'studio', fn ($c) => $c->filter(fn ($s) => ! empty($s->site_data['activity']['studio'])))
             ->when($f === 'checkout', fn ($c) => $c->filter(fn ($s) => ! empty($s->site_data['emails']['checkout_started_at'])));
+        $this->preloadMails($rows->map(fn ($s) => $s->owner_email ?? $s->user?->email)->filter()->all());
 
         return ['rows' => $rows->map(fn ($s) => $this->siteRow($s))->values()->all(), 'statuses' => Site::selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status')];
+    }
+
+    private function preloadMails(array $emails): void
+    {
+        $emails = array_values(array_unique(array_map('strtolower', $emails)));
+        if (! $emails) {
+            return;
+        }
+        $this->mails = \App\Models\EmailLog::whereIn('to', $emails)->orderByDesc('sent_at')->get(['to', 'subject', 'sent_at', 'opened_at', 'opens'])
+            ->groupBy('to')->map(fn ($g) => [
+                'sent' => $g->count(), 'opened' => $g->whereNotNull('opened_at')->count(),
+                'last' => $g->take(8)->map(fn ($m) => ['subject' => $m->subject, 'at' => $m->sent_at->toIso8601String(), 'opened' => optional($m->opened_at)->toIso8601String()])->values()->all(),
+            ])->all();
+    }
+
+    /** Journal des emails envoyés (automatiques et manuels) avec ouverture. */
+    private function emails(string $q): array
+    {
+        $rows = \App\Models\EmailLog::query()
+            ->when($q !== '', fn ($w) => $w->where(fn ($x) => $x->whereRaw('lower("to") like ?', [$this->like])->orWhereRaw('lower(subject) like ?', [$this->like])))
+            ->orderByDesc('sent_at')->take(300)->get();
+        $since = now()->subDays(30);
+        $recent = \App\Models\EmailLog::where('sent_at', '>=', $since);
+
+        return [
+            'rows' => $rows->map(fn ($m) => ['id' => $m->id, 'to' => $m->to, 'subject' => $m->subject, 'sent_at' => $m->sent_at->toIso8601String(), 'opened_at' => optional($m->opened_at)->toIso8601String(), 'opens' => $m->opens])->all(),
+            'sent_30' => (clone $recent)->count(),
+            'opened_30' => (clone $recent)->whereNotNull('opened_at')->count(),
+        ];
     }
 
     private function invoices(string $q): array

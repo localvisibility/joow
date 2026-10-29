@@ -11,7 +11,7 @@ const props = defineProps({
 const page = usePage();
 const tabs = [
     ['overview', 'Vue d\'ensemble'], ['subscriptions', 'Abonnements'], ['clients', 'Clients'],
-    ['sites', 'Sites'], ['invoices', 'Factures'], ['domains', 'Domaines'], ['ai', 'IA & coûts'],
+    ['sites', 'Sites'], ['emails', 'Emails'], ['invoices', 'Factures'], ['domains', 'Domaines'], ['ai', 'IA & coûts'],
 ];
 const search = ref(props.q || '');
 const qs = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
@@ -135,8 +135,8 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
         </div>
 
         <!-- Recherche -->
-        <form v-if="['subscriptions', 'clients', 'sites', 'invoices'].includes(tab)" class="mt-5 flex flex-wrap items-center gap-2" @submit.prevent="go()">
-            <input v-model="search" type="search" placeholder="Nom, slug ou email…" class="w-72 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-brand-400 focus:ring-0" />
+        <form v-if="['subscriptions', 'clients', 'sites', 'emails', 'invoices'].includes(tab)" class="mt-5 flex flex-wrap items-center gap-2" @submit.prevent="go()">
+            <input v-model="search" type="search" :placeholder="tab === 'emails' ? 'Email ou objet…' : 'Nom, slug ou email…'" class="w-72 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-brand-400 focus:ring-0" />
             <select v-if="tab === 'sites'" v-model="status" @change="go()" class="rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white">
                 <option value="">Tous les statuts</option>
                 <option v-for="(n, s) in data.statuses" :key="s" :value="s">{{ s }} ({{ n }})</option>
@@ -281,9 +281,10 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                         <td class="px-3 py-3">
                             <div class="flex flex-wrap gap-1">
                                 <span v-for="[k, ic, label] in ACT" :key="k" v-show="r.activity?.[k]" class="chip bg-white/[0.06] text-slate-200" :title="`${label} · ${r.activity?.[k]?.n} fois · dernière ${ago(r.activity?.[k]?.last)}`">{{ ic }} {{ r.activity?.[k]?.n }}</span>
+                                <span v-if="r.mails" class="chip bg-sky-500/15 text-sky-300" :title="r.mails.last.map((m) => (m.opened ? '✓ ouvert ' : '· non ouvert ') + ago(m.at) + ' · ' + m.subject).join('\n')">📬 {{ r.mails.opened }}/{{ r.mails.sent }}</span>
                                 <span v-if="r.messages?.length" class="chip bg-brand-500/15 text-brand-300" :title="r.messages.map((m) => ago(m.at) + ' · ' + m.subject).join('\n')">📨 {{ r.messages.length }}</span>
                                 <span v-if="r.checkout_at" class="chip bg-amber-500/15 text-amber-300" :title="'Page de paiement ouverte ' + ago(r.checkout_at)">💳</span>
-                                <span v-if="!Object.keys(r.activity || {}).length && !r.checkout_at" class="text-xs text-slate-600">aucune</span>
+                                <span v-if="!Object.keys(r.activity || {}).length && !r.checkout_at && !r.mails" class="text-xs text-slate-600">aucune</span>
                             </div>
                             <span v-if="lastSeen(r)" class="mt-1 block text-[11px] text-slate-500">vu {{ ago(lastSeen(r)) }}</span>
                         </td>
@@ -301,6 +302,28 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                     <tr v-if="!rows.length"><td colspan="7" class="px-5 py-10 text-center text-slate-500">Aucun site.</td></tr>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Emails -->
+        <div v-else-if="tab === 'emails'" class="mt-5">
+            <p class="mb-3 text-sm text-slate-400">30 derniers jours : <span class="font-semibold text-white">{{ data.sent_30 }}</span> envoyés · <span class="font-semibold text-white">{{ data.opened_30 }}</span> ouverts<span v-if="data.sent_30"> ({{ Math.round(data.opened_30 / data.sent_30 * 100) }} %)</span></p>
+            <div class="glass overflow-x-auto rounded-2xl">
+                <table class="w-full text-sm">
+                    <thead class="border-b border-white/[0.06] text-left text-xs uppercase tracking-wide text-slate-500">
+                        <tr><th class="px-5 py-3">Destinataire</th><th class="px-3 py-3">Objet</th><th class="px-3 py-3">Envoyé</th><th class="px-5 py-3">Ouverture</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/[0.04]">
+                        <tr v-for="m in rows" :key="m.id" class="hover:bg-white/[0.02]">
+                            <td class="max-w-[14rem] truncate px-5 py-3 text-slate-200" :title="m.to">{{ m.to }}</td>
+                            <td class="max-w-md truncate px-3 py-3 text-slate-300" :title="m.subject">{{ m.subject }}</td>
+                            <td class="whitespace-nowrap px-3 py-3 text-slate-400">{{ ago(m.sent_at) }}</td>
+                            <td class="whitespace-nowrap px-5 py-3"><span v-if="m.opened_at" class="chip bg-emerald-500/15 text-emerald-300">✓ ouvert {{ ago(m.opened_at) }}<span v-if="m.opens > 1"> · {{ m.opens }}×</span></span><span v-else class="text-xs text-slate-500">non ouvert</span></td>
+                        </tr>
+                        <tr v-if="!rows.length"><td colspan="4" class="px-5 py-10 text-center text-slate-500">Aucun email journalisé pour le moment.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="mt-3 text-xs text-slate-500">L'ouverture est mesurée par une image invisible : certaines messageries (Apple Mail) l'ouvrent automatiquement, d'autres la bloquent. Prenez-la comme une tendance.</p>
         </div>
 
         <!-- Factures -->
@@ -407,7 +430,10 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                 </label>
                 <details class="mt-3 rounded-xl border border-white/[0.06] p-3 text-sm"><summary class="cursor-pointer text-xs font-semibold text-slate-400">Aperçu du texte envoyé</summary>
                     <p class="mt-2 font-semibold text-white">{{ preview(mail.subject) }}</p><p class="mt-1 whitespace-pre-line text-slate-300">{{ preview(mail.message) }}</p></details>
-                <div v-if="mail.site.messages?.length" class="mt-3 text-xs text-slate-500">Déjà envoyé : <span v-for="(m, i) in mail.site.messages" :key="i" class="mr-2">« {{ m.subject }} » {{ ago(m.at) }}</span></div>
+                <div v-if="mail.site.mails" class="mt-3 rounded-xl border border-white/[0.06] p-3 text-xs">
+                    <p class="font-semibold text-slate-400">Emails déjà reçus ({{ mail.site.mails.opened }} ouvert{{ mail.site.mails.opened > 1 ? 's' : '' }} sur {{ mail.site.mails.sent }})</p>
+                    <p v-for="(m, i) in mail.site.mails.last" :key="i" class="mt-1 flex justify-between gap-3"><span class="truncate text-slate-300">{{ m.subject }}</span><span class="shrink-0" :class="m.opened ? 'text-emerald-300' : 'text-slate-500'">{{ m.opened ? '✓ ouvert' : 'non ouvert' }} · {{ ago(m.at) }}</span></p>
+                </div>
                 <p v-if="page.props.errors?.message || page.props.errors?.subject" class="mt-3 text-sm text-rose-300">{{ page.props.errors.message || page.props.errors.subject }}</p>
                 <div class="mt-5 flex justify-end gap-2">
                     <button @click="mail.open = false" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">Annuler</button>
