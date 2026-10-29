@@ -163,6 +163,7 @@ class AdminController extends Controller
             'domain' => $s->custom_domain, 'campaign' => $a['utm_campaign'] ?? ($a['utm_source'] ?? null),
             'url' => 'https://'.$s->slug.'.joow.fr', 'mrr' => $s->hosting_plan === 'pro' && in_array($s->subscription_status, ['active', 'trialing'], true) ? $this->price('pro') : 0,
             'stripe' => $s->user?->stripe_id ? 'https://dashboard.stripe.com/customers/'.$s->user->stripe_id : null,
+            'error' => $s->status === 'failed' ? Str::limit((string) GenerationJob::where('site_slug', $s->slug)->latest()->value('error'), 300) : null,
         ];
     }
 

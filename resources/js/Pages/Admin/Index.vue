@@ -248,7 +248,7 @@ const rows = computed(() => props.data?.rows || []);
                         <td class="px-3 py-3 text-slate-300">{{ r.sector || '—' }}</td>
                         <td class="px-3 py-3 text-slate-300">{{ r.email || '—' }}</td>
                         <td class="max-w-[9rem] truncate px-3 py-3 text-slate-400">{{ r.campaign || 'direct' }}</td>
-                        <td class="px-3 py-3"><span class="chip" :class="statusStyle(r.status)">{{ r.status }}</span></td>
+                        <td class="px-3 py-3"><span class="chip" :class="statusStyle(r.status)">{{ r.status }}</span><span v-if="r.error" class="mt-1 block max-w-xs text-xs text-rose-300/90" :title="r.error">{{ r.error }}</span></td>
                         <td class="px-3 py-3 text-slate-400">{{ date(r.created_at) }}</td>
                         <td class="whitespace-nowrap px-5 py-3 text-right">
                             <Link :href="route('sites.editor', r.slug)" class="mr-2 text-xs text-slate-400 hover:text-white">Studio</Link>

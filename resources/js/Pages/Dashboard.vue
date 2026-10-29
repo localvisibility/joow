@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -23,9 +23,12 @@ const statusStyle = (s) => ({
     published: 'bg-brand-500/15 text-brand-400',
     generating: 'bg-amber-500/15 text-amber-300 animate-pulse',
     preview: 'bg-white/10 text-slate-400',
+    failed: 'bg-rose-500/15 text-rose-300',
 }[s] || 'bg-white/10 text-slate-400');
 
-const statusLabel = (s) => ({ paid: 'Payé', published: 'En ligne', generating: 'Génération…', preview: 'Aperçu' }[s] || s);
+const statusLabel = (s) => ({ paid: 'Payé', published: 'En ligne', generating: 'Génération…', preview: 'Aperçu', ready: 'Aperçu', failed: 'Échec de génération' }[s] || s);
+const retrying = ref(null);
+const retry = (s) => { retrying.value = s.slug; router.post(route('public.site.retry', s.slug), {}, { onFinish: () => (retrying.value = null) }); };
 
 const cards = computed(() => [
     { label: 'Sites', value: props.stats.sites, accent: 'text-white' },
@@ -85,7 +88,11 @@ const liveUrl = (s) => s.custom_domain
                     <span v-if="s.reviews_count" class="chip bg-amber-500/10 text-amber-300">★ {{ s.rating }} · {{ s.reviews_count }}</span>
                 </div>
 
-                <div class="mt-5 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-4">
+                <div v-if="s.status === 'failed'" class="mt-5 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-4">
+                    <span class="text-xs text-slate-500">La création n'a pas abouti.</span>
+                    <button type="button" @click="retry(s)" :disabled="retrying === s.slug" class="rounded-lg bg-brand-500/20 px-3 py-1.5 text-xs font-semibold text-brand-300 transition hover:bg-brand-500/30">{{ retrying === s.slug ? '…' : '↻ Relancer la génération' }}</button>
+                </div>
+                <div v-else class="mt-5 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-4">
                     <Link :href="route('sites.editor', s.slug)" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-white/10">✨ Éditer</Link>
                     <a :href="liveUrl(s)" target="_blank" rel="noopener"
                         class="text-sm font-semibold text-brand-400 transition hover:text-brand-300">
