@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 const props = defineProps({
     tab: String, q: String, days: Number,
@@ -73,6 +73,26 @@ const exportCsv = (rows, name) => {
 const rows = computed(() => props.data?.rows || []);
 const ACT = [['preview', '👁', 'Aperçu ouvert'], ['fullpage', '🌐', 'Site vu en plein écran'], ['email_click', '📧', 'Lien email cliqué'], ['studio', '✏️', 'Studio ouvert'], ['edit', '🛠', 'Modifications']];
 const ago = (d) => { if (!d) return ''; const m = Math.round((Date.now() - new Date(d)) / 60000); return m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`; };
+// ── Écrire au prospect
+const TEMPLATES = [
+    { key: 'relance', label: 'Relance aperçu', subject: '{prenom}, votre site {site} est prêt', link: 'preview',
+        message: "Bonjour {prenom},\n\nJ'ai vu que vous aviez créé le site de {site} sur Joow. Il est prêt et vous pouvez le consulter à tout moment.\n\nSi vous voulez changer un texte, une photo ou ajouter une page, je peux vous aider directement : répondez simplement à cet email.\n\nBelle journée," },
+    { key: 'studio', label: 'Aide Studio', subject: 'Besoin d\'un coup de main pour {site} ?', link: 'studio',
+        message: "Bonjour {prenom},\n\nVous avez commencé à personnaliser le site de {site}, bravo ! Le bouton ci-dessous vous ramène directement dans votre Studio, sans mot de passe.\n\nUne question, une modification qui coince ? Répondez à cet email, je m'en occupe.\n\nÀ bientôt," },
+    { key: 'online', label: 'Mise en ligne', subject: 'Mettez {site} en ligne aujourd\'hui', link: 'hosting',
+        message: "Bonjour {prenom},\n\nVotre site {site} n'attend plus que vous : nom de domaine inclus, certificat sécurisé et modifications illimitées, sans engagement.\n\nLe bouton ci-dessous vous amène directement à la mise en ligne. Si vous avez la moindre question, répondez à cet email.\n\nÀ très vite," },
+    { key: 'libre', label: 'Message libre', subject: '', link: 'none', message: 'Bonjour {prenom},\n\n' },
+];
+const mail = reactive({ open: false, site: null, subject: '', message: '', link: 'preview', sending: false });
+const openMail = (r, t = TEMPLATES[0]) => Object.assign(mail, { open: true, site: r, subject: t.subject, message: t.message, link: t.link, sending: false });
+const useTemplate = (t) => Object.assign(mail, { subject: t.subject, message: t.message, link: t.link });
+const preview = (txt) => (txt || '').replaceAll('{prenom}', (mail.site?.owner_name || '').split(' ')[0] || '').replaceAll('{site}', mail.site?.name || '').replaceAll('{ville}', '').replace(/ +([,.!?])/g, '$1');
+const sendMail = () => {
+    mail.sending = true;
+    router.post(route('admin.sites.email', mail.site.id), { subject: mail.subject, message: mail.message, link: mail.link }, {
+        preserveScroll: true, onSuccess: () => { mail.open = false; }, onFinish: () => { mail.sending = false; },
+    });
+};
 const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filter(Boolean).sort().pop();
 </script>
 
@@ -262,6 +282,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                         <td class="px-3 py-3">
                             <div class="flex flex-wrap gap-1">
                                 <span v-for="[k, ic, label] in ACT" :key="k" v-show="r.activity?.[k]" class="chip bg-white/[0.06] text-slate-200" :title="`${label} · ${r.activity?.[k]?.n} fois · dernière ${ago(r.activity?.[k]?.last)}`">{{ ic }} {{ r.activity?.[k]?.n }}</span>
+                                <span v-if="r.messages?.length" class="chip bg-brand-500/15 text-brand-300" :title="r.messages.map((m) => ago(m.at) + ' · ' + m.subject).join('\n')">📨 {{ r.messages.length }}</span>
                                 <span v-if="r.checkout_at" class="chip bg-amber-500/15 text-amber-300" :title="'Page de paiement ouverte ' + ago(r.checkout_at)">💳</span>
                                 <span v-if="!Object.keys(r.activity || {}).length && !r.checkout_at" class="text-xs text-slate-600">aucune</span>
                             </div>
@@ -271,6 +292,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                         <td class="px-3 py-3"><span class="chip" :class="statusStyle(r.status)">{{ r.status }}</span><span v-if="r.error" class="mt-1 block max-w-xs text-xs text-rose-300/90" :title="r.error">{{ r.error }}</span></td>
                         <td class="px-3 py-3 text-slate-400">{{ date(r.created_at) }}</td>
                         <td class="whitespace-nowrap px-5 py-3 text-right">
+                            <button v-if="r.email" @click="openMail(r)" class="mr-2 rounded-lg bg-brand-500/15 px-2.5 py-1 text-xs font-semibold text-brand-300 hover:bg-brand-500/25">✉ Écrire</button>
                             <Link :href="route('sites.editor', r.slug)" class="mr-2 text-xs text-slate-400 hover:text-white">Studio</Link>
                             <button v-if="!['paid', 'published'].includes(r.status)" @click="destroy(r)" class="rounded-lg bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/20">Supprimer</button>
                         </td>
@@ -358,6 +380,37 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                     <div v-for="(e, i) in data.recent_errors" :key="i" class="mt-3 text-sm"><span class="text-xs text-slate-500">{{ date(e.at) }}</span><p class="text-rose-200/90">{{ e.error || '(sans message)' }}</p></div>
                     <p v-if="!data.recent_errors.length" class="mt-3 text-sm text-slate-500">Aucune erreur sur la période.</p>
                     <a :href="route('admin.journal')" target="_blank" class="mt-4 inline-block text-xs text-slate-400 hover:text-white">Journal applicatif ↗</a>
+                </div>
+            </div>
+        </div>
+        <!-- Écrire au prospect -->
+        <div v-if="mail.open" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" @click.self="mail.open = false">
+            <div class="glass w-full max-w-2xl rounded-2xl bg-ink-900 p-6">
+                <div class="flex items-start justify-between gap-3">
+                    <div><h3 class="font-display text-lg font-bold text-white">Écrire à {{ mail.site.email }}</h3><p class="text-sm text-slate-400">{{ mail.site.name }} · les réponses arrivent dans votre boîte mail</p></div>
+                    <button @click="mail.open = false" class="text-slate-500 hover:text-white">✕</button>
+                </div>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <button v-for="t in TEMPLATES" :key="t.key" @click="useTemplate(t)" class="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-white/25">{{ t.label }}</button>
+                </div>
+                <label class="mt-4 block text-xs font-semibold text-slate-400">Objet<input v-model="mail.subject" class="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
+                <label class="mt-3 block text-xs font-semibold text-slate-400">Message<textarea v-model="mail.message" rows="9" class="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"></textarea></label>
+                <p class="mt-1 text-[11px] text-slate-500">Raccourcis : {prenom} · {site} · {ville}</p>
+                <label class="mt-3 block text-xs font-semibold text-slate-400">Bouton dans l'email
+                    <select v-model="mail.link" class="mt-1 w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white">
+                        <option value="preview">Voir mon site (aperçu)</option>
+                        <option value="studio">Ouvrir mon site dans le Studio (connexion automatique)</option>
+                        <option value="hosting">Mettre mon site en ligne (connexion automatique)</option>
+                        <option value="none">Aucun bouton</option>
+                    </select>
+                </label>
+                <details class="mt-3 rounded-xl border border-white/[0.06] p-3 text-sm"><summary class="cursor-pointer text-xs font-semibold text-slate-400">Aperçu du texte envoyé</summary>
+                    <p class="mt-2 font-semibold text-white">{{ preview(mail.subject) }}</p><p class="mt-1 whitespace-pre-line text-slate-300">{{ preview(mail.message) }}</p></details>
+                <div v-if="mail.site.messages?.length" class="mt-3 text-xs text-slate-500">Déjà envoyé : <span v-for="(m, i) in mail.site.messages" :key="i" class="mr-2">« {{ m.subject }} » {{ ago(m.at) }}</span></div>
+                <p v-if="page.props.errors?.message || page.props.errors?.subject" class="mt-3 text-sm text-rose-300">{{ page.props.errors.message || page.props.errors.subject }}</p>
+                <div class="mt-5 flex justify-end gap-2">
+                    <button @click="mail.open = false" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">Annuler</button>
+                    <button @click="sendMail" :disabled="mail.sending || !mail.subject.trim() || !mail.message.trim()" class="btn-brand text-sm">{{ mail.sending ? 'Envoi…' : 'Envoyer' }}</button>
                 </div>
             </div>
         </div>

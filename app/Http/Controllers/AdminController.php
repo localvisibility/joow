@@ -169,6 +169,8 @@ class AdminController extends Controller
             'stripe' => $s->user?->stripe_id ? 'https://dashboard.stripe.com/customers/'.$s->user->stripe_id : null,
             'activity' => (array) ($s->site_data['activity'] ?? []),
             'checkout_at' => $s->site_data['emails']['checkout_started_at'] ?? null,
+            'messages' => array_slice((array) ($s->site_data['emails']['admin_messages'] ?? []), -5),
+            'owner_name' => $s->owner_name,
             'error' => $s->status === 'failed' ? Str::limit((string) GenerationJob::where('site_slug', $s->slug)->latest()->value('error'), 300) : null,
         ];
     }
@@ -284,6 +286,47 @@ class AdminController extends Controller
         Log::info("Admin {$request->user()->email} : aperçu $slug supprimé");
 
         return back()->with('status', "Aperçu $slug supprimé.");
+    }
+
+    /** Email personnel au prospect (ou client) d'un site, avec lien direct vers son Studio, son aperçu ou la mise en ligne. */
+    public function email(Request $request, Site $site)
+    {
+        $data = $request->validate([
+            'subject' => ['required', 'string', 'max:150'],
+            'message' => ['required', 'string', 'max:5000'],
+            'link' => ['nullable', 'in:none,studio,preview,hosting'],
+        ]);
+        $to = $site->owner_email ?: $site->user?->email;
+        abort_unless($to, 422, 'Ce site n\'a pas d\'email.');
+        $accounts = app(\App\Services\Accounts::class);
+        // Compte du prospect (créé sans événement publicitaire si besoin) : nécessaire aux liens de connexion
+        $user = User::firstOrCreate(['email' => strtolower($to)], ['name' => $site->owner_name ?: Str::title(Str::before($to, '@')), 'password' => bcrypt(Str::random(40))]);
+        Site::claimFor($user, [$site->slug]);
+        abort_if($user->marketing_optout_at, 422, 'Cette personne s\'est désinscrite des emails Joow.');
+
+        $name = trim((string) ($site->owner_name ?: $user->name));
+        $vars = ['{prenom}' => $name ? Str::before($name, ' ') : '', '{site}' => (string) $site->name, '{ville}' => (string) $site->city];
+        $fill = fn ($t) => trim(preg_replace('/ +([,.!?])/', '$1', strtr($t, $vars)));
+        $cta = match ($data['link'] ?? 'none') {
+            'studio' => ['label' => 'Ouvrir mon site dans le Studio', 'url' => $accounts->magicLink($user, '/sites/'.$site->slug.'/editeur', 14)],
+            'preview' => ['label' => 'Voir mon site', 'url' => route('public.site', $site->slug)],
+            'hosting' => ['label' => 'Mettre mon site en ligne', 'url' => $accounts->magicLink($user, '/hebergement', 14)],
+            default => null,
+        };
+
+        \Illuminate\Support\Facades\Mail::send('emails.notification', [
+            'title' => $fill($data['subject']), 'intro' => $fill($data['message']), 'rows' => [], 'cta' => $cta,
+            'note' => 'Vous pouvez répondre directement à cet email.',
+            'brand' => ['name' => 'Joow', 'accent' => '#6366f1', 'url' => 'https://joow.fr', 'phone' => null, 'address' => null, 'email' => null],
+        ], fn ($m) => $m->to($to)->replyTo($request->user()->email)->subject($fill($data['subject'])));
+
+        $sd = $site->site_data ?? [];
+        $sd['emails']['admin_messages'][] = ['at' => now()->toIso8601String(), 'subject' => $fill($data['subject']), 'by' => $request->user()->email, 'link' => $data['link'] ?? 'none'];
+        $site->timestamps = false;
+        $site->forceFill(['site_data' => $sd])->saveQuietly();
+        Log::info("Admin {$request->user()->email} : email « {$data['subject']} » envoyé à $to ({$site->slug})");
+
+        return back()->with('status', "Email envoyé à $to.");
     }
 
     /** Se connecter en tant que client (support), avec retour à son propre compte. */

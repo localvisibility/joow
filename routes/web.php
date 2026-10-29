@@ -88,6 +88,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [\App\Http\Controllers\AdminController::class, 'index'])->name('index');
         Route::post('/abonnements/{site}', [\App\Http\Controllers\AdminController::class, 'subscription'])->name('subscription');
         Route::delete('/sites/{site}', [\App\Http\Controllers\AdminController::class, 'destroySite'])->name('sites.destroy');
+        Route::post('/sites/{site}/email', [\App\Http\Controllers\AdminController::class, 'email'])->middleware('throttle:30,1')->name('sites.email');
         Route::post('/clients/{user}/connexion', [\App\Http\Controllers\AdminController::class, 'impersonate'])->name('impersonate');
     });
     Route::post('/admin/retour', [\App\Http\Controllers\AdminController::class, 'stopImpersonating'])->name('admin.stop');

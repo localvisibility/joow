@@ -39,4 +39,24 @@ class ActivityTest extends TestCase
             ->where('data.rows.0.activity.studio.n', 1)->where('data.rows.0.email', 'client@exemple.fr'));
         $this->actingAs($admin)->get('/admin?tab=sites&f=noemail')->assertOk()->assertInertia(fn (Assert $p) => $p->has('data.rows', 0));
     }
+
+    public function test_admin_can_email_a_prospect_with_a_studio_link(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        config(['joow.admins' => ['boss@joow.fr']]);
+        $admin = User::factory()->create(['email' => 'boss@joow.fr']);
+        $site = Site::create(['slug' => 'bistrot-cd34', 'name' => 'Bistrot Léa', 'sector' => 'restaurant', 'status' => 'preview', 'source' => 'joow-public',
+            'owner_email' => 'lea@exemple.fr', 'owner_name' => 'Léa Martin', 'site_data' => ['content' => ['hero_title' => 'x']]]);
+
+        $this->actingAs($admin)->post("/admin/sites/{$site->id}/email", ['subject' => '{prenom}, votre site {site}', 'message' => 'Bonjour {prenom}', 'link' => 'studio'])
+            ->assertRedirect()->assertSessionHas('status');
+
+        $msgs = $site->fresh()->site_data['emails']['admin_messages'];
+        $this->assertSame('Léa, votre site Bistrot Léa', $msgs[0]['subject']);
+        $this->assertNotNull(User::firstWhere('email', 'lea@exemple.fr'));
+
+        // Désinscrit : refusé
+        User::firstWhere('email', 'lea@exemple.fr')->forceFill(['marketing_optout_at' => now()])->save();
+        $this->actingAs($admin)->post("/admin/sites/{$site->id}/email", ['subject' => 'x', 'message' => 'y'])->assertStatus(422);
+    }
 }
