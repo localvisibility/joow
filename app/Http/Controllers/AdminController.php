@@ -94,6 +94,7 @@ class AdminController extends Controller
             'churn' => round($canceledPeriod / $startPro * 100, 1),
             'canceled_period' => $canceledPeriod,
             'clients' => User::count(),
+            'blocked' => \Illuminate\Support\Facades\DB::table('creation_blocks')->where('created_at', '>=', $since)->count(),
             'arpu' => $activePro ? round($mrr / $activePro, 2) : 0,
         ];
     }
@@ -153,6 +154,14 @@ class AdminController extends Controller
             'by_campaign' => $group(fn ($s) => self::campaign($s->site_data['attribution'] ?? null)),
             'by_source' => $group(fn ($s) => $s->source === 'joow-public' ? 'fiche Google' : ($s->source ?: 'fiche Google')),
             'by_sector' => $group(fn ($s) => config("sectors.{$s->sector}.label") ?? $s->sector),
+            'ip_check' => (function () use ($since) {
+                $ips = Site::where('created_at', '>=', $since)->whereNotNull('creator_ip')->pluck('creator_ip');
+
+                return ['sites' => $ips->count(), 'distinct' => $ips->unique()->count(),
+                    'private' => $ips->filter(fn ($ip) => ! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE))->count()];
+            })(),
+            'blocks' => \Illuminate\Support\Facades\DB::table('creation_blocks')->where('created_at', '>=', $since)->orderByDesc('created_at')->take(100)->get()
+                ->map(fn ($b) => ['at' => \Illuminate\Support\Carbon::parse($b->created_at)->toIso8601String(), 'ip' => $b->ip, 'email' => $b->email, 'reason' => $b->reason, 'count' => $b->count, 'flow' => $b->flow, 'query' => $b->query])->all(),
             'plans' => [
                 'pro' => Site::whereIn('status', ['paid', 'published'])->where('hosting_plan', 'pro')->count(),
                 'liberte' => Site::whereIn('status', ['paid', 'published'])->where('hosting_plan', 'liberte')->count(),
@@ -187,6 +196,7 @@ class AdminController extends Controller
             'activity' => (array) ($s->site_data['activity'] ?? []),
             'checkout_at' => $s->site_data['emails']['checkout_started_at'] ?? null,
             'messages' => array_slice((array) ($s->site_data['emails']['admin_messages'] ?? []), -5),
+            'ip' => $s->creator_ip,
             'multi' => max((int) ($this->multi['device'][$s->creator_device] ?? 0), (int) ($this->multi['email'][strtolower((string) $s->owner_email)] ?? 0)),
             'ai_chat' => collect((array) ($s->site_data['chat'] ?? []))->map(fn ($m) => [
                 'role' => $m['role'] ?? 'user', 'text' => Str::limit((string) ($m['text'] ?? ''), 400), 'at' => $m['at'] ?? null,

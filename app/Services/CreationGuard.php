@@ -45,7 +45,10 @@ class CreationGuard
         $device = self::device($request);
         $recent = fn () => Site::where('created_at', '>=', now()->subDay());
 
-        $byIp = $recent()->where('creator_ip', $request->ip())->count();
+        // IP privée / interne (proxy mal configuré : tout le monde aurait la même) : jamais utilisée pour bloquer
+        $ip = (string) $request->ip();
+        $publicIp = (bool) filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+        $byIp = $publicIp ? $recent()->where('creator_ip', $ip)->count() : 0;
         $count = $recent()
             ->where(function ($q) use ($device, $email, $user) {
                 $q->where('creator_device', $device);
@@ -57,7 +60,21 @@ class CreationGuard
                 }
             })->count();
 
-        return ($count >= self::limit() || $byIp >= 3 * self::limit())
+        $blocked = $count >= self::limit() ? 'device_email' : ($byIp >= 3 * self::limit() ? 'ip' : null);
+        if ($blocked) {
+            try {
+                \Illuminate\Support\Facades\DB::table('creation_blocks')->insert([
+                    'ip' => $ip, 'device' => $device, 'email' => $email ?: null, 'reason' => $blocked,
+                    'count' => $blocked === 'ip' ? $byIp : $count,
+                    'flow' => match (true) { $request->is('creer') => 'questionnaire', $request->is('refonte') => 'refonte', default => 'google' },
+                    'query' => mb_substr((string) ($request->input('query') ?? $request->input('name') ?? $request->input('url') ?? ''), 0, 250),
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
+            } catch (\Throwable) {
+            }
+        }
+
+        return $blocked
             ? 'Vous avez déjà créé '.self::limit().' sites aujourd\'hui. Retrouvez-les dans votre espace, mettez-en un en ligne, ou revenez demain pour en créer d\'autres.'
             : null;
     }

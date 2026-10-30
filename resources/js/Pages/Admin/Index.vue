@@ -38,6 +38,7 @@ const cards = computed(() => [
     { label: 'Impayés', value: props.kpis.past_due, hint: 'abonnements en défaut', warn: props.kpis.past_due > 0 },
     { label: 'Liberté', value: props.kpis.liberte_total, hint: `${eur(props.kpis.liberte_revenue)} encaissés au total` },
     { label: 'ARPU', value: eur(props.kpis.arpu), hint: `${props.kpis.clients} comptes clients` },
+    { label: `Créations bloquées · ${props.days} j`, value: props.kpis.blocked ?? 0, hint: 'garde-fou multi-sites', warn: (props.kpis.blocked ?? 0) > 0 },
 ]);
 
 const maxOf = (rows, k) => Math.max(1, ...rows.map((r) => r[k] || 0));
@@ -194,6 +195,28 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                 </div>
             </div>
 
+            <div class="glass mt-4 rounded-2xl p-5">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 class="font-semibold text-white">Créations bloquées par le garde-fou · {{ days }} j</h2>
+                    <p class="text-xs" :class="data.ip_check.private ? 'text-rose-300' : 'text-slate-500'">
+                        Contrôle IP : {{ data.ip_check.distinct }} adresse(s) différente(s) pour {{ data.ip_check.sites }} site(s)<span v-if="data.ip_check.private"> · ⚠ {{ data.ip_check.private }} IP interne(s) : le serveur ne reçoit pas l'IP réelle des visiteurs</span>
+                    </p>
+                </div>
+                <table v-if="data.blocks.length" class="mt-3 w-full text-sm">
+                    <thead class="text-left text-[11px] uppercase tracking-wide text-slate-500"><tr><th class="py-2">Quand</th><th class="py-2">Email</th><th class="py-2">IP</th><th class="py-2">Motif</th><th class="py-2">Parcours · recherche</th></tr></thead>
+                    <tbody class="divide-y divide-white/[0.04]">
+                        <tr v-for="(b, i) in data.blocks" :key="i">
+                            <td class="whitespace-nowrap py-2 pr-3 text-slate-400">{{ ago(b.at) }}</td>
+                            <td class="max-w-[14rem] truncate py-2 pr-3 text-slate-200">{{ b.email || '—' }}</td>
+                            <td class="whitespace-nowrap py-2 pr-3 font-mono text-xs text-slate-400">{{ b.ip }}</td>
+                            <td class="py-2 pr-3"><span class="chip" :class="b.reason === 'ip' ? 'bg-amber-500/15 text-amber-300' : 'bg-orange-500/15 text-orange-300'">{{ b.reason === 'ip' ? `IP partagée (${b.count} sites/24 h)` : `${b.count} sites/24 h, même personne` }}</span></td>
+                            <td class="max-w-xs truncate py-2 text-slate-400" :title="b.query">{{ b.flow }} · {{ b.query }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p v-else class="mt-3 text-sm text-slate-500">Aucune création bloquée sur la période.</p>
+            </div>
+
             <div class="mt-4 grid gap-4 lg:grid-cols-3">
                 <div v-for="[key, title] in [['by_campaign', 'Par campagne'], ['by_source', 'Par source'], ['by_sector', 'Par métier']]" :key="key" class="glass overflow-hidden rounded-2xl">
                     <h2 class="px-5 pt-4 font-semibold text-white">{{ title }}</h2>
@@ -280,7 +303,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                 <tbody class="divide-y divide-white/[0.04]">
                     <tr v-for="r in rows" :key="r.id" class="hover:bg-white/[0.02]">
                         <td class="max-w-[14rem] px-4 py-3"><a :href="r.url" target="_blank" class="line-clamp-2 font-semibold text-white hover:text-brand-300" :title="r.name">{{ r.name }}</a><span class="block truncate text-xs text-slate-500">{{ r.sector || '—' }}</span><span v-if="r.multi > 1" class="chip mt-1 bg-orange-500/15 text-orange-300" title="Sites créés par le même appareil ou le même email">⚠ {{ r.multi }} sites même personne</span></td>
-                                                <td class="max-w-[13rem] px-3 py-3"><span v-if="r.email" class="block truncate text-slate-200" :title="r.email">{{ r.email }}</span><span v-else class="text-xs text-slate-500">pas d'email</span></td>
+                                                <td class="max-w-[13rem] px-3 py-3"><span v-if="r.email" class="block truncate text-slate-200" :title="r.email">{{ r.email }}</span><span v-if="r.ip" class="block font-mono text-[10px] text-slate-600">{{ r.ip }}</span><span v-else class="text-xs text-slate-500">pas d'email</span></td>
                         <td class="px-3 py-3">
                             <div class="flex flex-wrap gap-1">
                                 <span v-for="[k, ic, label] in ACT" :key="k" v-show="r.activity?.[k]" class="chip bg-white/[0.06] text-slate-200" :title="`${label} · ${r.activity?.[k]?.n} fois · dernière ${ago(r.activity?.[k]?.last)}`">{{ ic }} {{ r.activity?.[k]?.n }}</span>

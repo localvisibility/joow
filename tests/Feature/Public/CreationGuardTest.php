@@ -49,4 +49,14 @@ class CreationGuardTest extends TestCase
         $this->makeSites(5, ['creator_device' => str_repeat('f', 32), 'owner_email' => 'agence@exemple.fr']);
         $this->assertNotNull(app(CreationGuard::class)->check($this->req('1.1.1.1', str_repeat('g', 32)), 'Agence@exemple.fr'));
     }
+
+    public function test_internal_proxy_ip_never_blocks_and_blocks_are_logged(): void
+    {
+        $this->makeSites(30, ['creator_device' => str_repeat('h', 32), 'creator_ip' => '172.18.0.1']);
+        $this->assertNull(app(CreationGuard::class)->check($this->req('172.18.0.1', str_repeat('i', 32))));
+
+        $this->makeSites(5, ['creator_device' => str_repeat('j', 32), 'creator_ip' => '92.184.0.2']);
+        app(CreationGuard::class)->check($this->req('92.184.0.2', str_repeat('j', 32)), 'x@y.fr');
+        $this->assertSame(1, \Illuminate\Support\Facades\DB::table('creation_blocks')->where('reason', 'device_email')->count());
+    }
 }
