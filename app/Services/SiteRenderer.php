@@ -77,6 +77,8 @@ class SiteRenderer
         $brand['inline'] = \App\Services\LogoStudio::inline($brand['logo']);
 
         return View::make('generated.site', [
+            // Aperçu pas encore payé : barre Joow (retour, modifier, mettre en ligne) ; disparaît au paiement
+            'joowBar'  => ! $editMode && ! in_array($site->status, ['paid', 'published'], true),
             'brand'    => $brand,
             'b'        => $data['business'] ?? [],
             'c'        => $data['content'] ?? [],

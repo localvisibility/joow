@@ -405,6 +405,21 @@ footer .accent,footer a.accent{color:color-mix(in srgb,var(--c) 45%,#fff)!import
 @if(!$editMode)<div id="joow-curtain" aria-hidden="true"><span><i class="fa-solid {{ $icon }}"></i></span></div>@endif
 
 <!-- NAV -->
+@if(!empty($joowBar))
+{{-- Barre de l'aperçu (avant mise en ligne) : visible seulement quand le site est ouvert en plein écran --}}
+<div id="joow-bar" hidden style="position:fixed;inset:0 0 auto 0;z-index:9999;height:48px;display:flex;align-items:center;gap:8px;padding:0 12px;background:rgba(10,10,18,.94);backdrop-filter:blur(10px);color:#fff;font:600 13px/1 Inter,system-ui,sans-serif;box-shadow:0 1px 0 rgba(255,255,255,.08)">
+  <a href="https://app.joow.fr/site/{{ $slug }}" style="display:flex;align-items:center;gap:8px;color:#fff;text-decoration:none;white-space:nowrap"><span style="font-size:16px">←</span><img src="https://app.joow.fr/brand/joow-mark.svg" alt="Joow" width="20" height="20"><span class="jb-l">Mon espace</span></a>
+  <span class="jb-l" style="margin-left:6px;padding:4px 8px;border-radius:999px;background:rgba(251,191,36,.15);color:#fcd34d;font-size:11px;white-space:nowrap">Aperçu · pas encore en ligne</span>
+  <span style="flex:1"></span>
+  <a href="https://app.joow.fr/sites/{{ $slug }}/editeur" style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.1);color:#fff;text-decoration:none;white-space:nowrap">✏️ <span>Modifier</span></a>
+  <a href="https://app.joow.fr/site/{{ $slug }}#publier" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;text-decoration:none;white-space:nowrap">🚀 <span>Mettre en ligne</span></a>
+  <button type="button" id="joow-bar-x" aria-label="Masquer la barre" title="Voir le site comme un visiteur" style="margin-left:2px;width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#94a3b8;font-size:16px;cursor:pointer">✕</button>
+</div>
+<style>@media(max-width:640px){#joow-bar .jb-l{display:none!important}}html.joow-bar-on #nav{top:48px}html.joow-bar-on body{padding-top:48px}</style>
+<script>(function(){var top=false;try{top=window.top===window}catch(e){}var off=false;try{off=sessionStorage.getItem('joow-bar-off')==='1'}catch(e){}
+if(!top||off)return;var b=document.getElementById('joow-bar');b.hidden=false;document.documentElement.classList.add('joow-bar-on');
+document.getElementById('joow-bar-x').onclick=function(){b.hidden=true;document.documentElement.classList.remove('joow-bar-on');try{sessionStorage.setItem('joow-bar-off','1')}catch(e){}};})();</script>
+@endif
 <nav id="nav" class="fixed inset-x-0 top-0 z-50 transition-all duration-300">
   <div class="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
     <a href="{{ $home }}#top" class="flex items-center gap-2.5 text-white" id="brand" @if($page) data-page="" @endif>

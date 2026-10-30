@@ -134,6 +134,7 @@ class Subscription
         if (! $trialing) {
             $this->credits->onPaid($site->fresh(), $plan);
         }
+        $this->republish($site);
         $invoice = $session ? $billing->recordFromCheckoutSession($session, $site, $plan) : null;
         if ($user) {
             app(Accounts::class)->live($user, $site->fresh(), $plan, $invoice);
@@ -176,6 +177,16 @@ class Subscription
         }
 
         return true;
+    }
+
+    /** Republie le site (retire la barre d'aperçu Joow une fois payé). */
+    private function republish(Site $site): void
+    {
+        try {
+            app(\App\Services\SiteRenderer::class)->publish($site->fresh());
+        } catch (\Throwable $e) {
+            Log::warning("Republication après paiement {$site->slug} : ".$e->getMessage());
+        }
     }
 
     public function activate(Site $site, string $reason = 'invoice_paid'): void

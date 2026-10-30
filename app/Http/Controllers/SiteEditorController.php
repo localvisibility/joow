@@ -38,6 +38,15 @@ class SiteEditorController extends Controller
 
             return redirect()->route('sites.editor', $moved->slug);
         }
+        // Non connecté et pas le créateur (autre navigateur, lien de la barre d'aperçu) : connexion puis retour ici
+        if (! $request->user() && ($s = Site::where('slug', $slug)->first()) && ! $s->editableBy(null, (array) $request->session()->get('joow_sites', []))
+            && ! (($t = (string) $request->query('t')) !== '' && hash_equals($s->editToken(), $t))) {
+            if (! $s->user_id && ! $s->owner_email) {
+                return redirect(route('public.site', $slug).'?studio=1');
+            }
+
+            return redirect()->guest(route('login'));
+        }
         $site = $this->ownedSite($request, $slug);
 
         // Sans email ni compte, pas de Studio : retour à l'aperçu, qui demande l'email

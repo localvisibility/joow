@@ -83,6 +83,7 @@ const poll = async () => {
 };
 
 onMounted(() => {
+    if (window.location.hash === '#publier') setTimeout(() => document.getElementById('publier')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400);
     if (ready.value) track('ViewContent', { content_name: props.site.slug, content_category: props.site.sector || '', content_type: 'site' });
     if (!ready.value && !failed.value) { poll(); timer = setInterval(poll, 1500); }
     if (fromStudio && !hasEmail.value) setTimeout(() => { studioInput.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }); studioInput.value?.focus({ preventScroll: true }); }, 400);
@@ -214,7 +215,7 @@ onUnmounted(() => timer && clearInterval(timer));
             </div>
 
             <!-- Choix de la formule -->
-            <div class="mx-auto mt-10 max-w-3xl">
+            <div id="publier" class="mx-auto mt-10 max-w-3xl scroll-mt-6">
                 <div class="mb-5 text-center">
                     <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">Essai gratuit · vous ne payez qu'en mettant en ligne</p>
                     <h3 class="mt-3 font-display text-2xl font-bold text-white">Mettez votre site en ligne</h3>
