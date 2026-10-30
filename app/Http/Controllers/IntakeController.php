@@ -131,7 +131,7 @@ class IntakeController extends Controller
             'owner_email' => $data['email'],
             'source'      => 'questionnaire',
             'preview_url' => 'https://'.$slug.'.joow.fr',
-            'site_data'   => ['intake' => array_merge($data, ['photos' => $photos]), 'attribution' => $request->session()->get('attribution')],
+            'site_data'   => ['intake' => array_merge($data, ['photos' => $photos]), 'attribution' => $request->session()->get('attribution'), 'tracking' => \App\Services\MetaConversions::context($request)],
         ]);
         app(\App\Services\MetaConversions::class)->event('StartGeneration', ['source' => 'intake', 'sector' => $sector], $data['email'], null, null, $request);
 

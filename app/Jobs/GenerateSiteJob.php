@@ -226,6 +226,16 @@ class GenerateSiteJob implements ShouldQueue
                 }
             }
 
+            // Conversion « SiteGenerated » côté serveur : comptée même si la personne a quitté la page
+            // pendant la génération (même event_id que le pixel : Meta ne compte qu'une fois)
+            try {
+                $fresh = $this->site->fresh();
+                app(\App\Services\MetaConversions::class)->deferred('SiteGenerated', (array) ($fresh->site_data['tracking'] ?? []),
+                    ['content_name' => $fresh->slug, 'content_category' => (string) $fresh->sector], $fresh->owner_email, 'sitegen-'.$fresh->slug);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::info('SiteGenerated serveur : '.$e->getMessage());
+            }
+
             $job?->update([
                 'status' => 'completed',
                 'completed_at' => now(),

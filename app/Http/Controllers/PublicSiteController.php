@@ -71,7 +71,7 @@ class PublicSiteController extends Controller
             'owner_email'   => $data['email'] ?? null,
             'source'        => 'joow-public',
             'preview_url'   => 'https://'.$slug.'.joow.fr',
-            'site_data'     => ['attribution' => $request->session()->get('attribution')],
+            'site_data'     => ['attribution' => $request->session()->get('attribution'), 'tracking' => \App\Services\MetaConversions::context($request)],
         ]);
         app(\App\Services\MetaConversions::class)->event('StartGeneration', ['source' => 'google', 'sector' => $sector], $data['email'] ?? null, null, null, $request);
 

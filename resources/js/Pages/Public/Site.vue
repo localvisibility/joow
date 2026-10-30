@@ -77,7 +77,7 @@ const poll = async () => {
         if (d.old_url) oldUrl.value = d.old_url;
         if (d.combo) combo.value = true;
         // Prêt : on laisse 1,8 s au spectacle pour afficher « site prêt » puis on bascule sur l'aperçu
-        if (d.ready) { if (timer) clearInterval(timer); progress.value = { ...progress.value, step: 'done' }; readying.value = true; track('SiteGenerated', { content_name: props.site.slug, content_category: props.site.sector || '' }); setTimeout(() => { ready.value = true; failed.value = false; }, 1800); }
+        if (d.ready) { if (timer) clearInterval(timer); progress.value = { ...progress.value, step: 'done' }; readying.value = true; track('SiteGenerated', { content_name: props.site.slug, content_category: props.site.sector || '' }, 'sitegen-' + props.site.slug); setTimeout(() => { ready.value = true; failed.value = false; }, 1800); }
         else if (d.failed) { failed.value = true; if (timer) clearInterval(timer); }
     } catch (e) { /* retry au prochain tick */ }
 };

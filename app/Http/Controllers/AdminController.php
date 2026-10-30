@@ -147,7 +147,7 @@ class AdminController extends Controller
         return [
             'series' => array_values($series),
             'funnel' => $funnel,
-            'by_campaign' => $group(fn ($s) => $s->site_data['attribution']['utm_campaign'] ?? ($s->site_data['attribution']['utm_source'] ?? 'direct')),
+            'by_campaign' => $group(fn ($s) => self::campaign($s->site_data['attribution'] ?? null)),
             'by_source' => $group(fn ($s) => $s->source === 'joow-public' ? 'fiche Google' : ($s->source ?: 'fiche Google')),
             'by_sector' => $group(fn ($s) => config("sectors.{$s->sector}.label") ?? $s->sector),
             'plans' => [
@@ -157,9 +157,19 @@ class AdminController extends Controller
         ];
     }
 
+    /** Origine lisible : campagne UTM, sinon clic Meta / Google détecté, sinon site référent, sinon direct. */
+    public static function campaign(?array $attr): string
+    {
+        $t = $attr['last'] ?? $attr['first'] ?? $attr ?? [];
+        if (! is_array($t) || ! $t) {
+            return 'direct';
+        }
+
+        return $t['utm_campaign'] ?? $t['utm_source'] ?? (! empty($t['fbclid']) ? 'Meta (sans UTM)' : (! empty($t['gclid']) ? 'Google Ads (sans UTM)' : ($t['referer'] ?? 'direct')));
+    }
+
     private function siteRow(Site $s): array
     {
-        $a = $s->site_data['attribution'] ?? [];
 
         return [
             'id' => $s->id, 'slug' => $s->slug, 'name' => $s->name, 'status' => $s->status,
@@ -168,7 +178,7 @@ class AdminController extends Controller
             'email' => $s->owner_email ?? $s->user?->email, 'user_id' => $s->user_id,
             'created_at' => optional($s->created_at)->toIso8601String(), 'paid_at' => optional($s->paid_at)->toIso8601String(),
             'period_end' => optional($s->subscription_period_end)->toIso8601String(),
-            'domain' => $s->custom_domain, 'campaign' => $a['utm_campaign'] ?? ($a['utm_source'] ?? null),
+            'domain' => $s->custom_domain, 'campaign' => self::campaign($s->site_data['attribution'] ?? null),
             'url' => 'https://'.$s->slug.'.joow.fr', 'mrr' => $s->hosting_plan === 'pro' && in_array($s->subscription_status, ['active', 'trialing'], true) ? $this->price('pro') : 0,
             'stripe' => $s->user?->stripe_id ? 'https://dashboard.stripe.com/customers/'.$s->user->stripe_id : null,
             'activity' => (array) ($s->site_data['activity'] ?? []),

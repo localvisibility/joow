@@ -86,6 +86,40 @@ class MetaConversions
         return $eventId;
     }
 
+    /**
+     * Contexte navigateur gardé avec le site au moment de la demande, pour envoyer plus tard
+     * (depuis le job de génération) un événement serveur rattaché à la bonne personne.
+     */
+    public static function context(Request $request): array
+    {
+        return array_filter([
+            'consent' => self::consented($request),
+            'ip' => $request->ip(),
+            'ua' => mb_substr((string) $request->userAgent(), 0, 400),
+            'fbp' => self::rawCookie($request, '_fbp'),
+            'fbc' => self::rawCookie($request, '_fbc') ?: ($request->hasSession() ? $request->session()->get('attribution.fbc') : null),
+            'url' => mb_substr($request->fullUrl(), 0, 500),
+        ]);
+    }
+
+    /** Événement serveur hors requête (job), avec le contexte gardé. Rien sans consentement. */
+    public function deferred(string $name, array $ctx, array $custom = [], ?string $email = null, ?string $eventId = null): void
+    {
+        if (! self::enabled() || ! config('services.meta.access_token') || empty($ctx['consent'])) {
+            return;
+        }
+        $this->post([array_filter([
+            'event_name' => $name, 'event_time' => time(), 'event_id' => $eventId ?? (string) Str::uuid(), 'action_source' => 'website',
+            'event_source_url' => $ctx['url'] ?? null,
+            'user_data' => array_filter([
+                'em' => $email ? [hash('sha256', strtolower(trim($email)))] : null,
+                'client_ip_address' => $ctx['ip'] ?? null, 'client_user_agent' => $ctx['ua'] ?? null,
+                'fbp' => $ctx['fbp'] ?? null, 'fbc' => $ctx['fbc'] ?? null,
+            ]),
+            'custom_data' => $custom ?: null,
+        ])]);
+    }
+
     /** Envoi brut (utilisé aussi par la commande de test). */
     public function post(array $events, ?string $testCode = null): array
     {
