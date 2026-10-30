@@ -82,7 +82,10 @@ const poll = async () => {
     } catch (e) { /* retry au prochain tick */ }
 };
 
+const freeDomain = ref(null);
+const loadDomain = async () => { try { const r = await fetch(`/api/site/${props.site.slug}/domain`, { headers: { Accept: 'application/json' } }); const d = await r.json(); freeDomain.value = d.available ? d.domain : null; } catch {} };
 onMounted(() => {
+    loadDomain();
     if (window.location.hash === '#publier') setTimeout(() => document.getElementById('publier')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400);
     if (ready.value) track('ViewContent', { content_name: props.site.slug, content_category: props.site.sector || '', content_type: 'site' });
     if (!ready.value && !failed.value) { poll(); timer = setInterval(poll, 1500); }
@@ -219,6 +222,9 @@ onUnmounted(() => timer && clearInterval(timer));
                 <div class="mb-5 text-center">
                     <p class="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">Essai gratuit · vous ne payez qu'en mettant en ligne</p>
                     <h3 class="mt-3 font-display text-2xl font-bold text-white">Mettez votre site en ligne</h3>
+                    <div v-if="freeDomain" class="mx-auto mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm">
+                        <span class="text-emerald-300">✓</span><span class="font-display text-lg font-bold text-white">{{ freeDomain }}</span><span class="text-emerald-200">est disponible · inclus dans votre formule</span>
+                    </div>
                 </div>
 
                 <div class="mb-5 rounded-2xl border p-4 transition-colors sm:p-5" :class="checkout.errors.email ? 'border-rose-400/60 bg-rose-500/[0.07]' : 'border-white/10 bg-white/[0.03]'">

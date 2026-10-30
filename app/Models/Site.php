@@ -80,6 +80,7 @@ class Site extends Model
         $this->timestamps = false;
         $this->forceFill(['site_data' => $data])->saveQuietly();
         $this->timestamps = true;
+        app(\App\Services\HotLeads::class)->notify($this, $event);
     }
 
     /** Site renommé (identifiant raccourci) : retrouve-le par son ancien identifiant. */

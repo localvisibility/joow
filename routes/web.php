@@ -21,6 +21,7 @@ Route::prefix('/api/site/{slug}')->middleware('throttle:120,1')->group(function 
     Route::post('/reserve', [\App\Http\Controllers\SiteApiController::class, 'reserve'])->middleware('throttle:15,1')->name('api.site.reserve');
     Route::get('/rooms', [\App\Http\Controllers\SiteApiController::class, 'rooms'])->name('api.site.rooms');
     Route::get('/calendar', [\App\Http\Controllers\SiteApiController::class, 'calendar'])->name('api.site.calendar');
+    Route::get('/domain', [\App\Http\Controllers\SiteApiController::class, 'domain'])->middleware('throttle:20,1')->name('api.site.domain');
     Route::post('/stay', [\App\Http\Controllers\SiteApiController::class, 'stay'])->middleware('throttle:15,1')->name('api.site.stay');
     Route::post('/bot', [\App\Http\Controllers\SiteApiController::class, 'bot'])->middleware('throttle:30,1')->name('api.site.bot');
     Route::post('/view', [\App\Http\Controllers\SiteApiController::class, 'view'])->name('api.site.view');

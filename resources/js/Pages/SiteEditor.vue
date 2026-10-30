@@ -129,7 +129,9 @@ const load = async () => {
     } catch (e) { console.error(e); }
     finally { loading.value = false; }
 };
-onMounted(() => { load(); window.addEventListener('message', onMessage); window.addEventListener('keydown', onKey); });
+const freeDomain = ref(null);
+const loadDomain = async () => { try { const r = await fetch(`/api/site/${props.site.slug}/domain`, { headers: { Accept: 'application/json' } }); const d = await r.json(); freeDomain.value = d.available ? d.domain : null; } catch {} };
+onMounted(() => { load(); loadDomain(); window.addEventListener('message', onMessage); window.addEventListener('keydown', onKey); });
 onUnmounted(() => { window.removeEventListener('message', onMessage); window.removeEventListener('keydown', onKey); });
 watch(curPage, () => { openBlock.value = -1; reload(); });
 
@@ -506,7 +508,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
             <span>Votre site est modifiable gratuitement, aussi longtemps que vous voulez.</span>
             <button @click="modal='claim'" class="font-semibold underline decoration-brand-400/60 underline-offset-2 hover:text-white">Recevoir mon lien d'édition</button>
             <span class="hidden sm:inline">·</span>
-            <button @click="modal='publish'" class="font-semibold underline decoration-brand-400/60 underline-offset-2 hover:text-white">Mettre en ligne quand il est parfait →</button>
+            <span v-if="freeDomain" class="mr-2 text-emerald-300">✓ {{ freeDomain }} est disponible ·</span><button @click="modal='publish'" class="font-semibold underline decoration-brand-400/60 underline-offset-2 hover:text-white">Mettre en ligne quand il est parfait →</button>
         </div>
 
         <div v-if="!site.editable" class="m-4 rounded-2xl border border-amber-400/20 bg-amber-500/[0.06] p-5">
@@ -1104,6 +1106,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     <template v-else-if="modal==='publish'">
                         <div class="mb-2 flex items-center justify-between"><h3 class="font-display text-xl font-bold text-white">Mettre votre site en ligne</h3><button @click="modal=null" class="text-slate-400 hover:text-white">✕</button></div>
                         <p class="text-sm text-slate-400">Votre site reste modifiable à volonté après la mise en ligne. Tous les modules sont inclus.</p>
+                        <div v-if="freeDomain" class="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm"><span class="text-emerald-300">✓</span><span class="font-bold text-white">{{ freeDomain }}</span><span class="text-emerald-200">est disponible · inclus, réservé à votre nom dès la mise en ligne</span></div>
                         <label class="lbl mt-4">Votre email (accès, factures, notifications)<input v-model="checkout.email" type="email" class="fld !py-2.5" placeholder="vous@exemple.fr" /></label>
                         <div class="mt-4 grid gap-3 sm:grid-cols-2">
                             <div class="relative rounded-2xl border border-brand-500/50 bg-brand-500/[0.06] p-5">

@@ -115,6 +115,9 @@ class Accounts
     public function checkoutStarted(Site $site, string $plan): void
     {
         $this->mark($site, 'checkout_started_at', ['checkout_plan' => $plan]);
+        if (! request()?->user()?->isAdmin()) {
+            app(HotLeads::class)->notify($site->fresh(), 'checkout');
+        }
     }
 
     /** Site mis en ligne : félicitations et prochaines étapes qui font décoller la visibilité. */

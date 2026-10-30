@@ -137,6 +137,17 @@ class SiteApiController extends Controller
         return response()->json(['days' => $planner->calendar($rooms, $data['from'] ?? now()->toDateString(), (int) ($data['days'] ?? 62))]);
     }
 
+    /** Nom de domaine disponible au nom de l'établissement (affiché avant la mise en ligne). */
+    public function domain(string $slug, \App\Services\Domains\DomainSuggest $suggest)
+    {
+        $site = Site::where('slug', $slug)->firstOrFail();
+        if ($site->custom_domain || in_array($site->status, ['paid', 'published'], true)) {
+            return response()->json(['domain' => null]);
+        }
+
+        return response()->json($suggest->forSite($site) ?? ['domain' => null]);
+    }
+
     /** Demande de séjour (ou réservation instantanée si le propriétaire l'a activée). */
     public function stay(Request $request, string $slug, StayPlanner $planner)
     {

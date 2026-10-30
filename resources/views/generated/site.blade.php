@@ -409,7 +409,7 @@ footer .accent,footer a.accent{color:color-mix(in srgb,var(--c) 45%,#fff)!import
 {{-- Barre de l'aperçu (avant mise en ligne) : visible seulement quand le site est ouvert en plein écran --}}
 <div id="joow-bar" hidden style="position:fixed;inset:0 0 auto 0;z-index:9999;height:48px;display:flex;align-items:center;gap:8px;padding:0 12px;background:rgba(10,10,18,.94);backdrop-filter:blur(10px);color:#fff;font:600 13px/1 Inter,system-ui,sans-serif;box-shadow:0 1px 0 rgba(255,255,255,.08)">
   <a href="https://app.joow.fr/site/{{ $slug }}" style="display:flex;align-items:center;gap:8px;color:#fff;text-decoration:none;white-space:nowrap"><span style="font-size:16px">←</span><img src="https://app.joow.fr/brand/joow-mark.svg" alt="Joow" width="20" height="20"><span class="jb-l">Mon espace</span></a>
-  <span class="jb-l" style="margin-left:6px;padding:4px 8px;border-radius:999px;background:rgba(251,191,36,.15);color:#fcd34d;font-size:11px;white-space:nowrap">Aperçu · pas encore en ligne</span>
+  <span class="jb-l" id="joow-bar-st" style="margin-left:6px;padding:4px 8px;border-radius:999px;background:rgba(251,191,36,.15);color:#fcd34d;font-size:11px;white-space:nowrap">Aperçu · pas encore en ligne</span>
   <span style="flex:1"></span>
   <a href="https://app.joow.fr/sites/{{ $slug }}/editeur" style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.1);color:#fff;text-decoration:none;white-space:nowrap">✏️ <span>Modifier</span></a>
   <a href="https://app.joow.fr/site/{{ $slug }}#publier" style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;text-decoration:none;white-space:nowrap">🚀 <span>Mettre en ligne</span></a>
@@ -418,6 +418,7 @@ footer .accent,footer a.accent{color:color-mix(in srgb,var(--c) 45%,#fff)!import
 <style>@media(max-width:640px){#joow-bar .jb-l{display:none!important}}html.joow-bar-on #nav{top:48px}html.joow-bar-on body{padding-top:48px}</style>
 <script>(function(){var top=false;try{top=window.top===window}catch(e){}var off=false;try{off=sessionStorage.getItem('joow-bar-off')==='1'}catch(e){}
 if(!top||off)return;var b=document.getElementById('joow-bar');b.hidden=false;document.documentElement.classList.add('joow-bar-on');
+try{fetch('https://app.joow.fr/api/site/{{ $slug }}/domain',{headers:{Accept:'application/json'}}).then(function(r){return r.json()}).then(function(d){if(d&&d.available&&d.domain){var e=document.getElementById('joow-bar-st');e.textContent='✓ '+d.domain+' est disponible';e.style.background='rgba(16,185,129,.15)';e.style.color='#6ee7b7';}}).catch(function(){});}catch(e){}
 document.getElementById('joow-bar-x').onclick=function(){b.hidden=true;document.documentElement.classList.remove('joow-bar-on');try{sessionStorage.setItem('joow-bar-off','1')}catch(e){}};})();</script>
 @endif
 <nav id="nav" class="fixed inset-x-0 top-0 z-50 transition-all duration-300">
