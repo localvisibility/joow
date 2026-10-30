@@ -174,6 +174,10 @@ class AdminController extends Controller
             'activity' => (array) ($s->site_data['activity'] ?? []),
             'checkout_at' => $s->site_data['emails']['checkout_started_at'] ?? null,
             'messages' => array_slice((array) ($s->site_data['emails']['admin_messages'] ?? []), -5),
+            'ai_chat' => collect((array) ($s->site_data['chat'] ?? []))->map(fn ($m) => [
+                'role' => $m['role'] ?? 'user', 'text' => Str::limit((string) ($m['text'] ?? ''), 400), 'at' => $m['at'] ?? null,
+                'applied' => array_slice(array_map(fn ($a) => Str::limit(is_string($a) ? $a : json_encode($a, JSON_UNESCAPED_UNICODE), 80), (array) ($m['applied'] ?? [])), 0, 6),
+            ])->values()->all(),
             'mails' => $this->mails[strtolower((string) ($s->owner_email ?? $s->user?->email))] ?? null,
             'owner_name' => $s->owner_name,
             'error' => $s->status === 'failed' ? Str::limit((string) GenerationJob::where('site_slug', $s->slug)->latest()->value('error'), 300) : null,
@@ -282,6 +286,28 @@ class AdminController extends Controller
             'by_reason' => $credits->groupBy('reason')->map(fn ($g) => $g->sum('delta'))->all(),
             'recent_errors' => $jobs->where('status', 'failed')->sortByDesc('created_at')->take(10)->map(fn ($j) => ['at' => $j->created_at->toIso8601String(), 'error' => Str::limit((string) $j->error, 200)])->values()->all(),
             'cost_estimate' => round($jobs->count() * 0.03, 2), // ≈ 0,03 € d'IA par génération (estimation)
+            'requests' => $this->aiRequests($since),
+        ];
+    }
+
+    /** Demandes faites à l'assistant IA du Studio (et logos IA), les plus récentes d'abord. */
+    private function aiRequests($since): array
+    {
+        $tx = CreditTransaction::where('reason', 'ai_action')->where('created_at', '>=', $since)->orderByDesc('created_at')->take(200)->get();
+        $sites = Site::whereIn('id', $tx->pluck('site_id')->unique())->get(['id', 'slug', 'name', 'owner_email', 'status'])->keyBy('id');
+
+        return [
+            'rows' => $tx->map(function ($t) use ($sites) {
+                $m = (array) $t->meta;
+                $s = $sites[$t->site_id] ?? null;
+
+                return [
+                    'at' => $t->created_at->toIso8601String(), 'site' => $s?->name, 'slug' => $s?->slug, 'email' => $s?->owner_email, 'status' => $s?->status,
+                    'message' => $m['message'] ?? (isset($m['logo_ai']) ? 'Génération de logos IA ('.($m['style'] ?? '').')' : '—'),
+                    'applied' => (array) ($m['applied'] ?? []), 'credits' => -$t->delta,
+                ];
+            })->all(),
+            'users' => $tx->pluck('site_id')->unique()->count(),
         ];
     }
 

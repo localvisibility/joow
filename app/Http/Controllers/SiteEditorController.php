@@ -385,14 +385,14 @@ class SiteEditorController extends Controller
             Cache::put("joow:snap:{$site->id}:$undoId", $before + ['cost' => $cost], now()->addDay());
         }
         $chat = array_slice(array_merge($history, [
-            ['role' => 'user', 'text' => Str::limit($data['message'], 600, '…')],
-            ['role' => 'ai', 'text' => $out['reply'], 'applied' => $out['applied']],
+            ['role' => 'user', 'text' => Str::limit($data['message'], 600, '…'), 'at' => now()->toIso8601String()],
+            ['role' => 'ai', 'text' => $out['reply'], 'applied' => $out['applied'], 'at' => now()->toIso8601String()],
         ]), -24);
         $siteData = $out['site_data'];
         $siteData['chat'] = $chat;
 
         $site->update(['site_data' => $siteData, 'modules' => $out['modules'] ?: $site->modules]);
-        $credits->charge($site, $cost, ['undo_id' => $undoId, 'message' => Str::limit($data['message'], 120)]);
+        $credits->charge($site, $cost, ['undo_id' => $undoId, 'message' => Str::limit($data['message'], 200), 'applied' => array_slice(array_map(fn ($a) => Str::limit(is_string($a) ? $a : json_encode($a, JSON_UNESCAPED_UNICODE), 80), (array) $out['applied']), 0, 6)]);
         $pub = $renderer->publish($site);
 
         return response()->json([

@@ -59,4 +59,21 @@ class ActivityTest extends TestCase
         User::firstWhere('email', 'lea@exemple.fr')->forceFill(['marketing_optout_at' => now()])->save();
         $this->actingAs($admin)->post("/admin/sites/{$site->id}/email", ['subject' => 'x', 'message' => 'y'])->assertStatus(422);
     }
+
+    public function test_admin_sees_ai_assistant_requests(): void
+    {
+        config(['joow.admins' => ['boss@joow.fr']]);
+        $admin = User::factory()->create(['email' => 'boss@joow.fr']);
+        $site = Site::create(['slug' => 'bistrot-kl12', 'name' => 'Bistrot', 'sector' => 'restaurant', 'status' => 'preview', 'source' => 'joow-public', 'owner_email' => 'lea@exemple.fr',
+            'site_data' => ['content' => ['hero_title' => 'x'], 'chat' => [['role' => 'user', 'text' => 'Passe en thème sombre'], ['role' => 'ai', 'text' => 'Fait', 'applied' => ['Thème sombre']]]]]);
+        $site->forceFill(['ai_credits_wallet' => 10])->save();
+        app(\App\Services\AiCredits::class)->charge($site, 1, ['message' => 'Passe en thème sombre', 'applied' => ['Thème sombre']]);
+        app(\App\Services\AiCredits::class)->charge($site, 0, ['message' => 'Combien coûte la mise en ligne ?']);
+
+        $rows = collect($this->actingAs($admin)->get('/admin?tab=ai')->assertOk()->viewData('page')['props']['data']['requests']['rows']);
+        $this->assertCount(2, $rows);
+        $this->assertTrue($rows->contains(fn ($r) => $r['message'] === 'Passe en thème sombre' && (int) $r['credits'] === 1));
+        $this->assertTrue($rows->contains(fn ($r) => $r['message'] === 'Combien coûte la mise en ligne ?' && (int) $r['credits'] === 0));
+        $this->actingAs($admin)->get('/admin?tab=sites')->assertOk()->assertInertia(fn (Assert $p) => $p->where('data.rows.0.ai_chat.0.text', 'Passe en thème sombre'));
+    }
 }

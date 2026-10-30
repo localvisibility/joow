@@ -93,6 +93,8 @@ const sendMail = () => {
         preserveScroll: true, onSuccess: () => { mail.open = false; }, onFinish: () => { mail.sending = false; },
     });
 };
+const chatSite = ref(null);
+const aiAsks = (r) => (r.ai_chat || []).filter((m) => m.role === 'user').length;
 const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filter(Boolean).sort().pop();
 </script>
 
@@ -281,10 +283,11 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                         <td class="px-3 py-3">
                             <div class="flex flex-wrap gap-1">
                                 <span v-for="[k, ic, label] in ACT" :key="k" v-show="r.activity?.[k]" class="chip bg-white/[0.06] text-slate-200" :title="`${label} · ${r.activity?.[k]?.n} fois · dernière ${ago(r.activity?.[k]?.last)}`">{{ ic }} {{ r.activity?.[k]?.n }}</span>
+                                <button v-if="aiAsks(r)" type="button" @click="chatSite = r" class="chip bg-violet-500/15 text-violet-300 hover:bg-violet-500/25" title="Voir la conversation avec l'assistant IA">🤖 {{ aiAsks(r) }}</button>
                                 <span v-if="r.mails" class="chip bg-sky-500/15 text-sky-300" :title="r.mails.last.map((m) => (m.opened ? '✓ ouvert ' : (m.tracked ? '· non ouvert ' : '· (non suivi) ')) + ago(m.at) + ' · ' + m.subject).join('\n')">📬 {{ r.mails.opened }}/{{ r.mails.sent }}</span>
                                 <span v-if="r.messages?.length" class="chip bg-brand-500/15 text-brand-300" :title="r.messages.map((m) => ago(m.at) + ' · ' + m.subject).join('\n')">📨 {{ r.messages.length }}</span>
                                 <span v-if="r.checkout_at" class="chip bg-amber-500/15 text-amber-300" :title="'Page de paiement ouverte ' + ago(r.checkout_at)">💳</span>
-                                <span v-if="!Object.keys(r.activity || {}).length && !r.checkout_at && !r.mails" class="text-xs text-slate-600">aucune</span>
+                                <span v-if="!Object.keys(r.activity || {}).length && !r.checkout_at && !r.mails && !aiAsks(r)" class="text-xs text-slate-600">aucune</span>
                             </div>
                             <span v-if="lastSeen(r)" class="mt-1 block text-[11px] text-slate-500">vu {{ ago(lastSeen(r)) }}</span>
                         </td>
@@ -406,7 +409,46 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                     <a :href="route('admin.journal')" target="_blank" class="mt-4 inline-block text-xs text-slate-400 hover:text-white">Journal applicatif ↗</a>
                 </div>
             </div>
+            <div class="glass mt-4 overflow-x-auto rounded-2xl">
+                <div class="flex items-baseline justify-between px-5 pt-4"><h2 class="font-semibold text-white">Demandes à l'assistant IA du Studio</h2><p class="text-xs text-slate-500">{{ data.requests.users }} site(s) · {{ data.requests.rows.length }} demande(s) sur {{ days }} j</p></div>
+                <table class="mt-2 w-full text-sm">
+                    <thead class="text-left text-[11px] uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-2">Quand</th><th class="px-3 py-2">Site</th><th class="px-3 py-2">Demande</th><th class="px-3 py-2">Modifications faites</th><th class="px-5 py-2 text-right">Crédits</th></tr></thead>
+                    <tbody class="divide-y divide-white/[0.04]">
+                        <tr v-for="(q, i) in data.requests.rows" :key="i" class="align-top">
+                            <td class="whitespace-nowrap px-5 py-2 text-slate-400">{{ ago(q.at) }}</td>
+                            <td class="max-w-[12rem] px-3 py-2"><Link v-if="q.slug" :href="route('sites.editor', q.slug)" class="block truncate font-semibold text-white hover:text-brand-300">{{ q.site }}</Link><span class="block truncate text-xs text-slate-500">{{ q.email || 'pas d\'email' }}</span></td>
+                            <td class="max-w-sm px-3 py-2 text-slate-200">{{ q.message }}</td>
+                            <td class="max-w-xs px-3 py-2"><span v-for="(a, k) in q.applied" :key="k" class="chip mb-1 mr-1 bg-emerald-500/15 text-emerald-300">{{ a }}</span><span v-if="!q.applied.length" class="text-xs text-slate-500">aucune (question)</span></td>
+                            <td class="px-5 py-2 text-right text-slate-300">{{ q.credits || 'gratuit' }}</td>
+                        </tr>
+                        <tr v-if="!data.requests.rows.length"><td colspan="5" class="px-5 py-6 text-center text-slate-500">Aucune demande sur la période.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
+        <!-- Conversation avec l'assistant IA -->
+        <div v-if="chatSite" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" @click.self="chatSite = null">
+            <div class="glass flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-ink-900 p-6">
+                <div class="flex items-start justify-between gap-3">
+                    <div><h3 class="font-display text-lg font-bold text-white">🤖 Assistant IA · {{ chatSite.name }}</h3><p class="text-sm text-slate-400">{{ chatSite.email || 'pas d\'email' }} · {{ aiAsks(chatSite) }} demande(s)</p></div>
+                    <button @click="chatSite = null" class="text-slate-500 hover:text-white">✕</button>
+                </div>
+                <div class="mt-4 space-y-3 overflow-y-auto pr-1">
+                    <div v-for="(m, i) in chatSite.ai_chat" :key="i" :class="m.role === 'user' ? 'ml-10' : 'mr-10'">
+                        <div class="rounded-2xl px-4 py-3 text-sm" :class="m.role === 'user' ? 'bg-brand-500/20 text-white' : 'bg-white/[0.05] text-slate-300'">
+                            <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide" :class="m.role === 'user' ? 'text-brand-300' : 'text-slate-500'">{{ m.role === 'user' ? 'Client' : 'Assistant' }}<span v-if="m.at" class="ml-2 font-normal normal-case">{{ ago(m.at) }}</span></p>
+                            <p class="whitespace-pre-line">{{ m.text }}</p>
+                            <div v-if="m.applied?.length" class="mt-2 flex flex-wrap gap-1"><span v-for="(a, k) in m.applied" :key="k" class="chip bg-emerald-500/15 text-emerald-300">✓ {{ a }}</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end gap-2">
+                    <Link :href="route('sites.editor', chatSite.slug)" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-200">Ouvrir dans le Studio</Link>
+                    <button v-if="chatSite.email" @click="openMail(chatSite, TEMPLATES[1]); chatSite = null" class="btn-brand text-sm">✉ Lui écrire</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Écrire au prospect -->
         <div v-if="mail.open" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" @click.self="mail.open = false">
             <div class="glass w-full max-w-2xl rounded-2xl bg-ink-900 p-6">

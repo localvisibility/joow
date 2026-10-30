@@ -68,6 +68,11 @@ class AiCredits
     public function charge(Site $site, int $cost, array $meta = []): int
     {
         if ($cost <= 0) {
+            // Demande gratuite (question, rien de modifié) : tracée quand même pour le suivi
+            if (! empty($meta['message'])) {
+                $this->log($site, 0, 'ai_action', $meta);
+            }
+
             return $this->balance($site);
         }
         $fromMonthly = min($cost, max(0, (int) $site->ai_credits_monthly));
