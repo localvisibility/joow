@@ -30,6 +30,9 @@ class AdminController extends Controller
     /** Emails envoyés, par destinataire (préchargés pour la liste en cours). */
     private array $mails = [];
 
+    /** Nombre de sites créés par le même appareil / email (repère « multi-sites »). */
+    private array $multi = ['device' => [], 'email' => []];
+
     public function index(Request $request)
     {
         $tab = in_array($request->query('tab'), self::TABS, true) ? $request->query('tab') : 'overview';
@@ -184,6 +187,7 @@ class AdminController extends Controller
             'activity' => (array) ($s->site_data['activity'] ?? []),
             'checkout_at' => $s->site_data['emails']['checkout_started_at'] ?? null,
             'messages' => array_slice((array) ($s->site_data['emails']['admin_messages'] ?? []), -5),
+            'multi' => max((int) ($this->multi['device'][$s->creator_device] ?? 0), (int) ($this->multi['email'][strtolower((string) $s->owner_email)] ?? 0)),
             'ai_chat' => collect((array) ($s->site_data['chat'] ?? []))->map(fn ($m) => [
                 'role' => $m['role'] ?? 'user', 'text' => Str::limit((string) ($m['text'] ?? ''), 400), 'at' => $m['at'] ?? null,
                 'applied' => array_slice(array_map(fn ($a) => Str::limit(is_string($a) ? $a : json_encode($a, JSON_UNESCAPED_UNICODE), 80), (array) ($m['applied'] ?? [])), 0, 6),
@@ -229,7 +233,16 @@ class AdminController extends Controller
             ->orderByDesc('created_at')->take(300)->get()
             ->when($f === 'studio', fn ($c) => $c->filter(fn ($s) => ! empty($s->site_data['activity']['studio'])))
             ->when($f === 'checkout', fn ($c) => $c->filter(fn ($s) => ! empty($s->site_data['emails']['checkout_started_at'])));
+        if ($f === 'multi') {
+            $dup = Site::whereNotNull('creator_device')->selectRaw('creator_device')->groupBy('creator_device')->havingRaw('count(*) > 1')->pluck('creator_device');
+            $dupMail = Site::whereNotNull('owner_email')->selectRaw('lower(owner_email) as e')->groupBy(\Illuminate\Support\Facades\DB::raw('lower(owner_email)'))->havingRaw('count(*) > 1')->pluck('e');
+            $rows = $rows->filter(fn ($s) => $dup->contains($s->creator_device) || $dupMail->contains(strtolower((string) $s->owner_email)));
+        }
         $this->preloadMails($rows->map(fn ($s) => $s->owner_email ?? $s->user?->email)->filter()->all());
+        $devices = $rows->pluck('creator_device')->filter()->unique()->values();
+        $emails = $rows->pluck('owner_email')->filter()->map(fn ($e) => strtolower($e))->unique()->values();
+        $this->multi['device'] = $devices->isEmpty() ? [] : Site::whereIn('creator_device', $devices)->selectRaw('creator_device, count(*) as n')->groupBy('creator_device')->pluck('n', 'creator_device')->all();
+        $this->multi['email'] = $emails->isEmpty() ? [] : Site::whereIn(\Illuminate\Support\Facades\DB::raw('lower(owner_email)'), $emails)->selectRaw('lower(owner_email) as e, count(*) as n')->groupBy(\Illuminate\Support\Facades\DB::raw('lower(owner_email)'))->pluck('n', 'e')->all();
 
         return ['rows' => $rows->map(fn ($s) => $this->siteRow($s))->values()->all(), 'statuses' => Site::selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status')];
     }

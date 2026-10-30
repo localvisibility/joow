@@ -116,6 +116,9 @@ class IntakeController extends Controller
             ? $data['sector']
             : $detector->detect($data['name'], [], ['primary_type' => $data['sector_hint'] ?? null, 'address' => $data['city'], 'description' => $data['description'] ?? null]);
 
+        if ($msg = app(\App\Services\CreationGuard::class)->check($request, $data['email'])) {
+            return back()->withErrors(['name' => $msg]);
+        }
         $slug = Site::makeSlug($data['name']);
         $photos = $images->move($data['photos'] ?? [], 'intake-'.$this->token($request), $slug);
 
@@ -125,6 +128,8 @@ class IntakeController extends Controller
             'sector'      => $sector,
             'status'      => 'generating',
             'place_id'    => null,
+            'creator_ip'  => $request->ip(),
+            'creator_device' => \App\Services\CreationGuard::device($request),
             'city'        => $data['city'],
             'address'     => ($data['address'] ?? null) ?: $data['city'],
             'phone'       => $data['phone'],

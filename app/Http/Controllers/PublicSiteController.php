@@ -46,9 +46,21 @@ class PublicSiteController extends Controller
             'email' => ['nullable', 'email'],
         ]);
 
+        $guard = app(\App\Services\CreationGuard::class);
         $b = $places->lookup($data['query']);
         if (! $b) {
             return back()->withErrors(['query' => "Fiche introuvable. Colle un lien Google Maps ou « nom + ville »."]);
+        }
+        // Même établissement déjà généré par la même personne : on rouvre l'aperçu au lieu d'un doublon
+        if ($prev = $guard->existing($request, $b['place_id'] ?? null, $data['email'] ?? null)) {
+            if (! in_array($prev->slug, (array) $request->session()->get('joow_sites', []), true)) {
+                $request->session()->push('joow_sites', $prev->slug);
+            }
+
+            return redirect()->route('public.site', $prev->slug);
+        }
+        if ($msg = $guard->check($request, $data['email'] ?? null)) {
+            return back()->withErrors(['query' => $msg]);
         }
 
         $sector = $detector->detect($b['name'], $b['types'] ?? [], ['primary_type' => $b['primary_type'] ?? null, 'address' => $b['address'] ?? null, 'reviews' => $b['reviews'] ?? []]);
@@ -70,6 +82,8 @@ class PublicSiteController extends Controller
             'lng'           => $b['lng'],
             'owner_email'   => $data['email'] ?? null,
             'source'        => 'joow-public',
+            'creator_ip'    => $request->ip(),
+            'creator_device' => \App\Services\CreationGuard::device($request),
             'preview_url'   => 'https://'.$slug.'.joow.fr',
             'site_data'     => ['attribution' => $request->session()->get('attribution'), 'tracking' => \App\Services\MetaConversions::context($request)],
         ]);

@@ -22,6 +22,9 @@ class RedesignController extends Controller
             'email' => ['nullable', 'email:rfc', 'max:190'],
         ]);
 
+        if ($msg = app(\App\Services\CreationGuard::class)->check($request, $data['email'] ?? null)) {
+            return back()->withErrors(['url' => $msg]);
+        }
         $final = $importer->probe($data['url']);
         if (! $final) {
             // Illisible pour un robot (site bloqué, entièrement JavaScript, hors ligne) : on bascule sur le questionnaire
@@ -39,6 +42,8 @@ class RedesignController extends Controller
             'name'        => Str::title(str_replace(['-', '_'], ' ', explode('.', $host)[0])),
             'sector'      => 'service',
             'status'      => 'generating',
+            'creator_ip'  => $request->ip(),
+            'creator_device' => \App\Services\CreationGuard::device($request),
             'place_id'    => null,
             'owner_email' => $data['email'] ?? null,
             'source'      => 'refonte',

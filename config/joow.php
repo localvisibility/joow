@@ -1,6 +1,9 @@
 <?php
 
 return [
+    // Aperçus gratuits par 24 h, par adresse IP et par email (clients payants non limités)
+    'free_sites_per_day' => (int) env('JOOW_FREE_SITES_PER_DAY', 5),
+
     // Emails opérateurs (voient tout le parc dans le dashboard).
     // Définir sur le VPS : JOOW_ADMIN_EMAILS="ops@exemple.fr,autre@exemple.fr"
     // Vide => chaque client ne voit que ses propres sites.
