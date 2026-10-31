@@ -149,4 +149,58 @@ class JoowAdsTest extends TestCase
         $this->assertStringContainsString('name="postcode"', $html);
         $this->assertStringContainsString('Prix ?', $html);
     }
+
+    public function test_campaign_concepts_are_generated_and_never_invent_reviews(): void
+    {
+        $this->activate();
+        config(['services.gemini.key' => 'k']);
+        $json = json_encode(['creatives' => [
+            ['axis' => 'preuve sociale', 'layout' => 'avis', 'hook' => 'Ils nous recommandent', 'review' => 0, 'photo' => 0, 'cta' => 'Devis'],
+            ['axis' => 'bénéfice', 'layout' => 'chiffre', 'hook' => 'Moins de factures', 'stat' => '-60 %', 'use_ai_image' => true, 'scene' => 'Maison avec pompe à chaleur'],
+            ['axis' => 'curiosité', 'layout' => 'inconnu', 'hook' => 'Et si…'],
+        ], 'carousel' => ['slides' => [['title' => 'Le problème', 'text' => 'Factures']]], 'landing_hint' => 'Économiser sur le chauffage']);
+        \Illuminate\Support\Facades\Http::fake(['generativelanguage.googleapis.com/*' => \Illuminate\Support\Facades\Http::response(['candidates' => [['content' => ['parts' => [['text' => $json]]]]]])]);
+        $pack = \App\Models\AdsPack::create(['site_id' => $this->site->id, 'goal' => 'leads', 'pack' => ['strategy' => ['summary' => 'S'], 'meta_ads' => []]]);
+
+        $c = $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/campagne', ['pack_id' => $pack->id])->assertOk()->json('campaign');
+        $this->assertSame('impact', $c['creatives'][0]['layout']); // aucun avis Google réel : pas de citation
+        $this->assertSame('chiffre', $c['creatives'][1]['layout']);
+        $this->assertTrue($c['creatives'][1]['use_ai_image']);
+        $this->assertSame('impact', $c['creatives'][2]['layout']);
+        $this->assertSame('c2', $c['creatives'][1]['key']);
+        $this->assertNotEmpty($pack->fresh()->pack['campaign']['carousel']['slides']);
+    }
+
+    public function test_widget_rules_and_message_match(): void
+    {
+        $c = \App\Http\Controllers\AdsController::cleanContent(['widget' => ['type' => 'savings', 'savings' => ['pct_min' => 0, 'pct_max' => 0]]], 'leads');
+        $this->assertSame('none', $c['widget']['type']); // pas de pourcentage : pas de simulateur
+        $c = \App\Http\Controllers\AdsController::cleanContent(['widget' => ['type' => 'estimate', 'estimate' => ['options' => ['Petit', 'Grand']]]], 'leads');
+        $this->assertSame('none', $c['widget']['type']); // jamais de prix inventé
+        $c = \App\Http\Controllers\AdsController::cleanContent(['theme' => 'premium', 'widget' => ['type' => 'savings', 'savings' => ['pct_min' => 30, 'pct_max' => 50, 'min' => 500, 'max' => 4000]],
+            'match' => ['c1' => ['headline' => 'Moins de factures', 'image' => 'https://app.joow.fr/media/x/a.jpg']]], 'leads');
+        $this->assertSame('savings', $c['widget']['type']);
+        $this->assertSame('premium', $c['theme']);
+
+        $lp = LandingPage::create(['site_id' => $this->site->id, 'site_slug' => 'plombier-ab12', 'path' => 'p', 'title' => 'P', 'goal' => 'leads', 'status' => 'draft',
+            'variants' => [['key' => 'A', 'headline' => 'Titre A']], 'content' => $c]);
+        $html = app(LandingPublisher::class)->html($lp->setRelation('site', $this->site));
+        $this->assertStringContainsString('id="tool-sav"', $html);
+        $this->assertStringContainsString('Moins de factures', $html); // accroche de la pub c1 disponible pour la page
+    }
+
+    public function test_adaptive_split_favours_the_better_variant(): void
+    {
+        $lp = LandingPage::create(['site_id' => $this->site->id, 'site_slug' => 'plombier-ab12', 'path' => 'ab', 'title' => 'AB', 'goal' => 'leads', 'status' => 'live',
+            'variants' => [['key' => 'A', 'headline' => 'a'], ['key' => 'B', 'headline' => 'b']]]);
+        \Illuminate\Support\Facades\DB::table('landing_stats')->insert([
+            ['landing_id' => $lp->id, 'variant' => 'A', 'day' => now()->toDateString(), 'views' => 400, 'conversions' => 8, 'calls' => 0],
+            ['landing_id' => $lp->id, 'variant' => 'B', 'day' => now()->toDateString(), 'views' => 400, 'conversions' => 40, 'calls' => 0],
+        ]);
+        $picks = collect(range(1, 200))->map(fn () => app(AbTest::class)->pick($lp))->countBy();
+        $this->assertGreaterThan(180, $picks['B'] ?? 0);
+        $this->getJson("/api/site/plombier-ab12/lp/{$lp->id}/pick")->assertOk()->assertJsonStructure(['v']);
+        $lp->update(['winner' => 'A']);
+        $this->assertSame('A', app(AbTest::class)->pick($lp->fresh()));
+    }
 }

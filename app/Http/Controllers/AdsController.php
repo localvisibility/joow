@@ -194,6 +194,14 @@ class AdsController extends Controller
         return response($pub->html($page->setRelation('site', $site), preview: true));
     }
 
+    /** Public : variante à montrer à un nouveau visiteur (répartition qui favorise la meilleure). */
+    public function pick(string $slug, LandingPage $page, AbTest $ab)
+    {
+        abort_unless($page->site_slug === $slug, 404);
+
+        return response()->json(['v' => $ab->pick($page)]);
+    }
+
     /** Public : vue / conversion / appel d'une variante (depuis la page publiée). */
     public function hit(Request $request, string $slug, LandingPage $page)
     {
@@ -205,16 +213,45 @@ class AdsController extends Controller
         return response()->json(['ok' => true]);
     }
 
+    /** Campagne créative : concepts par axe + carrousel, enregistrés dans le pack. */
+    public function campaign(Request $request, string $slug, AdsStudio $studio)
+    {
+        $site = $this->site($request, $slug);
+        $data = $request->validate(['pack_id' => ['required', 'uuid']]);
+        $pack = AdsPack::where('site_id', $site->id)->findOrFail($data['pack_id']);
+        @set_time_limit(150);
+        $camp = $studio->creatives($site, (array) $pack->pack);
+        if (! $camp) {
+            return response()->json(['error' => 'La création de la campagne n\'a pas abouti, réessayez dans un instant.'], 502);
+        }
+        $pack->pack = array_merge((array) $pack->pack, ['campaign' => $camp]);
+        $pack->save();
+
+        return response()->json(['campaign' => $camp]);
+    }
+
     /** Génère un visuel publicitaire IA (quota mensuel, puis crédits IA). */
     public function visual(Request $request, string $slug, \App\Services\Ads\AdVisuals $visuals)
     {
         $site = $this->site($request, $slug);
-        $data = $request->validate(['brief' => ['required', 'string', 'max:500'], 'format' => ['required', 'in:square,portrait,story'], 'ref' => ['nullable', 'url', 'max:500']]);
+        $data = $request->validate(['brief' => ['required', 'string', 'max:500'], 'format' => ['required', 'in:square,portrait,story'], 'ref' => ['nullable', 'url', 'max:500'],
+            'pack_id' => ['nullable', 'uuid'], 'creative' => ['nullable', 'string', 'max:6']]);
         @set_time_limit(180);
         $ref = ($data['ref'] ?? null) && in_array($data['ref'], app(AdsStudio::class)->photos($site), true) ? $data['ref'] : null;
         $out = $visuals->generate($site, $data['brief'], $data['format'], $ref, $request->user()->isAdmin());
         if (isset($out['error'])) {
             return response()->json(['error' => $out['error']], $out['status']);
+        }
+        // Visuel d'un concept de campagne : on le rattache au concept
+        if (! empty($data['pack_id']) && ! empty($data['creative']) && ($pack = AdsPack::where('site_id', $site->id)->find($data['pack_id']))) {
+            $p = (array) $pack->pack;
+            foreach ((array) ($p['campaign']['creatives'] ?? []) as $i => $c) {
+                if (($c['key'] ?? '') === $data['creative']) {
+                    $p['campaign']['creatives'][$i]['image'] = $out['url'];
+                }
+            }
+            $pack->pack = $p;
+            $pack->save();
         }
 
         return response()->json($out + ['usage' => $visuals->usage($site->fresh()), 'credits' => app(\App\Services\AiCredits::class)->state($site->fresh())]);
@@ -261,6 +298,54 @@ class AdsController extends Controller
             'faq' => array_values(array_filter(array_map(fn ($q) => ['q' => $str($q['q'] ?? '', 140), 'a' => $str($q['a'] ?? '', 500)], array_slice((array) ($c['faq'] ?? []), 0, 6)), fn ($q) => $q['q'] !== '' && $q['a'] !== '')),
             'guarantees' => array_values(array_filter(array_map(fn ($g) => $str($g, 40), array_slice((array) ($c['guarantees'] ?? []), 0, 5)))) ?: $d['guarantees'],
             'urgency' => $str($c['urgency'] ?? '', 120),
+            'theme' => in_array($c['theme'] ?? '', ['premium', 'warm', 'bold'], true) ? $c['theme'] : 'bold',
+            'widget' => self::cleanWidget((array) ($c['widget'] ?? []), $str),
+            // Cohérence pub → page : accroche et visuel de chaque pub (lien ?c=<clé>)
+            'match' => collect((array) ($c['match'] ?? []))->take(10)->mapWithKeys(fn ($m, $k) => [Str::limit(Str::slug((string) $k), 8, '') => [
+                'headline' => $str($m['headline'] ?? '', 120), 'sub' => $str($m['sub'] ?? '', 200),
+                'image' => is_string($m['image'] ?? null) && str_starts_with($m['image'], 'http') ? $m['image'] : null,
+            ]])->filter(fn ($m, $k) => $k !== '' && $m['headline'] !== '')->all(),
+        ];
+    }
+
+    private static function cleanWidget(array $w, callable $str): array
+    {
+        $type = in_array($w['type'] ?? '', ['savings', 'estimate', 'beforeafter'], true) ? $w['type'] : 'none';
+        $num = fn ($v, $d) => is_numeric($v) ? (float) $v : $d;
+        $sv = (array) ($w['savings'] ?? []);
+        $min = max(0, $num($sv['min'] ?? null, 500));
+        $max = max($min + 1, $num($sv['max'] ?? null, 5000));
+        $pmin = min(90, max(0, $num($sv['pct_min'] ?? null, 0)));
+        $pmax = min(90, max($pmin, $num($sv['pct_max'] ?? null, 0)));
+        if ($type === 'savings' && $pmax <= 0) {
+            $type = 'none'; // pas de pourcentage d'économie crédible : pas de simulateur
+        }
+        $est = (array) ($w['estimate'] ?? []);
+        $opts = [];
+        foreach (array_slice((array) ($est['options'] ?? []), 0, 6) as $o) {
+            $o = is_array($o) ? $o : ['label' => $o];
+            $label = $str($o['label'] ?? '', 60);
+            if ($label !== '') {
+                $opts[] = ['label' => $label, 'from' => is_numeric($o['from'] ?? null) ? (int) $o['from'] : null, 'to' => is_numeric($o['to'] ?? null) ? (int) $o['to'] : null];
+            }
+        }
+        // Fourchettes de prix : uniquement celles renseignées par le professionnel
+        if ($type === 'estimate' && ! collect($opts)->contains(fn ($o) => $o['from'] !== null)) {
+            $type = 'none';
+        }
+        $ba = (array) ($w['beforeafter'] ?? []);
+        $isUrl = fn ($u) => is_string($u) && str_starts_with($u, 'http');
+        if ($type === 'beforeafter' && ! ($isUrl($ba['before'] ?? null) && $isUrl($ba['after'] ?? null))) {
+            $type = 'none';
+        }
+
+        return [
+            'type' => $type, 'title' => $str($w['title'] ?? '', 60),
+            'savings' => ['label' => $str($sv['label'] ?? '', 80) ?: 'Votre facture annuelle', 'unit' => $str($sv['unit'] ?? '', 12) ?: '€ / an',
+                'min' => (int) $min, 'max' => (int) $max, 'default' => (int) min($max, max($min, $num($sv['default'] ?? null, ($min + $max) / 2))),
+                'pct_min' => $pmin, 'pct_max' => $pmax, 'note' => $str($sv['note'] ?? '', 160) ?: 'Estimation indicative, à confirmer lors de l\'étude.'],
+            'estimate' => ['question' => $str($est['question'] ?? '', 80), 'options' => $opts, 'note' => $str($est['note'] ?? '', 160) ?: 'Fourchette indicative, prix définitif après visite.'],
+            'beforeafter' => ['before' => $isUrl($ba['before'] ?? null) ? $ba['before'] : null, 'after' => $isUrl($ba['after'] ?? null) ? $ba['after'] : null],
         ];
     }
 

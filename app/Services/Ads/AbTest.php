@@ -59,6 +59,65 @@ class AbTest
             : ['status' => 'tie', 'leader' => $best, 'confidence' => $confidence, 'uplift' => $uplift];
     }
 
+    /**
+     * Répartition adaptative (échantillonnage de Thompson) : chaque variante tire un taux plausible
+     * d'après ses résultats ; la meilleure reçoit naturellement de plus en plus de visiteurs,
+     * sans jamais couper l'exploration tant que le test n'est pas tranché.
+     */
+    public function pick(LandingPage $lp): string
+    {
+        $keys = array_column((array) $lp->variants, 'key');
+        if ($lp->winner && in_array($lp->winner, $keys, true)) {
+            return $lp->winner;
+        }
+        if (count($keys) < 2) {
+            return $keys[0] ?? 'A';
+        }
+        $res = $this->results($lp)['variants'];
+        $best = null;
+        $bestDraw = -1.0;
+        foreach ($keys as $k) {
+            $v = (int) ($res[$k]['views'] ?? 0);
+            $c = min($v, (int) ($res[$k]['conversions'] ?? 0));
+            $draw = $this->beta($c + 1, $v - $c + 1);
+            if ($draw > $bestDraw) {
+                [$best, $bestDraw] = [$k, $draw];
+            }
+        }
+
+        return $best;
+    }
+
+    /** Tirage Beta(a, b) via deux lois Gamma (Marsaglia-Tsang). */
+    private function beta(float $a, float $b): float
+    {
+        $x = $this->gamma($a);
+        $y = $this->gamma($b);
+
+        return $x / ($x + $y);
+    }
+
+    private function gamma(float $k): float
+    {
+        if ($k < 1) {
+            return $this->gamma($k + 1) * (mt_rand() / mt_getrandmax()) ** (1 / $k);
+        }
+        $d = $k - 1 / 3;
+        $c = 1 / sqrt(9 * $d);
+        while (true) {
+            do {
+                $u1 = mt_rand(1, mt_getrandmax()) / mt_getrandmax();
+                $u2 = mt_rand(1, mt_getrandmax()) / mt_getrandmax();
+                $x = sqrt(-2 * log($u1)) * cos(2 * M_PI * $u2);
+                $v = (1 + $c * $x) ** 3;
+            } while ($v <= 0);
+            $u = mt_rand(1, mt_getrandmax()) / mt_getrandmax();
+            if (log($u) < 0.5 * $x * $x + $d - $d * $v + $d * log($v)) {
+                return $d * $v;
+            }
+        }
+    }
+
     /** Fonction de répartition de la loi normale (approximation d'Abramowitz-Stegun). */
     private function phi(float $z): float
     {

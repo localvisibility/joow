@@ -1,6 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import AdComposer from '@/Components/AdComposer.vue';
+import CampaignBoard from '@/Components/CampaignBoard.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 
@@ -53,6 +54,28 @@ const genVisual = async () => {
 };
 const toVisual = (ad) => { tab.value = 'visuals'; vis.brief = ad.visual || ad.hook; setTimeout(() => composer.value?.useAd(ad), 50); };
 
+/* ───── Campagne créative ───── */
+const campaigning = ref(false);
+const buildCampaign = async () => {
+    campaigning.value = true; err.value = '';
+    try { const d = await api('POST', route('ads.campaign', props.current), { pack_id: packs.value[packIdx.value].id }); packs.value[packIdx.value].pack = { ...packs.value[packIdx.value].pack, campaign: d.campaign }; }
+    catch (e) { err.value = e.message; } finally { campaigning.value = false; }
+};
+const editCreative = (c) => { tab.value = 'visuals'; vis.brief = c.scene || ''; setTimeout(() => composer.value?.setSpec(c), 60); };
+const landingUrl = computed(() => pages.value.find((x) => x.status === 'live')?.url || props.site_url);
+const campaignLanding = async (match) => {
+    const pk = packs.value[packIdx.value];
+    const base = pk.pack.landing || null;
+    creating.value = true; err.value = '';
+    try {
+        const body = base?.variants?.length
+            ? { goal: pk.goal, offer: pk.offer, title: base.title, path: base.path, variants: base.variants, content: { ...(base.content || {}), match } }
+            : { goal: pk.goal, offer: pk.offer || pk.pack.campaign?.landing_hint || 'Votre offre' };
+        const d = await api('POST', route('ads.pages.store', props.current), body);
+        replacePage(d.page); tab.value = 'pages';
+    } catch (e) { err.value = e.message; } finally { creating.value = false; }
+};
+
 /* ───── Pages d'offre ───── */
 const pages = ref([...(props.pages || [])]);
 const newPage = reactive({ goal: 'leads', offer: '' });
@@ -87,6 +110,9 @@ const startEdit = (p) => {
     c.form.steps = (c.form.steps || []).map((st) => ({ ...st, optionsText: (st.options || []).join('\n') }));
     c.guaranteesText = (c.guarantees || []).join('\n');
     c.faq ||= []; c.process ||= [];
+    c.theme ||= 'bold';
+    c.widget = { type: 'none', title: '', savings: { label: '', unit: '€ / an', min: 500, max: 5000, default: 1800, pct_min: 0, pct_max: 0, note: '' }, estimate: { question: '', options: [], note: '' }, beforeafter: { before: null, after: null }, ...(c.widget || {}) };
+    c.widget.estimate.options ||= [];
     draft.value = { title: p.title, goal: p.goal, content: c, variants: p.variants.map((v) => ({ ...v, bulletsText: (v.bullets || []).join('\n') })) };
 };
 const addStep = () => draft.value.content.form.steps.push({ key: '', question: '', type: 'choice', optionsText: '', required: true });
@@ -241,6 +267,21 @@ const goalLabel = (g) => ({ calls: 'Appels', leads: 'Demandes', bookings: 'Rése
                         </div>
                     </div>
 
+                    <!-- Campagne créative -->
+                    <div class="glass rounded-2xl border-brand-500/30 p-6">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div><h3 class="font-display text-xl font-bold text-white">🎬 Campagne créative</h3>
+                                <p class="mt-1 max-w-2xl text-sm text-slate-400">Un visuel fini par axe de la stratégie (preuve sociale, bénéfice, urgence…), dans la mise en page la plus efficace, plus un carrousel. Les images manquantes sont créées par l'IA.</p></div>
+                            <button v-if="!pack.campaign" @click="buildCampaign" :disabled="campaigning" class="btn-brand text-sm">{{ campaigning ? 'Direction artistique… (≈ 30 s)' : '🎬 Créer la campagne visuelle' }}</button>
+                            <button v-else @click="buildCampaign" :disabled="campaigning" class="rounded-xl border border-white/10 px-3 py-2 text-xs font-semibold text-slate-300">{{ campaigning ? '…' : '↻ Refaire la campagne' }}</button>
+                        </div>
+                        <div v-if="pack.campaign" class="mt-6">
+                            <CampaignBoard :key="packs[packIdx].id + (pack.campaign.creatives || []).length" :campaign="pack.campaign" :brand="brand" :slug="current" :pack-id="packs[packIdx].id"
+                                :landing-url="landingUrl" :campaign-name="(packs[packIdx].offer || goalLabel(packs[packIdx].goal))"
+                                @edit="editCreative" @usage="(u) => (usage = u)" @error="(m) => (err = m)" @landing="campaignLanding" />
+                        </div>
+                    </div>
+
                     <div v-if="pack.landing?.variants?.length" class="glass flex flex-wrap items-center justify-between gap-3 rounded-2xl border-brand-500/30 p-5">
                         <p class="text-sm text-slate-300"><b class="text-white">Page d'offre proposée</b> : « {{ pack.landing.variants[0].headline }} » et une 2e version pour le test A/B.</p>
                         <button @click="createPage(pack.landing)" :disabled="creating" class="btn-brand text-sm">{{ creating ? '…' : 'Créer cette page d\'offre →' }}</button>
@@ -336,6 +377,46 @@ const goalLabel = (g) => ({ calls: 'Appels', leads: 'Demandes', bookings: 'Rése
                             <div class="mt-2 grid gap-2 sm:grid-cols-2">
                                 <label class="block text-xs text-slate-400">Bouton final<input v-model="draft.content.form.button" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
                                 <label class="block text-xs text-slate-400">Message après envoi<input v-model="draft.content.form.success" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
+                            </div>
+                        </div>
+                        <div class="grid gap-3 lg:grid-cols-2">
+                            <div class="rounded-xl bg-white/[0.03] p-3">
+                                <p class="text-sm font-bold text-white">🎨 Univers graphique</p>
+                                <div class="mt-2 flex flex-wrap gap-2"><button v-for="[k, l] in [['bold', 'Impactant (clair)'], ['premium', 'Premium (sombre)'], ['warm', 'Chaleureux']]" :key="k" type="button" @click="draft.content.theme = k" class="rounded-lg px-3 py-1.5 text-xs font-semibold" :class="draft.content.theme === k ? 'bg-brand-500 text-white' : 'bg-white/[0.06] text-slate-300'">{{ l }}</button></div>
+                            </div>
+                            <div class="rounded-xl bg-white/[0.03] p-3">
+                                <p class="text-sm font-bold text-white">🧮 Outil interactif</p>
+                                <div class="mt-2 flex flex-wrap gap-2"><button v-for="[k, l] in [['none', 'Aucun'], ['savings', 'Simulateur d\'économies'], ['estimate', 'Fourchette de prix'], ['beforeafter', 'Avant / après']]" :key="k" type="button" @click="draft.content.widget.type = k" class="rounded-lg px-3 py-1.5 text-xs font-semibold" :class="draft.content.widget.type === k ? 'bg-brand-500 text-white' : 'bg-white/[0.06] text-slate-300'">{{ l }}</button></div>
+                                <label v-if="draft.content.widget.type !== 'none'" class="mt-2 block text-xs text-slate-400">Titre<input v-model="draft.content.widget.title" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
+                                <template v-if="draft.content.widget.type === 'savings'">
+                                    <label class="mt-2 block text-xs text-slate-400">Ce que le visiteur indique<input v-model="draft.content.widget.savings.label" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
+                                    <div class="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-400">
+                                        <label>Min (€)<input type="number" v-model.number="draft.content.widget.savings.min" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white" /></label>
+                                        <label>Max (€)<input type="number" v-model.number="draft.content.widget.savings.max" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white" /></label>
+                                        <label>Par défaut<input type="number" v-model.number="draft.content.widget.savings.default" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white" /></label>
+                                        <label>Économie mini (%)<input type="number" v-model.number="draft.content.widget.savings.pct_min" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white" /></label>
+                                        <label>Économie maxi (%)<input type="number" v-model.number="draft.content.widget.savings.pct_max" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white" /></label>
+                                    </div>
+                                    <p class="mt-1 text-[11px] text-slate-500">Mettez des pourcentages prudents et vérifiables : ils sont affichés comme une estimation.</p>
+                                </template>
+                                <template v-if="draft.content.widget.type === 'estimate'">
+                                    <label class="mt-2 block text-xs text-slate-400">Question<input v-model="draft.content.widget.estimate.question" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" placeholder="Quelle est la surface ?" /></label>
+                                    <div v-for="(o, i) in draft.content.widget.estimate.options" :key="i" class="mt-1.5 flex gap-2">
+                                        <input v-model="o.label" class="flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white" placeholder="Choix" />
+                                        <input type="number" v-model.number="o.from" class="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white" placeholder="de €" />
+                                        <input type="number" v-model.number="o.to" class="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white" placeholder="à €" />
+                                        <button type="button" @click="draft.content.widget.estimate.options.splice(i, 1)" class="text-rose-300">✕</button>
+                                    </div>
+                                    <button type="button" @click="draft.content.widget.estimate.options.push({ label: '', from: null, to: null })" class="mt-2 rounded-lg border border-dashed border-white/15 px-3 py-1.5 text-xs text-slate-300">+ Choix</button>
+                                    <p class="mt-1 text-[11px] text-slate-500">Vos prix : l'outil ne s'affiche que si au moins un prix est renseigné.</p>
+                                </template>
+                                <template v-if="draft.content.widget.type === 'beforeafter'">
+                                    <p class="mt-2 text-xs text-slate-400">Avant</p>
+                                    <div class="mt-1 flex gap-1.5 overflow-x-auto pb-1"><button v-for="u in allImages" :key="'b' + u" type="button" @click="draft.content.widget.beforeafter.before = u" class="shrink-0 overflow-hidden rounded-md ring-2" :class="draft.content.widget.beforeafter.before === u ? 'ring-brand-400' : 'ring-transparent'"><img :src="u" class="h-12 w-12 object-cover" alt="" /></button></div>
+                                    <p class="mt-1 text-xs text-slate-400">Après</p>
+                                    <div class="mt-1 flex gap-1.5 overflow-x-auto pb-1"><button v-for="u in allImages" :key="'a' + u" type="button" @click="draft.content.widget.beforeafter.after = u" class="shrink-0 overflow-hidden rounded-md ring-2" :class="draft.content.widget.beforeafter.after === u ? 'ring-brand-400' : 'ring-transparent'"><img :src="u" class="h-12 w-12 object-cover" alt="" /></button></div>
+                                    <p class="mt-1 text-[11px] text-slate-500">Utilisez de vraies photos d'un même chantier.</p>
+                                </template>
                             </div>
                         </div>
                         <div class="grid gap-3 lg:grid-cols-2">

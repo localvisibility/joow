@@ -21,6 +21,7 @@ Route::prefix('/api/site/{slug}')->middleware('throttle:120,1')->group(function 
     Route::post('/reserve', [\App\Http\Controllers\SiteApiController::class, 'reserve'])->middleware('throttle:15,1')->name('api.site.reserve');
     Route::get('/rooms', [\App\Http\Controllers\SiteApiController::class, 'rooms'])->name('api.site.rooms');
     Route::get('/calendar', [\App\Http\Controllers\SiteApiController::class, 'calendar'])->name('api.site.calendar');
+    Route::get('/lp/{page}/pick', [\App\Http\Controllers\AdsController::class, 'pick'])->middleware('throttle:120,1')->name('api.site.lp.pick');
     Route::post('/lp/{page}/hit', [\App\Http\Controllers\AdsController::class, 'hit'])->middleware('throttle:120,1')->name('api.site.lp.hit');
     Route::get('/domain', [\App\Http\Controllers\SiteApiController::class, 'domain'])->middleware('throttle:20,1')->name('api.site.domain');
     Route::post('/stay', [\App\Http\Controllers\SiteApiController::class, 'stay'])->middleware('throttle:15,1')->name('api.site.stay');
@@ -161,6 +162,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('/publicite/{slug}')->name('ads.')->group(function () {
         Route::post('/abonnement', [\App\Http\Controllers\AdsController::class, 'subscribe'])->name('subscribe');
         Route::post('/pack', [\App\Http\Controllers\AdsController::class, 'pack'])->middleware('throttle:10,60')->name('pack');
+        Route::post('/campagne', [\App\Http\Controllers\AdsController::class, 'campaign'])->middleware('throttle:10,60')->name('campaign');
         Route::post('/visuels', [\App\Http\Controllers\AdsController::class, 'visual'])->middleware('throttle:20,10')->name('visual');
         Route::post('/pages', [\App\Http\Controllers\AdsController::class, 'storePage'])->middleware('throttle:20,60')->name('pages.store');
         Route::patch('/pages/{page}', [\App\Http\Controllers\AdsController::class, 'updatePage'])->name('pages.update');
