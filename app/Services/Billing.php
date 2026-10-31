@@ -15,7 +15,7 @@ use Laravel\Cashier\Cashier;
  */
 class Billing
 {
-    public const PLANS = ['pro' => 'Formule Pro · hébergement et modules, mensuel', 'liberte' => 'Formule Liberté · hébergement et modules, paiement unique'];
+    public const PLANS = ['pro' => 'Formule Pro · hébergement et modules, mensuel', 'liberte' => 'Formule Liberté · hébergement et modules, paiement unique', 'ads' => 'Module Joow Ads · publicité et pages d\'offre, mensuel'];
 
     public const COMPANY = [
         'name' => 'GMD COM', 'legal' => 'SASU au capital de 1 800 €', 'address' => '70 rue Damrémont, 75018 Paris, France',

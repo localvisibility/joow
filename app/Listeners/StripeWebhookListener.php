@@ -30,6 +30,16 @@ class StripeWebhookListener
                 $this->sessionCompleted($obj, $meta);
             } elseif ($type === 'checkout.session.expired') {
                 $this->sessionExpired($obj, $meta);
+            } elseif ($type === 'invoice.payment_succeeded' && ($ads = $this->adsSite($obj['subscription'] ?? null, (array) ($obj['subscription_details']['metadata'] ?? [])))) {
+                // Module Joow Ads : facture du module, sans toucher à l'abonnement d'hébergement
+                if ((int) ($obj['amount_paid'] ?? 0) > 0) {
+                    app(\App\Services\Billing::class)->recordFromStripeInvoice($obj, $ads, 'ads');
+                }
+                $this->setAds($ads, true, $obj['subscription'] ?? null);
+            } elseif ($type === 'invoice.payment_failed' && $this->adsSite($obj['subscription'] ?? null, (array) ($obj['subscription_details']['metadata'] ?? []))) {
+                Log::info('Joow Ads : paiement du module en échec (Stripe relance automatiquement)');
+            } elseif ($type === 'customer.subscription.deleted' && ($ads = $this->adsSite($obj['id'] ?? null, (array) ($obj['metadata'] ?? [])))) {
+                $this->setAds($ads, false, $obj['id'] ?? null);
             } elseif ($type === 'invoice.payment_succeeded') {
                 $this->invoicePaid($obj);
             } elseif ($type === 'invoice.payment_failed') {
@@ -53,6 +63,14 @@ class StripeWebhookListener
         if (! empty($meta['plan']) && ! empty($meta['site_slug']) && in_array($s['payment_status'] ?? '', ['paid', 'no_payment_required'], true)) {
             if ($site = Site::where('slug', $meta['site_slug'])->first()) {
                 app(\App\Services\Subscription::class)->fulfil($site, $meta['plan'] === 'liberte' ? 'liberte' : 'pro', (string) ($s['id'] ?? ''), $s);
+            }
+        }
+
+        // Module Joow Ads souscrit
+        if (($meta['type'] ?? '') === 'addon_ads' && ! empty($meta['site_slug']) && in_array($s['payment_status'] ?? '', ['paid', 'no_payment_required'], true)) {
+            if ($site = Site::where('slug', $meta['site_slug'])->first()) {
+                $this->setAds($site, true, $s['subscription'] ?? null);
+                app(\App\Services\Billing::class)->recordFromCheckoutSession($s, $site, 'ads');
             }
         }
 
@@ -97,6 +115,46 @@ class StripeWebhookListener
         });
         // Facture Joow pour chaque facture Stripe payée (première échéance comme renouvellements)
         app(\App\Services\Billing::class)->recordFromStripeInvoice($inv, $sites->first(), 'pro');
+    }
+
+    /**
+     * Site concerné si l'abonnement Stripe est celui du module Joow Ads : métadonnées de l'événement,
+     * sinon abonnement local Cashier (type « ads:<site> »), sinon métadonnées lues chez Stripe.
+     */
+    private function adsSite(?string $subId, array $meta = []): ?Site
+    {
+        if (($meta['type'] ?? '') === 'addon_ads' && ! empty($meta['site_slug'])) {
+            return Site::where('slug', $meta['site_slug'])->first();
+        }
+        if (! $subId) {
+            return null;
+        }
+        $local = \Illuminate\Support\Facades\DB::table('subscriptions')->where('stripe_id', $subId)->value('type');
+        if ($local !== null) {
+            return str_starts_with((string) $local, 'ads:') ? Site::where('slug', substr($local, 4))->first() : null;
+        }
+        try {
+            $m = (array) \Laravel\Cashier\Cashier::stripe()->subscriptions->retrieve($subId)->metadata?->toArray();
+
+            return ($m['type'] ?? '') === 'addon_ads' && ! empty($m['site_slug']) ? Site::where('slug', $m['site_slug'])->first() : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function setAds(Site $site, bool $active, ?string $subId): void
+    {
+        $d = $site->site_data ?? [];
+        $d['addons']['ads'] = array_merge((array) ($d['addons']['ads'] ?? []), ['active' => $active, 'subscription' => $subId ?: ($d['addons']['ads']['subscription'] ?? null), $active ? 'since' : 'ended_at' => ($active ? ($d['addons']['ads']['since'] ?? now()->toIso8601String()) : now()->toIso8601String())]);
+        $site->forceFill(['site_data' => $d])->save();
+        if (! $active) {
+            // Module arrêté : les pages d'offre sont mises en pause (le site reste en ligne)
+            foreach (\App\Models\LandingPage::where('site_id', $site->id)->where('status', 'live')->get() as $lp) {
+                app(\App\Services\Ads\LandingPublisher::class)->unpublish($lp->setRelation('site', $site));
+                $lp->forceFill(['status' => 'paused'])->save();
+            }
+        }
+        Log::info("Joow Ads {$site->slug} : ".($active ? 'actif' : 'arrêté'));
     }
 
     /** Sites Pro rattachés au client Stripe. */

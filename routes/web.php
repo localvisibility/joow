@@ -21,6 +21,7 @@ Route::prefix('/api/site/{slug}')->middleware('throttle:120,1')->group(function 
     Route::post('/reserve', [\App\Http\Controllers\SiteApiController::class, 'reserve'])->middleware('throttle:15,1')->name('api.site.reserve');
     Route::get('/rooms', [\App\Http\Controllers\SiteApiController::class, 'rooms'])->name('api.site.rooms');
     Route::get('/calendar', [\App\Http\Controllers\SiteApiController::class, 'calendar'])->name('api.site.calendar');
+    Route::post('/lp/{page}/hit', [\App\Http\Controllers\AdsController::class, 'hit'])->middleware('throttle:120,1')->name('api.site.lp.hit');
     Route::get('/domain', [\App\Http\Controllers\SiteApiController::class, 'domain'])->middleware('throttle:20,1')->name('api.site.domain');
     Route::post('/stay', [\App\Http\Controllers\SiteApiController::class, 'stay'])->middleware('throttle:15,1')->name('api.site.stay');
     Route::post('/bot', [\App\Http\Controllers\SiteApiController::class, 'bot'])->middleware('throttle:30,1')->name('api.site.bot');
@@ -148,6 +149,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Hébergement & formules
     Route::get('/hebergement', [HostingController::class, 'index'])->name('hosting.index');
+    // Module Joow Ads
+    Route::get('/publicite', [\App\Http\Controllers\AdsController::class, 'index'])->name('ads.index');
+    Route::prefix('/publicite/{slug}')->name('ads.')->group(function () {
+        Route::post('/abonnement', [\App\Http\Controllers\AdsController::class, 'subscribe'])->name('subscribe');
+        Route::post('/pack', [\App\Http\Controllers\AdsController::class, 'pack'])->middleware('throttle:10,60')->name('pack');
+        Route::post('/pages', [\App\Http\Controllers\AdsController::class, 'storePage'])->middleware('throttle:20,60')->name('pages.store');
+        Route::patch('/pages/{page}', [\App\Http\Controllers\AdsController::class, 'updatePage'])->name('pages.update');
+        Route::post('/pages/{page}/action', [\App\Http\Controllers\AdsController::class, 'action'])->name('pages.action');
+        Route::delete('/pages/{page}', [\App\Http\Controllers\AdsController::class, 'destroyPage'])->name('pages.destroy');
+        Route::get('/pages/{page}/apercu', [\App\Http\Controllers\AdsController::class, 'preview'])->name('pages.preview');
+    });
     Route::get('/hebergement/abonnement', [HostingController::class, 'portal'])->name('hosting.portal');
 
     // Factures

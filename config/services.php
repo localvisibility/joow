@@ -93,6 +93,8 @@ return [
         'trial_days'    => (int) env('STRIPE_TRIAL_DAYS', 0), // 0 = l'essai gratuit est la phase d'aperçu (Studio) ; la mise en ligne déclenche le 1er paiement. N > 0 = N jours d'essai Stripe en plus.
         // Formule Liberté : paiement unique (349€ HT, site à vie).
         'price_liberte' => env('STRIPE_PRICE_LIBERTE'),
+        // Module Joow Ads : abonnement complémentaire mensuel (49 € HT/mois).
+        'price_ads'     => env('STRIPE_PRICE_ADS'),
         // Ancien price récurrent (compatibilité).
         'price_hosting' => env('STRIPE_PRICE_HOSTING'),
     ],

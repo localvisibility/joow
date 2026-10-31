@@ -70,4 +70,10 @@ return [
         'sectors' => [],
         'always_on' => true,
     ],
+    'ads' => [
+        'name' => 'Joow Ads', 'icon' => '📣', 'free' => false, 'addon' => true, 'price' => 49,
+        'desc' => 'Votre stratégie publicitaire, vos pubs Facebook / Instagram / Google prêtes à publier et des pages d\'offre optimisées avec test A/B automatique.',
+        'features' => ['Stratégie par l\'IA', 'Pubs prêtes à publier', 'Pages d\'offre', 'Test A/B automatique'],
+        'sectors' => [],
+    ],
 ];

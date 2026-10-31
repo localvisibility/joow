@@ -83,6 +83,12 @@ class Site extends Model
         app(\App\Services\HotLeads::class)->notify($this, $event);
     }
 
+    /** Module Joow Ads payé (abonnement complémentaire), ou accès administrateur. */
+    public function adsActive(?User $user = null): bool
+    {
+        return ($user && $user->isAdmin()) || ! empty($this->site_data['addons']['ads']['active']);
+    }
+
     /** Site renommé (identifiant raccourci) : retrouve-le par son ancien identifiant. */
     public static function byOldSlug(string $slug): ?self
     {

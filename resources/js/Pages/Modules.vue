@@ -18,7 +18,7 @@ const api = async (method, url, body) => {
 const selectSite = (slug) => router.get(route('modules.index'), { site: slug }, { preserveState: false });
 
 const DAYS = [['mon', 'Lundi'], ['tue', 'Mardi'], ['wed', 'Mercredi'], ['thu', 'Jeudi'], ['fri', 'Vendredi'], ['sat', 'Samedi'], ['sun', 'Dimanche']];
-const order = ['restaurant', 'rooms', 'menu', 'booking', 'whatsapp', 'reviews', 'bot', 'legal', 'zenchef', 'payment', 'stats'];
+const order = ['ads', 'restaurant', 'rooms', 'menu', 'booking', 'whatsapp', 'reviews', 'bot', 'legal', 'zenchef', 'payment', 'stats'];
 const modules = computed(() => order.filter((k) => props.catalog[k]).map((k) => ({ key: k, ...props.catalog[k], cfg: props.state?.modules?.[k] || {} }))
     .sort((a, b) => Number(fits(b)) - Number(fits(a))));
 const fits = (m) => !m.sectors?.length || m.sectors.includes(props.sector);
@@ -151,7 +151,7 @@ const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch
                             <div>
                                 <h3 class="font-display font-bold text-white">{{ m.name }}</h3>
                                 <div class="mt-0.5 flex flex-wrap gap-1.5">
-                                    <span class="chip" :class="m.free ? 'bg-emerald-500/15 text-emerald-300' : 'bg-brand-500/15 text-brand-400'">{{ m.free ? 'Gratuit' : 'Inclus Pro' }}</span>
+                                    <span class="chip" :class="m.free ? 'bg-emerald-500/15 text-emerald-300' : 'bg-brand-500/15 text-brand-400'">{{ m.addon ? '+' + m.price + ' € HT/mois' : (m.free ? 'Gratuit' : 'Inclus Pro') }}</span>
                                     <span v-if="m.soon" class="chip bg-amber-500/15 text-amber-300">Bientôt</span>
                                     <span v-else-if="m.always_on || m.cfg.enabled" class="chip bg-emerald-500/15 text-emerald-300">● Actif</span>
                                     <span v-else class="chip bg-white/10 text-slate-400">○ Inactif</span>
@@ -163,7 +163,8 @@ const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch
                     <div class="mt-3 flex flex-wrap gap-1.5"><span v-for="f in m.features" :key="f" class="rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] text-slate-300">{{ f }}</span></div>
                     <p v-if="!fits(m)" class="mt-2 text-xs text-slate-500">Conçu pour : {{ m.sectors.join(', ') }}</p>
                     <div class="mt-4 flex gap-2">
-                        <template v-if="m.key === 'stats'"><Link :href="route('stats.index')" class="btn-brand flex-1 text-sm">Voir les statistiques</Link></template>
+                        <template v-if="m.key === 'ads'"><Link :href="route('ads.index', { site: current })" class="btn-brand flex-1 text-sm">📣 Ouvrir Joow Ads</Link></template>
+                        <template v-else-if="m.key === 'stats'"><Link :href="route('stats.index')" class="btn-brand flex-1 text-sm">Voir les statistiques</Link></template>
                         <template v-else-if="m.soon"><button disabled class="flex-1 rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-500">Disponible prochainement</button></template>
                         <template v-else>
                             <button @click="toggle(m)" :disabled="saving" class="flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition" :class="m.cfg.enabled ? 'border border-white/10 text-slate-300 hover:border-rose-400/40 hover:text-rose-300' : 'btn-brand'">{{ m.cfg.enabled ? 'Désactiver' : 'Activer' }}</button>
