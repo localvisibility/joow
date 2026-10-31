@@ -45,13 +45,13 @@ class AdCreative
             if ($try && microtime(true) - $t0 > 90) {
                 break; // pas le temps d'une seconde version : on garde la première
             }
-            $bytes = Gemini::image($prompt.($try && $qa['issues'] ? "\n\nCORRIGE IMPÉRATIVEMENT ces défauts de la version précédente : ".implode(' ; ', $qa['issues']) : ''), $aspect, $refs, 'AdCreative');
+            $bytes = $this->draw($prompt.($try && $qa['issues'] ? "\n\nCORRIGE IMPÉRATIVEMENT ces défauts de la version précédente : ".implode(' ; ', $qa['issues']) : ''), $aspect, $refs);
             if (! $bytes && $refs && ! $from && microtime(true) - $t0 < 90) {
                 // Photo de référence refusée par le modèle : on retente sans elle
                 Log::warning("AdCreative {$site->slug} {$c['key']} sans photo de référence : ".implode(' | ', Gemini::$lastImageErrors));
                 $refs = [];
                 $prompt = $this->prompt($site, $c, $format, false, false);
-                $bytes = Gemini::image($prompt, $aspect, null, 'AdCreative');
+                $bytes = $this->draw($prompt, $aspect, []);
             }
             if (! $bytes) {
                 break;
@@ -77,6 +77,22 @@ class AdCreative
         Log::info("AdCreative {$site->slug} {$c['key']} $aspect via ".Gemini::$lastImageModel." · QA {$qa['score']}/10");
 
         return ['url' => $url, 'format' => $format, 'qa' => $qa, 'model' => Gemini::$lastImageModel];
+    }
+
+    /** Gemini d'abord ; en secours (quota, facturation, indisponibilité), OpenAI si une clé est configurée. */
+    private function draw(string $prompt, string $aspect, array $refs): ?string
+    {
+        $bytes = Gemini::image($prompt, $aspect, $refs, 'AdCreative');
+        if (! $bytes && \App\Services\OpenAiImage::enabled()) {
+            $bytes = \App\Services\OpenAiImage::image($prompt, $aspect, $refs);
+            if ($bytes) {
+                Gemini::$lastImageModel = (string) config('services.openai.image_model');
+            } else {
+                Gemini::$lastImageErrors[] = \App\Services\OpenAiImage::$lastError ?? 'OpenAI : pas d\'image';
+            }
+        }
+
+        return $bytes;
     }
 
     public function prompt(Site $site, array $c, string $format, bool $decline, bool $hasRefs): string

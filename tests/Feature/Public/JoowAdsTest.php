@@ -51,7 +51,8 @@ class JoowAdsTest extends TestCase
             $m->shouldReceive('pack')->andReturn(['strategy' => ['summary' => 'S'], 'meta_ads' => [['hook' => 'H', 'primary_text' => 'T', 'headline' => 'Hd', 'image' => null]],
                 'landing' => ['title' => 'Dépannage', 'path' => 'depannage', 'variants' => [['headline' => 'A1', 'cta' => 'Appeler'], ['headline' => 'B1', 'cta' => 'Appeler']]]]);
         });
-        $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/pack', ['goal' => 'calls', 'offer' => 'Devis gratuit'])->assertOk()->assertJsonPath('pack.strategy.summary', 'S');
+        $task = $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/pack', ['goal' => 'calls', 'offer' => 'Devis gratuit'])->assertStatus(202)->json('task');
+        $this->actingAs($this->owner)->getJson("/publicite/plombier-ab12/tache/$task")->assertOk()->assertJsonPath('status', 'done')->assertJsonPath('result.pack.strategy.summary', 'S');
 
         $page = $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/pages', ['goal' => 'calls', 'title' => 'Dépannage', 'path' => 'depannage',
             'variants' => [['headline' => 'A1'], ['headline' => 'B1']]])->assertOk()->json('page');
@@ -162,7 +163,8 @@ class JoowAdsTest extends TestCase
         \Illuminate\Support\Facades\Http::fake(['generativelanguage.googleapis.com/*' => \Illuminate\Support\Facades\Http::response(['candidates' => [['content' => ['parts' => [['text' => $json]]]]]])]);
         $pack = \App\Models\AdsPack::create(['site_id' => $this->site->id, 'goal' => 'leads', 'pack' => ['strategy' => ['summary' => 'S'], 'meta_ads' => []]]);
 
-        $c = $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/campagne', ['pack_id' => $pack->id])->assertOk()->json('campaign');
+        $task = $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/campagne', ['pack_id' => $pack->id])->assertStatus(202)->json('task');
+        $c = $this->actingAs($this->owner)->getJson("/publicite/plombier-ab12/tache/$task")->assertOk()->json('result.campaign');
         $this->assertSame('impact', $c['creatives'][0]['layout']); // aucun avis Google réel : pas de citation
         $this->assertSame('chiffre', $c['creatives'][1]['layout']);
         $this->assertSame([], $c['creatives'][1]['renders']); // la pub finale est créée ensuite, concept par concept

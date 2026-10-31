@@ -99,6 +99,12 @@ class AdVisuals
             }
         }
         $bytes = Gemini::image($prompt, $aspect, $ref, 'AdVisuals');
+        if (! $bytes && \App\Services\OpenAiImage::enabled()) {
+            $bytes = \App\Services\OpenAiImage::image($prompt, $aspect, array_values(array_filter((array) $ref)));
+            if ($bytes) {
+                Gemini::$lastImageModel = (string) config('services.openai.image_model');
+            }
+        }
         if (! $bytes) {
             return ['error' => 'La génération du visuel n\'a pas abouti. Réessayez dans un instant (rien n\'a été décompté).', 'status' => 502];
         }

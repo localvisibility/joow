@@ -75,15 +75,7 @@ class AdsController extends Controller
     {
         $site = $this->site($request, $slug);
         $data = $request->validate(['goal' => ['required', 'in:'.implode(',', array_keys(AdsStudio::GOALS))], 'offer' => ['nullable', 'string', 'max:200'], 'budget' => ['nullable', 'integer', 'min:0', 'max:100000']]);
-        @set_time_limit(150);
-        $pack = $studio->pack($site, $data['goal'], $data['offer'] ?? null, $data['budget'] ?? null);
-        if (! $pack) {
-            return response()->json(['error' => 'La génération n\'a pas abouti, réessayez dans un instant.'], 502);
-        }
-        $p = AdsPack::create(['site_id' => $site->id, 'goal' => $data['goal'], 'offer' => $data['offer'] ?? null, 'pack' => $pack]);
-        Log::info("Joow Ads : pack généré pour {$site->slug}");
-
-        return response()->json(['id' => $p->id, 'goal' => $p->goal, 'offer' => $p->offer, 'at' => $p->created_at->toIso8601String(), 'pack' => $pack]);
+        return $this->defer($request, 'pack', $site, $data);
     }
 
     /** Crée une page d'offre : variantes fournies (depuis un pack) ou rédigées par l'IA à partir d'une offre. */
@@ -98,28 +90,13 @@ class AdsController extends Controller
             'variants' => ['nullable', 'array', 'max:3'],
             'content' => ['nullable', 'array'],
         ]);
-        $variants = $data['variants'] ?? null;
-        $content = $data['content'] ?? null;
-        $title = $data['title'] ?? null;
-        $path = $data['path'] ?? null;
-        if (! $variants) {
+        if (empty($data['variants'])) {
             abort_if(empty($data['offer']), 422, 'Indiquez votre offre.');
-            @set_time_limit(150);
-            $gen = $studio->landingVariants($site, $data['goal'], $data['offer']);
-            abort_unless($gen && ! empty($gen['variants']), 502, 'La génération n\'a pas abouti, réessayez dans un instant.');
-            $variants = $gen['variants'];
-            $content = $gen['content'] ?? null;
-            $title ??= $gen['title'] ?? null;
-            $path ??= $gen['path'] ?? null;
-        }
-        $lp = LandingPage::create([
-            'site_id' => $site->id, 'site_slug' => $site->slug, 'goal' => $data['goal'],
-            'title' => Str::limit($title ?: ($data['offer'] ?? 'Offre'), 120, ''),
-            'path' => $this->uniquePath($site, $path ?: ($title ?: 'offre')),
-            'variants' => $this->cleanVariants($variants), 'content' => self::cleanContent($content, $data['goal']), 'status' => 'draft',
-        ]);
 
-        return response()->json(['page' => $this->pageRow($lp->setRelation('site', $site), app(AbTest::class))]);
+            return $this->defer($request, 'page', $site, $data);
+        }
+
+        return response()->json($this->runTask('page', $site, $data));
     }
 
     public function updatePage(Request $request, string $slug, LandingPage $page, LandingPublisher $pub)
@@ -219,15 +196,7 @@ class AdsController extends Controller
         $site = $this->site($request, $slug);
         $data = $request->validate(['pack_id' => ['required', 'uuid']]);
         $pack = AdsPack::where('site_id', $site->id)->findOrFail($data['pack_id']);
-        @set_time_limit(150);
-        $camp = $studio->creatives($site, (array) $pack->pack, $pack->goal, $pack->offer);
-        if (! $camp) {
-            return response()->json(['error' => 'La création de la campagne n\'a pas abouti, réessayez dans un instant.'], 502);
-        }
-        $pack->pack = array_merge((array) $pack->pack, ['campaign' => $camp]);
-        $pack->save();
-
-        return response()->json(['campaign' => $camp]);
+        return $this->defer($request, 'campaign', $site, $data);
     }
 
     /** Pub finale d'un concept : lancée en arrière-plan (4:5, puis déclinaisons 1:1 et 9:16 à partir de la 4:5). */
@@ -415,6 +384,76 @@ class AdsController extends Controller
         }
 
         return $path;
+    }
+
+    /** Lance une tâche IA en arrière-plan (au-delà de ~60 s, le proxy coupe une requête) et renvoie son identifiant. */
+    private function defer(Request $request, string $action, Site $site, array $data)
+    {
+        $task = (string) Str::uuid();
+        \App\Jobs\AdsTaskJob::put($task, $request->user()->id, ['status' => 'running']);
+        \App\Jobs\AdsTaskJob::dispatch($task, $action, $site->id, $request->user()->id, $data);
+
+        return response()->json(['task' => $task], 202);
+    }
+
+    /** État d'une tâche IA (interrogé toutes les 3 s par l'écran). */
+    public function task(Request $request, string $slug, string $task)
+    {
+        $this->site($request, $slug);
+        $state = \Illuminate\Support\Facades\Cache::get("ads-task:$task");
+        abort_unless($state && $state['user'] === $request->user()->id, 404);
+        unset($state['user']);
+
+        return response()->json($state);
+    }
+
+    /** Travail effectif des tâches IA (appelé par AdsTaskJob). */
+    public function runTask(string $action, Site $site, array $data): array
+    {
+        $studio = app(AdsStudio::class);
+        if ($action === 'pack') {
+            $pack = $studio->pack($site, $data['goal'], $data['offer'] ?? null, $data['budget'] ?? null);
+            if (! $pack) {
+                return ['error' => 'La génération n\'a pas abouti, réessayez dans un instant.'];
+            }
+            $p = AdsPack::create(['site_id' => $site->id, 'goal' => $data['goal'], 'offer' => $data['offer'] ?? null, 'pack' => $pack]);
+            Log::info("Joow Ads : pack généré pour {$site->slug}");
+
+            return ['id' => $p->id, 'goal' => $p->goal, 'offer' => $p->offer, 'at' => $p->created_at->toIso8601String(), 'pack' => $pack];
+        }
+        if ($action === 'campaign') {
+            $pack = AdsPack::where('site_id', $site->id)->findOrFail($data['pack_id']);
+            $camp = $studio->creatives($site, (array) $pack->pack, $pack->goal, $pack->offer);
+            if (! $camp) {
+                return ['error' => 'La création de la campagne n\'a pas abouti, réessayez dans un instant.'];
+            }
+            $pack->refresh();
+            $pack->pack = array_merge((array) $pack->pack, ['campaign' => $camp]);
+            $pack->save();
+
+            return ['campaign' => $camp];
+        }
+        // page d'offre
+        $variants = $data['variants'] ?? null;
+        $content = $data['content'] ?? null;
+        $title = $data['title'] ?? null;
+        $path = $data['path'] ?? null;
+        if (! $variants) {
+            $gen = $studio->landingVariants($site, $data['goal'], $data['offer']);
+            abort_unless($gen && ! empty($gen['variants']), 502, 'La génération n\'a pas abouti, réessayez dans un instant.');
+            $variants = $gen['variants'];
+            $content = $gen['content'] ?? null;
+            $title ??= $gen['title'] ?? null;
+            $path ??= $gen['path'] ?? null;
+        }
+        $lp = LandingPage::create([
+            'site_id' => $site->id, 'site_slug' => $site->slug, 'goal' => $data['goal'],
+            'title' => Str::limit($title ?: ($data['offer'] ?? 'Offre'), 120, ''),
+            'path' => $this->uniquePath($site, $path ?: ($title ?: 'offre')),
+            'variants' => $this->cleanVariants($variants), 'content' => self::cleanContent($content, $data['goal']), 'status' => 'draft',
+        ]);
+
+        return ['page' => $this->pageRow($lp->setRelation('site', $site), app(AbTest::class))];
     }
 
     private function site(Request $request, string $slug, bool $requireActive = true): Site

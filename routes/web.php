@@ -163,6 +163,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/abonnement', [\App\Http\Controllers\AdsController::class, 'subscribe'])->name('subscribe');
         Route::post('/pack', [\App\Http\Controllers\AdsController::class, 'pack'])->middleware('throttle:ads')->name('pack');
         Route::post('/pub', [\App\Http\Controllers\AdsController::class, 'creative'])->middleware('throttle:ads')->name('creative');
+        Route::get('/tache/{task}', [\App\Http\Controllers\AdsController::class, 'task'])->name('task');
         Route::get('/campagne/{pack}', [\App\Http\Controllers\AdsController::class, 'campaignState'])->name('campaign.state');
         Route::post('/campagne', [\App\Http\Controllers\AdsController::class, 'campaign'])->middleware('throttle:ads')->name('campaign');
         Route::post('/visuels', [\App\Http\Controllers\AdsController::class, 'visual'])->middleware('throttle:ads')->name('visual');

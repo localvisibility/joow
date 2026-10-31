@@ -99,4 +99,9 @@ return [
         'price_hosting' => env('STRIPE_PRICE_HOSTING'),
     ],
 
+    'openai' => [
+        'key' => env('OPENAI_API_KEY', ''),
+        'image_model' => env('OPENAI_IMAGE_MODEL', 'gpt-image-1'),
+    ],
+
 ];

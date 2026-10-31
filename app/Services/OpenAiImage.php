@@ -1,0 +1,86 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * Génération d'image publicitaire via OpenAI (gpt-image-1), en secours de Gemini.
+ * Actif seulement si OPENAI_API_KEY est renseignée. Rendu en 2:3 / 1:1 puis recadré au format Meta demandé.
+ */
+class OpenAiImage
+{
+    public static ?string $lastError = null;
+
+    public static function enabled(): bool
+    {
+        return (string) config('services.openai.key') !== '';
+    }
+
+    /** @param  string[]  $refs  photos de référence (octets JPEG) */
+    public static function image(string $prompt, string $aspect, array $refs = []): ?string
+    {
+        self::$lastError = null;
+        if (! self::enabled()) {
+            return null;
+        }
+        $size = $aspect === '1:1' ? '1024x1024' : '1024x1536';
+        $model = (string) config('services.openai.image_model', 'gpt-image-1');
+        try {
+            $http = Http::withToken((string) config('services.openai.key'))->timeout(170);
+            if ($refs) {
+                $req = $http->asMultipart();
+                foreach (array_slice($refs, 0, 3) as $i => $bytes) {
+                    $req = $req->attach('image[]', $bytes, "ref$i.jpg", ['Content-Type' => 'image/jpeg']);
+                }
+                $res = $req->post('https://api.openai.com/v1/images/edits', ['model' => $model, 'prompt' => $prompt, 'size' => $size, 'quality' => 'high']);
+            } else {
+                $res = $http->post('https://api.openai.com/v1/images/generations', ['model' => $model, 'prompt' => $prompt, 'size' => $size, 'quality' => 'high']);
+            }
+        } catch (\Throwable $e) {
+            self::$lastError = 'OpenAI : délai dépassé ou réseau';
+            Log::warning('OpenAiImage : '.str($e->getMessage())->limit(160));
+
+            return null;
+        }
+        if (! $res->successful()) {
+            self::$lastError = 'OpenAI : HTTP '.$res->status().' '.str($res->json('error.message') ?? '')->limit(140);
+            Log::warning('OpenAiImage '.self::$lastError);
+
+            return null;
+        }
+        $b64 = $res->json('data.0.b64_json');
+
+        return $b64 ? self::crop(base64_decode($b64), $aspect) : null;
+    }
+
+    /** Recadrage centré au ratio exact (4:5 ou 9:16 depuis 2:3). */
+    private static function crop(string $bytes, string $aspect): string
+    {
+        [$rw, $rh] = array_map('intval', explode(':', $aspect)) + [1, 1];
+        $img = @imagecreatefromstring($bytes);
+        if (! $img || ! $rw || ! $rh) {
+            return $bytes;
+        }
+        $w = imagesx($img);
+        $h = imagesy($img);
+        $tw = $w;
+        $th = (int) round($w * $rh / $rw);
+        if ($th > $h) {
+            $th = $h;
+            $tw = (int) round($h * $rw / $rh);
+        }
+        if ($tw === $w && $th === $h) {
+            return $bytes;
+        }
+        $out = imagecrop($img, ['x' => (int) (($w - $tw) / 2), 'y' => (int) (($h - $th) / 2), 'width' => $tw, 'height' => $th]);
+        if (! $out) {
+            return $bytes;
+        }
+        ob_start();
+        imagejpeg($out, null, 92);
+
+        return (string) ob_get_clean();
+    }
+}

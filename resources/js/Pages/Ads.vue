@@ -14,7 +14,24 @@ const props = defineProps({
 const cookie = (n) => document.cookie.split('; ').find((c) => c.startsWith(n + '='))?.split('=')[1];
 const api = async (method, url, body) => {
     const r = await fetch(url, { method, headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-XSRF-TOKEN': decodeURIComponent(cookie('XSRF-TOKEN') || ''), 'X-Requested-With': 'XMLHttpRequest' }, body: body ? JSON.stringify(body) : undefined });
-    const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || d.message || 'Erreur'); return d;
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || d.message || (r.status >= 500 ? 'Le serveur n\'a pas répondu, réessayez dans un instant.' : 'Erreur'));
+    if (r.status === 202 && d.task) return waitTask(d.task); // génération IA en arrière-plan : on suit son avancement
+    return d;
+};
+const waitTask = async (task) => {
+    const end = Date.now() + 6 * 60 * 1000;
+    while (Date.now() < end) {
+        await new Promise((ok) => setTimeout(ok, 3000));
+        try {
+            const r = await fetch(route('ads.task', [props.current, task]), { headers: { Accept: 'application/json' } });
+            if (!r.ok) continue;
+            const s = await r.json();
+            if (s.status === 'done') return s.result;
+            if (s.status === 'error') throw new Error(s.error);
+        } catch (e) { if (e.message && !/fetch/i.test(e.message)) throw e; }
+    }
+    throw new Error('La génération prend plus de temps que prévu. Rechargez la page dans une minute.');
 };
 const selectSite = (slug) => router.get(route('ads.index'), { site: slug });
 const justPaid = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('ok') === '1';
