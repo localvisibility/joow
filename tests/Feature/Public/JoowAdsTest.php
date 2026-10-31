@@ -109,4 +109,44 @@ class JoowAdsTest extends TestCase
         $this->actingAs($this->owner)->get("/publicite/plombier-ab12/pages/{$lp->id}/apercu")->assertOk()->assertSee('Dépannage en 1 h');
         $this->assertStringContainsString('Plomberie Dupont', app(LandingPublisher::class)->html($lp->setRelation('site', $this->site)));
     }
+
+    public function test_ai_visuals_use_monthly_quota_then_credits(): void
+    {
+        $this->activate();
+        config(['services.gemini.key' => 'k', 'joow.ads_visuals_per_month' => 1]);
+        $img = imagecreatetruecolor(20, 20); ob_start(); imagepng($img); $png = ob_get_clean();
+        \Illuminate\Support\Facades\Http::fake(['generativelanguage.googleapis.com/*' => \Illuminate\Support\Facades\Http::response(['candidates' => [['content' => ['parts' => [['inlineData' => ['mimeType' => 'image/png', 'data' => base64_encode($png)]]]]]]])]);
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $this->site->refresh()->forceFill(['ai_credits_monthly' => 0, 'ai_credits_wallet' => 0, 'ai_credits_reset_at' => now()->addWeek()])->save();
+
+        $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/visuels', ['brief' => 'Plombier souriant devant un chauffe-eau', 'format' => 'portrait'])
+            ->assertOk()->assertJsonPath('paid_with', 'quota')->assertJsonPath('usage.left', 0);
+        // Quota épuisé et pas de crédits : refusé
+        $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/visuels', ['brief' => 'Autre visuel', 'format' => 'square'])->assertStatus(402);
+        // Avec des crédits : 2 crédits débités
+        $this->site->refresh()->forceFill(['ai_credits_wallet' => 5])->save();
+        $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/visuels', ['brief' => 'Autre visuel', 'format' => 'square'])->assertOk()->assertJsonPath('paid_with', 'credits');
+        $this->assertSame(3, (int) $this->site->fresh()->ai_credits_wallet);
+        $this->assertCount(2, $this->site->fresh()->site_data['addons']['ads']['visuals']);
+    }
+
+    public function test_multistep_form_content_is_cleaned_and_rendered(): void
+    {
+        $c = \App\Http\Controllers\AdsController::cleanContent(['form' => ['title' => 'Votre projet', 'steps' => [
+            ['question' => 'Type de logement ?', 'type' => 'choice', 'options' => ['Maison', 'Appartement']],
+            ['question' => 'Surface ?', 'type' => 'choice', 'options' => ['Seule']], // 1 option : devient texte libre
+            ['question' => '', 'type' => 'text'],
+        ], 'ask_postcode' => true], 'faq' => [['q' => 'Prix ?', 'a' => 'Devis gratuit.']]], 'leads');
+        $this->assertCount(2, $c['form']['steps']);
+        $this->assertSame('text', $c['form']['steps'][1]['type']);
+        $this->assertTrue($c['form']['ask_postcode']);
+
+        $lp = LandingPage::create(['site_id' => $this->site->id, 'site_slug' => 'plombier-ab12', 'path' => 'pac', 'title' => 'PAC', 'goal' => 'leads', 'status' => 'draft',
+            'variants' => [['key' => 'A', 'headline' => 'Réduisez vos factures']], 'content' => $c]);
+        $html = app(LandingPublisher::class)->html($lp->setRelation('site', $this->site));
+        $this->assertStringContainsString('Type de logement ?', $html);
+        $this->assertStringContainsString('data-val="Appartement"', $html);
+        $this->assertStringContainsString('name="postcode"', $html);
+        $this->assertStringContainsString('Prix ?', $html);
+    }
 }

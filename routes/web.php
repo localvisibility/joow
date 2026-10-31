@@ -161,6 +161,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('/publicite/{slug}')->name('ads.')->group(function () {
         Route::post('/abonnement', [\App\Http\Controllers\AdsController::class, 'subscribe'])->name('subscribe');
         Route::post('/pack', [\App\Http\Controllers\AdsController::class, 'pack'])->middleware('throttle:10,60')->name('pack');
+        Route::post('/visuels', [\App\Http\Controllers\AdsController::class, 'visual'])->middleware('throttle:20,10')->name('visual');
         Route::post('/pages', [\App\Http\Controllers\AdsController::class, 'storePage'])->middleware('throttle:20,60')->name('pages.store');
         Route::patch('/pages/{page}', [\App\Http\Controllers\AdsController::class, 'updatePage'])->name('pages.update');
         Route::post('/pages/{page}/action', [\App\Http\Controllers\AdsController::class, 'action'])->name('pages.action');

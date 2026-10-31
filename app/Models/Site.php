@@ -29,6 +29,7 @@ class Site extends Model
         'published_at'        => 'datetime',
         'domain_expires_at'   => 'datetime',
         'subscription_period_end' => 'datetime',
+        'ai_credits_reset_at' => 'datetime',
     ];
 
     /** Jeton d'édition (lien signé envoyé par email) : accès au Studio sans compte. */

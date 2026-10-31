@@ -2,6 +2,8 @@
 
 return [
     // Aperçus gratuits par 24 h, par adresse IP et par email (clients payants non limités)
+    // Joow Ads : visuels publicitaires générés par l'IA inclus chaque mois (au-delà : 2 crédits IA chacun)
+    'ads_visuals_per_month' => (int) env('JOOW_ADS_VISUALS_PER_MONTH', 20),
     'free_sites_per_day' => (int) env('JOOW_FREE_SITES_PER_DAY', 5),
 
     // Emails opérateurs (voient tout le parc dans le dashboard).

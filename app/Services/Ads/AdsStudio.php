@@ -20,6 +20,21 @@ class AdsStudio
         'visits' => 'faire venir des clients sur place',
     ];
 
+    /** Contenu commun d'une page d'offre (format JSON demandé à l'IA). */
+    public const CONTENT_SCHEMA = <<<'JSON'
+"content": {
+  "form": {"title": "titre du formulaire (≤ 6 mots)", "subtitle": "≤ 12 mots, rassurant",
+    "steps": [{"key": "identifiant_court", "question": "question simple (≤ 10 mots)", "type": "choice | multi | text | number", "options": ["3 à 6 réponses courtes, pour choice / multi"], "required": true}],
+    "ask_email": false, "ask_postcode": true, "button": "texte du bouton final (≤ 4 mots)", "success": "message de confirmation (≤ 20 mots)"},
+  "process": [{"title": "étape (≤ 4 mots)", "text": "≤ 15 mots"}],
+  "faq": [{"q": "objection fréquente du client", "a": "réponse rassurante 1-2 phrases"}],
+  "guarantees": ["4 réassurances courtes (≤ 4 mots) vraies pour tout professionnel sérieux : devis gratuit, sans engagement, réponse rapide…"],
+  "urgency": "phrase d'urgence douce et honnête (≤ 12 mots), ou vide"
+}
+JSON;
+
+    public const CONTENT_RULES = 'Formulaire : 2 à 4 questions de qualification utiles au professionnel pour préparer son devis ou son rappel (type de besoin, logement / surface, délai, budget…), en choix cliquables de préférence ; les coordonnées (nom, téléphone) sont demandées automatiquement à la fin. 3 étapes « comment ça marche ». 4 questions FAQ qui lèvent les objections (prix, délai, engagement, qualité). N\'invente AUCUNE certification, label, chiffre de clients ou distinction : uniquement des réassurances génériques vraies.';
+
     /** Fiche synthétique de l'établissement envoyée à l'IA. */
     public function brief(Site $site): string
     {
@@ -76,8 +91,10 @@ Réponds UNIQUEMENT en JSON :
   "meta_ads": [{"angle": "...", "hook": "accroche ≤ 12 mots", "primary_text": "texte principal 2-4 phrases, avec émojis sobres", "headline": "titre ≤ 6 mots", "description": "≤ 8 mots", "cta": "Appeler | En savoir plus | Réserver | Obtenir un devis", "visual": "description du visuel à utiliser", "photo": 0}],
   "google_ads": {"headlines": ["15 titres ≤ 30 caractères"], "descriptions": ["4 descriptions ≤ 90 caractères"], "keywords": ["15 mots-clés locaux"], "negative_keywords": ["8 mots-clés négatifs"]},
   "landing": {"title": "nom interne de la page", "path": "url courte en minuscules-avec-tirets",
-    "variants": [{"headline": "≤ 9 mots", "subheadline": "≤ 22 mots", "offer": "l'offre en une ligne", "bullets": ["3 bénéfices courts"], "cta": "≤ 4 mots"}, {"…": "2e variante avec un angle franchement différent"}]}
+    "variants": [{"headline": "≤ 9 mots", "subheadline": "≤ 22 mots", "offer": "l'offre en une ligne", "bullets": ["3 bénéfices courts"], "cta": "≤ 4 mots"}, {"…": "2e variante avec un angle franchement différent"}],
+    {$this->contentSchema()}}
 }
+Page d'offre : {$this->contentRules()}
 Produis 5 meta_ads aux angles variés (preuve sociale, urgence douce, bénéfice concret, curiosité, offre). Les champs "photo" sont des indices de photo existants.
 TXT;
 
@@ -103,7 +120,9 @@ Objectif : {$goalTxt}. Offre : {$offer}.
 Écris DEUX variantes d'une page d'offre pour un test A/B, avec des angles franchement différents
 (A : bénéfice concret et rassurant ; B : preuve sociale et urgence douce). Français naturel, pas de superlatif creux.
 Réponds UNIQUEMENT en JSON :
-{"title": "nom interne", "path": "url-courte-avec-tirets", "variants": [{"headline": "≤ 9 mots", "subheadline": "≤ 22 mots", "offer": "l'offre en une ligne", "bullets": ["3 bénéfices courts"], "cta": "≤ 4 mots"}, {...}]}
+{"title": "nom interne", "path": "url-courte-avec-tirets", "variants": [{"headline": "≤ 9 mots", "subheadline": "≤ 22 mots", "offer": "l'offre en une ligne", "bullets": ["3 bénéfices courts"], "cta": "≤ 4 mots"}, {...}],
+ {$this->contentSchema()}}
+{$this->contentRules()}
 TXT;
 
         return $this->ask($prompt, 'AdsStudio.landing');
@@ -124,6 +143,16 @@ TXT;
 
             return null;
         }
+    }
+
+    private function contentSchema(): string
+    {
+        return self::CONTENT_SCHEMA;
+    }
+
+    private function contentRules(): string
+    {
+        return self::CONTENT_RULES;
     }
 
     private function orNone(?string $v): string

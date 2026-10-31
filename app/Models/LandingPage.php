@@ -12,7 +12,7 @@ class LandingPage extends Model
 
     protected $guarded = [];
 
-    protected $casts = ['variants' => 'array', 'published_at' => 'datetime'];
+    protected $casts = ['variants' => 'array', 'content' => 'array', 'published_at' => 'datetime'];
 
     public function site(): BelongsTo
     {

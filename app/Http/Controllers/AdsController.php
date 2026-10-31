@@ -35,6 +35,10 @@ class AdsController extends Controller
             'goals' => AdsStudio::GOALS,
             'packs' => $site ? AdsPack::where('site_id', $site->id)->latest()->take(10)->get()->map(fn ($p) => ['id' => $p->id, 'goal' => $p->goal, 'offer' => $p->offer, 'at' => $p->created_at->toIso8601String(), 'pack' => $p->pack])->all() : [],
             'pages' => $pages->map(fn (LandingPage $p) => $this->pageRow($p, $ab))->all(),
+            'visuals' => $site ? app(\App\Services\Ads\AdVisuals::class)->gallery($site) : [],
+            'usage' => $site ? app(\App\Services\Ads\AdVisuals::class)->usage($site) : null,
+            'photos' => $site ? app(AdsStudio::class)->photos($site) : [],
+            'brand' => $site ? ['name' => $site->name, 'city' => $site->city, 'color' => $site->site_data['accent'] ?? (config("sectors.{$site->sector}.color") ?? '#4f46e5'), 'rating' => $site->rating, 'reviews' => $site->reviews_count, 'phone' => $site->site_data['business']['phone'] ?? $site->phone] : null,
             'site_url' => $site ? ($site->custom_domain && $site->domain_status === 'active' ? 'https://'.$site->custom_domain : 'https://'.$site->slug.'.joow.fr') : null,
         ]);
     }
@@ -42,7 +46,7 @@ class AdsController extends Controller
     private function pageRow(LandingPage $p, AbTest $ab): array
     {
         return ['id' => $p->id, 'title' => $p->title, 'path' => $p->path, 'goal' => $p->goal, 'status' => $p->status, 'winner' => $p->winner,
-            'variants' => $p->variants, 'url' => $p->url(), 'results' => $ab->results($p), 'published_at' => optional($p->published_at)->toIso8601String()];
+            'variants' => $p->variants, 'content' => $p->content ?: self::defaultContent($p->goal), 'url' => $p->url(), 'results' => $ab->results($p), 'published_at' => optional($p->published_at)->toIso8601String()];
     }
 
     /** Souscription au module (abonnement Stripe séparé, type « ads:<site> »). */
@@ -92,8 +96,10 @@ class AdsController extends Controller
             'title' => ['nullable', 'string', 'max:120'],
             'path' => ['nullable', 'string', 'max:60'],
             'variants' => ['nullable', 'array', 'max:3'],
+            'content' => ['nullable', 'array'],
         ]);
         $variants = $data['variants'] ?? null;
+        $content = $data['content'] ?? null;
         $title = $data['title'] ?? null;
         $path = $data['path'] ?? null;
         if (! $variants) {
@@ -102,6 +108,7 @@ class AdsController extends Controller
             $gen = $studio->landingVariants($site, $data['goal'], $data['offer']);
             abort_unless($gen && ! empty($gen['variants']), 502, 'La génération n\'a pas abouti, réessayez dans un instant.');
             $variants = $gen['variants'];
+            $content = $gen['content'] ?? null;
             $title ??= $gen['title'] ?? null;
             $path ??= $gen['path'] ?? null;
         }
@@ -109,7 +116,7 @@ class AdsController extends Controller
             'site_id' => $site->id, 'site_slug' => $site->slug, 'goal' => $data['goal'],
             'title' => Str::limit($title ?: ($data['offer'] ?? 'Offre'), 120, ''),
             'path' => $this->uniquePath($site, $path ?: ($title ?: 'offre')),
-            'variants' => $this->cleanVariants($variants), 'status' => 'draft',
+            'variants' => $this->cleanVariants($variants), 'content' => self::cleanContent($content, $data['goal']), 'status' => 'draft',
         ]);
 
         return response()->json(['page' => $this->pageRow($lp->setRelation('site', $site), app(AbTest::class))]);
@@ -119,8 +126,11 @@ class AdsController extends Controller
     {
         $site = $this->site($request, $slug);
         abort_unless($page->site_id === $site->id, 404);
-        $data = $request->validate(['title' => ['nullable', 'string', 'max:120'], 'goal' => ['nullable', 'in:'.implode(',', array_keys(AdsStudio::GOALS))], 'variants' => ['nullable', 'array', 'min:1', 'max:3']]);
+        $data = $request->validate(['title' => ['nullable', 'string', 'max:120'], 'goal' => ['nullable', 'in:'.implode(',', array_keys(AdsStudio::GOALS))], 'variants' => ['nullable', 'array', 'min:1', 'max:3'], 'content' => ['nullable', 'array']]);
         $page->fill(array_filter(['title' => $data['title'] ?? null, 'goal' => $data['goal'] ?? null]));
+        if (isset($data['content'])) {
+            $page->content = self::cleanContent($data['content'], $page->goal);
+        }
         if (isset($data['variants'])) {
             $page->variants = $this->cleanVariants($data['variants']);
             if ($page->winner && ! collect($page->variants)->contains('key', $page->winner)) {
@@ -193,6 +203,65 @@ class AdsController extends Controller
         }
 
         return response()->json(['ok' => true]);
+    }
+
+    /** Génère un visuel publicitaire IA (quota mensuel, puis crédits IA). */
+    public function visual(Request $request, string $slug, \App\Services\Ads\AdVisuals $visuals)
+    {
+        $site = $this->site($request, $slug);
+        $data = $request->validate(['brief' => ['required', 'string', 'max:500'], 'format' => ['required', 'in:square,portrait,story'], 'ref' => ['nullable', 'url', 'max:500']]);
+        @set_time_limit(180);
+        $ref = ($data['ref'] ?? null) && in_array($data['ref'], app(AdsStudio::class)->photos($site), true) ? $data['ref'] : null;
+        $out = $visuals->generate($site, $data['brief'], $data['format'], $ref, $request->user()->isAdmin());
+        if (isset($out['error'])) {
+            return response()->json(['error' => $out['error']], $out['status']);
+        }
+
+        return response()->json($out + ['usage' => $visuals->usage($site->fresh()), 'credits' => app(\App\Services\AiCredits::class)->state($site->fresh())]);
+    }
+
+    /** Contenu par défaut d'une page sans contenu IA (formulaire simple). */
+    public static function defaultContent(string $goal): array
+    {
+        return [
+            'form' => ['title' => $goal === 'calls' ? 'Être rappelé gratuitement' : 'Votre demande en 1 minute', 'subtitle' => 'Réponse rapide · sans engagement', 'steps' => [], 'ask_email' => false, 'ask_postcode' => false, 'button' => 'Envoyer', 'success' => 'Merci ! Nous vous recontactons très vite.'],
+            'process' => [['title' => 'Votre demande', 'text' => 'En 1 minute, sans engagement.'], ['title' => 'On vous rappelle', 'text' => 'Rapidement, pour comprendre votre besoin.'], ['title' => 'Votre solution', 'text' => 'Une proposition claire et adaptée.']],
+            'faq' => [], 'guarantees' => ['Sans engagement', 'Réponse rapide', 'Devis gratuit'], 'urgency' => '',
+        ];
+    }
+
+    public static function cleanContent(?array $c, string $goal): array
+    {
+        $d = self::defaultContent($goal);
+        if (! $c) {
+            return $d;
+        }
+        $str = fn ($v, $n) => Str::limit(trim(strip_tags((string) $v)), $n, '');
+        $f = (array) ($c['form'] ?? []);
+        $steps = [];
+        foreach (array_slice((array) ($f['steps'] ?? []), 0, 5) as $i => $st) {
+            $type = in_array($st['type'] ?? '', ['choice', 'multi', 'text', 'number'], true) ? $st['type'] : 'choice';
+            $opts = array_values(array_filter(array_map(fn ($o) => $str($o, 60), array_slice((array) ($st['options'] ?? []), 0, 8))));
+            if (in_array($type, ['choice', 'multi'], true) && count($opts) < 2) {
+                $type = 'text';
+            }
+            $q = $str($st['question'] ?? '', 120);
+            if ($q !== '') {
+                $steps[] = ['key' => Str::slug($st['key'] ?? $q, '_') ?: 'q'.$i, 'question' => $q, 'type' => $type, 'options' => in_array($type, ['choice', 'multi'], true) ? $opts : [], 'required' => (bool) ($st['required'] ?? true)];
+            }
+        }
+
+        return [
+            'form' => [
+                'title' => $str($f['title'] ?? '', 80) ?: $d['form']['title'], 'subtitle' => $str($f['subtitle'] ?? '', 120) ?: $d['form']['subtitle'],
+                'steps' => $steps, 'ask_email' => (bool) ($f['ask_email'] ?? false), 'ask_postcode' => (bool) ($f['ask_postcode'] ?? false),
+                'button' => $str($f['button'] ?? '', 30) ?: $d['form']['button'], 'success' => $str($f['success'] ?? '', 200) ?: $d['form']['success'],
+            ],
+            'process' => array_values(array_filter(array_map(fn ($p) => ['title' => $str($p['title'] ?? '', 40), 'text' => $str($p['text'] ?? '', 140)], array_slice((array) ($c['process'] ?? []), 0, 4)), fn ($p) => $p['title'] !== '')) ?: $d['process'],
+            'faq' => array_values(array_filter(array_map(fn ($q) => ['q' => $str($q['q'] ?? '', 140), 'a' => $str($q['a'] ?? '', 500)], array_slice((array) ($c['faq'] ?? []), 0, 6)), fn ($q) => $q['q'] !== '' && $q['a'] !== '')),
+            'guarantees' => array_values(array_filter(array_map(fn ($g) => $str($g, 40), array_slice((array) ($c['guarantees'] ?? []), 0, 5)))) ?: $d['guarantees'],
+            'urgency' => $str($c['urgency'] ?? '', 120),
+        ];
     }
 
     private function cleanVariants(array $variants): array

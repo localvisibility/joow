@@ -30,6 +30,7 @@ class LandingPublisher
             'api' => 'https://app.joow.fr/api/site/'.$site->slug,
             'siteUrl' => $site->custom_domain && $site->domain_status === 'active' ? 'https://'.$site->custom_domain : 'https://'.$site->slug.'.joow.fr',
             'variants' => array_values((array) $lp->variants),
+            'content' => \App\Http\Controllers\AdsController::cleanContent($lp->content, $lp->goal),
         ])->render();
     }
 

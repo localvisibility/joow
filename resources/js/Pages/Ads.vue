@@ -1,11 +1,13 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import AdComposer from '@/Components/AdComposer.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { computed, reactive, ref } from 'vue';
 
 const props = defineProps({
     sites: Array, current: String, active: Boolean, online: Boolean, price: Number, ready: Boolean,
     goals: Object, packs: Array, pages: Array, site_url: String,
+    visuals: Array, usage: Object, photos: Array, brand: Object,
 });
 
 const cookie = (n) => document.cookie.split('; ').find((c) => c.startsWith(n + '='))?.split('=')[1];
@@ -34,6 +36,23 @@ const generate = async () => {
     catch (e) { err.value = e.message; } finally { generating.value = false; }
 };
 
+/* ───── Visuels ───── */
+const gallery = ref([...(props.visuals || [])]);
+const usage = ref(props.usage);
+const vis = reactive({ brief: '', format: 'portrait', ref: '' });
+const generatingVis = ref(false);
+const composer = ref(null);
+const allImages = computed(() => [...gallery.value.map((g) => g.url), ...(props.photos || [])]);
+const genVisual = async () => {
+    generatingVis.value = true; err.value = '';
+    try {
+        const d = await api('POST', route('ads.visual', props.current), { brief: vis.brief, format: vis.format, ref: vis.ref || null });
+        gallery.value.unshift({ url: d.url, format: d.format, brief: vis.brief, at: new Date().toISOString() }); usage.value = d.usage;
+        composer.value?.setImage(d.url);
+    } catch (e) { err.value = e.message; } finally { generatingVis.value = false; }
+};
+const toVisual = (ad) => { tab.value = 'visuals'; vis.brief = ad.visual || ad.hook; setTimeout(() => composer.value?.useAd(ad), 50); };
+
 /* ───── Pages d'offre ───── */
 const pages = ref([...(props.pages || [])]);
 const newPage = reactive({ goal: 'leads', offer: '' });
@@ -43,7 +62,7 @@ const createPage = async (fromPack = null) => {
     creating.value = true; err.value = '';
     try {
         const body = fromPack
-            ? { goal: packs.value[packIdx.value].goal, offer: packs.value[packIdx.value].offer, title: fromPack.title, path: fromPack.path, variants: fromPack.variants }
+            ? { goal: packs.value[packIdx.value].goal, offer: packs.value[packIdx.value].offer, title: fromPack.title, path: fromPack.path, variants: fromPack.variants, content: fromPack.content || null }
             : { goal: newPage.goal, offer: newPage.offer };
         const d = await api('POST', route('ads.pages.store', props.current), body);
         replacePage(d.page); tab.value = 'pages'; newPage.offer = '';
@@ -61,12 +80,25 @@ const removePage = async (p) => {
 };
 const editing = ref(null);
 const draft = ref(null);
-const startEdit = (p) => { editing.value = p.id; draft.value = JSON.parse(JSON.stringify({ title: p.title, goal: p.goal, variants: p.variants.map((v) => ({ ...v, bulletsText: (v.bullets || []).join('\n') })) })); };
+const startEdit = (p) => {
+    editing.value = p.id;
+    const c = JSON.parse(JSON.stringify(p.content || {}));
+    c.form ||= { steps: [] };
+    c.form.steps = (c.form.steps || []).map((st) => ({ ...st, optionsText: (st.options || []).join('\n') }));
+    c.guaranteesText = (c.guarantees || []).join('\n');
+    c.faq ||= []; c.process ||= [];
+    draft.value = { title: p.title, goal: p.goal, content: c, variants: p.variants.map((v) => ({ ...v, bulletsText: (v.bullets || []).join('\n') })) };
+};
+const addStep = () => draft.value.content.form.steps.push({ key: '', question: '', type: 'choice', optionsText: '', required: true });
+const moveStep = (i, d) => { const a = draft.value.content.form.steps; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; };
 const saveEdit = async (p) => {
     busy.value = p.id;
     try {
         const variants = draft.value.variants.map((v) => ({ ...v, bullets: v.bulletsText.split('\n').map((s) => s.trim()).filter(Boolean) }));
-        replacePage((await api('PATCH', route('ads.pages.update', [props.current, p.id]), { title: draft.value.title, goal: draft.value.goal, variants })).page); editing.value = null;
+        const c = draft.value.content;
+        const content = { ...c, guarantees: c.guaranteesText.split('\n').map((s) => s.trim()).filter(Boolean),
+            form: { ...c.form, steps: c.form.steps.map((st) => ({ ...st, options: st.optionsText.split('\n').map((s) => s.trim()).filter(Boolean) })) } };
+        replacePage((await api('PATCH', route('ads.pages.update', [props.current, p.id]), { title: draft.value.title, goal: draft.value.goal, variants, content })).page); editing.value = null;
     } catch (e) { err.value = e.message; } finally { busy.value = null; }
 };
 const addVariant = () => { if (draft.value.variants.length < 3) draft.value.variants.push({ ...draft.value.variants[0], key: '', bulletsText: draft.value.variants[0].bulletsText }); };
@@ -138,7 +170,7 @@ const goalLabel = (g) => ({ calls: 'Appels', leads: 'Demandes', bookings: 'Rése
 
         <template v-else>
             <div class="flex gap-1 border-b border-white/[0.06]">
-                <button v-for="[k, l] in [['pack', '1 · Stratégie & publicités'], ['pages', '2 · Pages d\'offre (A/B)'], ['link', '3 · Liens de suivi']]" :key="k" @click="tab = k"
+                <button v-for="[k, l] in [['pack', '1 · Stratégie & publicités'], ['visuals', '2 · Visuels'], ['pages', '3 · Pages d\'offre (A/B)'], ['link', '4 · Liens de suivi']]" :key="k" @click="tab = k"
                     class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition" :class="tab === k ? 'border-brand-400 text-white' : 'border-transparent text-slate-400 hover:text-white'">{{ l }}</button>
             </div>
             <p v-if="err" class="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{{ err }}</p>
@@ -192,7 +224,7 @@ const goalLabel = (g) => ({ calls: 'Appels', leads: 'Demandes', bookings: 'Rése
                                     <div class="mt-auto flex gap-2 pt-3">
                                         <button @click="copy(ad.primary_text, 'pt' + i)" class="flex-1 rounded-lg bg-white/[0.06] px-2 py-1.5 text-xs font-semibold text-slate-200">{{ copied === 'pt' + i ? 'Copié ✓' : 'Copier le texte' }}</button>
                                         <button @click="copy(ad.headline, 'hl' + i)" class="rounded-lg bg-white/[0.06] px-2 py-1.5 text-xs font-semibold text-slate-200">{{ copied === 'hl' + i ? '✓' : 'Titre' }}</button>
-                                        <a v-if="ad.image" :href="ad.image" target="_blank" download class="rounded-lg bg-white/[0.06] px-2 py-1.5 text-xs font-semibold text-slate-200">Photo</a>
+                                        <button @click="toVisual(ad)" class="rounded-lg bg-brand-500/20 px-2 py-1.5 text-xs font-semibold text-brand-200">🎨 Visuel</button>
                                     </div>
                                 </div>
                             </div>
@@ -217,7 +249,32 @@ const goalLabel = (g) => ({ calls: 'Appels', leads: 'Demandes', bookings: 'Rése
                 <p v-else class="text-sm text-slate-500">Choisissez un objectif et générez votre première campagne.</p>
             </div>
 
-            <!-- 2. Pages d'offre -->
+            <!-- 2. Visuels -->
+            <div v-else-if="tab === 'visuals'" class="mt-6 space-y-6">
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div><h2 class="font-semibold text-white">✨ Générer une image avec l'IA</h2>
+                            <p class="mt-1 text-sm text-slate-400">Une photo publicitaire réaliste, sans texte : l'accroche et l'offre sont posées ensuite dans la mise en page.</p></div>
+                        <p v-if="usage" class="rounded-xl bg-white/[0.05] px-3 py-2 text-xs text-slate-300"><b class="text-white">{{ usage.left }}</b> / {{ usage.included }} visuels inclus ce mois-ci<span v-if="!usage.left"> · ensuite {{ usage.credit_cost }} crédits IA</span></p>
+                    </div>
+                    <div class="mt-4 grid gap-3 lg:grid-cols-[2fr_1fr_1fr_auto] lg:items-end">
+                        <label class="text-xs font-semibold text-slate-400">Que doit montrer l'image ?<input v-model="vis.brief" class="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white" placeholder="Pompe à chaleur installée devant une maison individuelle, lumière de fin de journée" /></label>
+                        <label class="text-xs font-semibold text-slate-400">Format<select v-model="vis.format" class="mt-1 w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2.5 text-sm text-white"><option value="square">Carré 1:1</option><option value="portrait">Portrait 4:5</option><option value="story">Story 9:16</option></select></label>
+                        <label class="text-xs font-semibold text-slate-400">S'inspirer d'une photo<select v-model="vis.ref" class="mt-1 w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2.5 text-sm text-white"><option value="">Aucune</option><option v-for="(u, i) in photos" :key="u" :value="u">Photo du site {{ i + 1 }}</option></select></label>
+                        <button @click="genVisual" :disabled="generatingVis || vis.brief.trim().length < 5" class="btn-brand text-sm">{{ generatingVis ? 'Création… (≈ 20 s)' : '✨ Générer' }}</button>
+                    </div>
+                    <div v-if="gallery.length" class="mt-4 flex gap-2 overflow-x-auto pb-1">
+                        <button v-for="g in gallery" :key="g.url" @click="composer?.setImage(g.url)" class="shrink-0 overflow-hidden rounded-lg ring-1 ring-white/10 hover:ring-brand-400" :title="g.brief"><img :src="g.url" class="h-24 w-auto object-cover" alt="" /></button>
+                    </div>
+                </div>
+                <div class="glass rounded-2xl p-6">
+                    <h2 class="font-semibold text-white">🎨 Mise en page publicitaire</h2>
+                    <p class="mb-5 mt-1 text-sm text-slate-400">Choisissez une photo, une accroche et un style : téléchargez le visuel prêt à publier aux formats Meta. Illimité.</p>
+                    <AdComposer ref="composer" :images="allImages" :brand="brand" :ads="pack?.meta_ads || []" />
+                </div>
+            </div>
+
+            <!-- 3. Pages d'offre -->
             <div v-else-if="tab === 'pages'" class="mt-6 space-y-5">
                 <div class="glass rounded-2xl p-6">
                     <h2 class="font-semibold text-white">Nouvelle page d'offre</h2>
@@ -251,6 +308,50 @@ const goalLabel = (g) => ({ calls: 'Appels', leads: 'Demandes', bookings: 'Rése
                             <label class="text-xs font-semibold text-slate-400">Nom interne<input v-model="draft.title" class="mt-1 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
                             <label class="text-xs font-semibold text-slate-400">Objectif<select v-model="draft.goal" class="mt-1 w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white"><option v-for="(l, k) in goals" :key="k" :value="k">{{ goalLabel(k) }}</option></select></label>
                         </div>
+                        <!-- Formulaire à étapes et contenu commun -->
+                        <div class="rounded-xl bg-white/[0.03] p-3">
+                            <p class="text-sm font-bold text-white">📝 Formulaire</p>
+                            <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                                <label class="block text-xs text-slate-400">Titre<input v-model="draft.content.form.title" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
+                                <label class="block text-xs text-slate-400">Sous-titre<input v-model="draft.content.form.subtitle" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
+                            </div>
+                            <p class="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Questions (une par étape, avant les coordonnées)</p>
+                            <div v-for="(st, i) in draft.content.form.steps" :key="i" class="mt-2 rounded-lg border border-white/[0.06] p-2.5">
+                                <div class="flex gap-2">
+                                    <span class="pt-2 text-xs font-bold text-slate-500">{{ i + 1 }}</span>
+                                    <input v-model="st.question" class="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" placeholder="Quel est votre projet ?" />
+                                    <select v-model="st.type" class="rounded-lg border border-white/10 bg-ink-900 px-2 text-xs text-white"><option value="choice">Choix unique</option><option value="multi">Choix multiples</option><option value="text">Texte libre</option><option value="number">Nombre</option></select>
+                                    <button @click="moveStep(i, -1)" class="text-slate-500 hover:text-white" title="Monter">↑</button><button @click="moveStep(i, 1)" class="text-slate-500 hover:text-white" title="Descendre">↓</button>
+                                    <button @click="draft.content.form.steps.splice(i, 1)" class="text-rose-300">✕</button>
+                                </div>
+                                <textarea v-if="['choice', 'multi'].includes(st.type)" v-model="st.optionsText" rows="3" class="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white" placeholder="Une réponse par ligne"></textarea>
+                                <label class="mt-1 flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" v-model="st.required" class="rounded border-white/20 bg-white/5" /> Obligatoire</label>
+                            </div>
+                            <button @click="addStep" class="mt-2 rounded-lg border border-dashed border-white/15 px-3 py-1.5 text-xs text-slate-300">+ Question</button>
+                            <div class="mt-3 flex flex-wrap gap-4 text-xs text-slate-300">
+                                <span class="text-slate-500">Toujours demandés : nom et téléphone.</span>
+                                <label class="flex items-center gap-2"><input type="checkbox" v-model="draft.content.form.ask_email" class="rounded border-white/20 bg-white/5" /> Email</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" v-model="draft.content.form.ask_postcode" class="rounded border-white/20 bg-white/5" /> Code postal</label>
+                            </div>
+                            <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                                <label class="block text-xs text-slate-400">Bouton final<input v-model="draft.content.form.button" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
+                                <label class="block text-xs text-slate-400">Message après envoi<input v-model="draft.content.form.success" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
+                            </div>
+                        </div>
+                        <div class="grid gap-3 lg:grid-cols-2">
+                            <div class="rounded-xl bg-white/[0.03] p-3">
+                                <p class="text-sm font-bold text-white">🛡 Réassurance</p>
+                                <label class="mt-2 block text-xs text-slate-400">Garanties (une par ligne)<textarea v-model="draft.content.guaranteesText" rows="4" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"></textarea></label>
+                                <label class="mt-2 block text-xs text-slate-400">Bandeau d'urgence (facultatif)<input v-model="draft.content.urgency" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" placeholder="Offre valable jusqu'au 30 novembre" /></label>
+                                <p class="mt-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Comment ça se passe</p>
+                                <div v-for="(pr, i) in draft.content.process" :key="i" class="mt-1.5 flex gap-2"><input v-model="pr.title" class="w-1/3 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white" /><input v-model="pr.text" class="flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white" /></div>
+                            </div>
+                            <div class="rounded-xl bg-white/[0.03] p-3">
+                                <p class="text-sm font-bold text-white">❓ FAQ</p>
+                                <div v-for="(f, i) in draft.content.faq" :key="i" class="mt-2 space-y-1"><div class="flex gap-2"><input v-model="f.q" class="flex-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white" placeholder="Question" /><button @click="draft.content.faq.splice(i, 1)" class="text-rose-300">✕</button></div><textarea v-model="f.a" rows="2" class="w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white" placeholder="Réponse"></textarea></div>
+                                <button @click="draft.content.faq.push({ q: '', a: '' })" class="mt-2 rounded-lg border border-dashed border-white/15 px-3 py-1.5 text-xs text-slate-300">+ Question</button>
+                            </div>
+                        </div>
                         <div class="grid gap-4" :class="draft.variants.length > 1 ? 'lg:grid-cols-2' : ''">
                             <div v-for="(v, i) in draft.variants" :key="i" class="space-y-2 rounded-xl bg-white/[0.03] p-3">
                                 <div class="flex items-center justify-between"><p class="text-sm font-bold text-white">Variante {{ String.fromCharCode(65 + i) }}</p><button v-if="draft.variants.length > 1" @click="draft.variants.splice(i, 1)" class="text-xs text-rose-300">Retirer</button></div>
@@ -259,6 +360,9 @@ const goalLabel = (g) => ({ calls: 'Appels', leads: 'Demandes', bookings: 'Rése
                                 <label class="block text-xs text-slate-400">Offre<input v-model="v.offer" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
                                 <label class="block text-xs text-slate-400">Bénéfices (un par ligne)<textarea v-model="v.bulletsText" rows="3" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"></textarea></label>
                                 <label class="block text-xs text-slate-400">Bouton<input v-model="v.cta" class="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" /></label>
+                                <div class="text-xs text-slate-400">Photo
+                                    <div class="mt-1 flex gap-1.5 overflow-x-auto pb-1"><button v-for="u in allImages" :key="u" type="button" @click="v.image = u" class="shrink-0 overflow-hidden rounded-md ring-2" :class="(v.image || photos[0]) === u ? 'ring-brand-400' : 'ring-transparent'"><img :src="u" class="h-14 w-14 object-cover" alt="" /></button></div>
+                                </div>
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-2">

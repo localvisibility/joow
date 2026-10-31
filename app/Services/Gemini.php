@@ -112,6 +112,71 @@ class Gemini
         return array_values(array_unique(array_merge(self::PREFERRED, $published ?: ['gemini-3.8-flash', 'gemini-2.5-flash-lite'])));
     }
 
+    /** Modèles capables de produire des images (alias préférés + modèles « image » publiés). */
+    public static function imageModels(string $key): array
+    {
+        $published = Cache::remember('joow:gemini:image-models', now()->addHours(6), function () use ($key) {
+            try {
+                $res = Http::timeout(10)->get('https://generativelanguage.googleapis.com/v1beta/models', ['key' => $key, 'pageSize' => 200]);
+
+                return $res->successful() ? collect($res->json('models') ?? [])
+                    ->filter(fn ($m) => in_array('generateContent', $m['supportedGenerationMethods'] ?? [], true))
+                    ->map(fn ($m) => str_replace('models/', '', $m['name']))
+                    ->filter(fn ($n) => str_contains($n, 'image') && ! str_contains($n, 'imagen'))->values()->all() : [];
+            } catch (\Throwable) {
+                return [];
+            }
+        });
+
+        return array_values(array_unique(array_merge(['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview'], $published)));
+    }
+
+    /**
+     * Génère une image (JPEG/PNG en octets) au format demandé, éventuellement à partir d'une photo de référence.
+     * Retourne null si aucun modèle n'a produit d'image.
+     */
+    public static function image(string $prompt, string $aspect = '1:1', ?string $refBytes = null, string $context = 'image'): ?string
+    {
+        $key = (string) config('services.gemini.key');
+        if ($key === '') {
+            return null;
+        }
+        $parts = [['text' => $prompt]];
+        if ($refBytes) {
+            $parts[] = ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($refBytes)]];
+        }
+        foreach (self::imageModels($key) as $model) {
+            if (Cache::has("joow:gemini:down:$model")) {
+                continue;
+            }
+            foreach ([['responseModalities' => ['IMAGE'], 'imageConfig' => ['aspectRatio' => $aspect]], ['responseModalities' => ['TEXT', 'IMAGE']]] as $cfg) {
+                $res = self::call($key, $model, ['contents' => [['parts' => $parts]], 'generationConfig' => $cfg], 120, $context);
+                if (! $res) {
+                    continue;
+                }
+                if ($res->successful()) {
+                    foreach ((array) data_get($res->json(), 'candidates.0.content.parts', []) as $p) {
+                        $data = $p['inlineData']['data'] ?? $p['inline_data']['data'] ?? null;
+                        if ($data) {
+                            return base64_decode($data);
+                        }
+                    }
+                    break; // réponse sans image : modèle suivant
+                }
+                Log::warning("$context : $model HTTP {$res->status()} ".str($res->json('error.message') ?? '')->limit(160));
+                if ($res->status() === 404) {
+                    break;
+                }
+                if (in_array($res->status(), [429, 500, 503], true)) {
+                    Cache::put("joow:gemini:down:$model", true, now()->addMinutes(2));
+                    break;
+                }
+            }
+        }
+
+        return null;
+    }
+
     /** Texte de la première candidate, ou chaîne vide. */
     public static function text(?Response $res): string
     {
