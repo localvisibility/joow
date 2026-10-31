@@ -116,6 +116,9 @@ class Gemini
     /** Dernier modèle ayant produit une image (journal / suivi des coûts). */
     public static ?string $lastImageModel = null;
 
+    /** Raisons d'échec de la dernière génération d'image (diagnostic). */
+    public static array $lastImageErrors = [];
+
     private static function mime(string $bytes): string
     {
         return str_starts_with($bytes, "\x89PNG") ? 'image/png' : (str_starts_with($bytes, 'RIFF') ? 'image/webp' : 'image/jpeg');
@@ -179,17 +182,37 @@ class Gemini
         foreach (array_filter((array) $refBytes) as $ref) {
             $parts[] = ['inline_data' => ['mime_type' => self::mime($ref), 'data' => base64_encode($ref)]];
         }
+        self::$lastImageErrors = [];
         $models = self::imageModels($key);
         if ($flashOnly) {
             $models = array_values(array_filter($models, fn ($m) => ! str_contains($m, 'pro')));
         }
-        foreach ($models as $model) {
-            if (Cache::has("joow:gemini:down:$model")) {
+        $tried = false;
+        $deadline = microtime(true) + 130; // reste sous le délai de la tâche de fond
+        foreach (array_merge($models, ['@retry']) as $model) {
+            if (microtime(true) > $deadline) {
+                self::$lastImageErrors[] = 'temps total dépassé';
+                break;
+            }
+            if ($model === '@retry') {
+                if ($tried) {
+                    break;
+                }
+                $model = $models[0] ?? null; // tous écartés : on retente quand même le premier plutôt que d'échouer sans essayer
+                if (! $model) {
+                    break;
+                }
+            } elseif (Cache::has("joow:gemini:down:$model")) {
+                self::$lastImageErrors[] = "$model : écarté temporairement";
+
                 continue;
             }
+            $tried = true;
             foreach ([['responseModalities' => ['IMAGE'], 'imageConfig' => ['aspectRatio' => $aspect]], ['responseModalities' => ['TEXT', 'IMAGE']]] as $cfg) {
-                $res = self::call($key, $model, ['contents' => [['parts' => $parts]], 'generationConfig' => $cfg], 120, $context);
+                $res = self::call($key, $model, ['contents' => [['parts' => $parts]], 'generationConfig' => $cfg], (int) max(20, min(120, $deadline - microtime(true))), $context);
                 if (! $res) {
+                    self::$lastImageErrors[] = "$model : délai dépassé ou réseau";
+
                     continue;
                 }
                 if ($res->successful()) {
@@ -201,9 +224,11 @@ class Gemini
                             return base64_decode($data);
                         }
                     }
+                    self::$lastImageErrors[] = "$model : réponse sans image (".(data_get($res->json(), 'candidates.0.finishReason') ?? data_get($res->json(), 'promptFeedback.blockReason') ?? '?').')';
                     break; // réponse sans image : modèle suivant
                 }
                 Log::warning("$context : $model HTTP {$res->status()} ".str($res->json('error.message') ?? '')->limit(160));
+                self::$lastImageErrors[] = "$model : HTTP {$res->status()} ".str($res->json('error.message') ?? '')->limit(140);
                 if (in_array($res->status(), [403, 404], true)) {
                     Cache::put("joow:gemini:down:$model", true, now()->addHour()); // modèle indisponible pour cette clé (ex. facturation Google requise)
                     break;

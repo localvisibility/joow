@@ -24,6 +24,7 @@ const api = async (url, body) => {
 const jobOf = (c, f = 'portrait') => c.jobs?.[f];
 const busyOf = (c) => FMT.map(([f]) => f).find((f) => jobOf(c, f)?.status === 'running') || null;
 const errorOf = (c) => Object.values(c.jobs || {}).find((j) => j?.status === 'error')?.error || '';
+const detailOf = (c) => Object.values(c.jobs || {}).find((j) => j?.status === 'error')?.detail || '';
 const running = () => (props.campaign?.creatives || []).some((c) => busyOf(c));
 let timer = null; let auto = false;
 
@@ -118,7 +119,7 @@ defineExpose({ landingMatch, trackUrl });
             <div v-for="c in campaign.creatives" :key="c.key" class="glass flex flex-col overflow-hidden rounded-2xl">
                 <div class="relative grid min-h-[22rem] place-items-center bg-black/40">
                     <img v-if="shown(c)" :src="shown(c).url" class="block h-auto max-h-[34rem] w-full object-contain" alt="" />
-                    <div v-else class="p-6 text-center text-sm text-slate-400"><template v-if="!busyOf(c)"><p v-if="errorOf(c)" class="text-rose-300">{{ errorOf(c) }}</p><p v-else>Pub pas encore créée</p></template></div>
+                    <div v-else class="p-6 text-center text-sm text-slate-400"><template v-if="!busyOf(c)"><p v-if="errorOf(c)" class="text-rose-300">{{ errorOf(c) }}</p><p v-if="detailOf(c)" class="mt-2 break-words font-mono text-[11px] text-slate-500">Diagnostic (admin) : {{ detailOf(c) }}</p><p v-else>Pub pas encore créée</p></template></div>
                     <div v-if="busyOf(c)" class="absolute inset-0 grid place-items-center bg-black/70 p-6 text-center text-sm font-semibold text-white">
                         <div><div class="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>{{ busyOf(c) === 'portrait' ? 'Création de la pub…' : 'Déclinaison ' + FMT.find((f) => f[0] === busyOf(c))[1] + '…' }}<p class="mt-1 text-xs font-normal text-slate-300">Direction artistique, typographie, puis contrôle qualité</p></div>
                     </div>

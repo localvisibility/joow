@@ -142,7 +142,7 @@ class ImageStore
         return $kept;
     }
 
-    private function toJpeg(string $raw): ?string
+    public function toJpeg(string $raw): ?string
     {
         if (! function_exists('imagecreatefromstring')) {
             return null;

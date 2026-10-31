@@ -36,12 +36,12 @@ class RenderAdJob implements ShouldQueue
         try {
             $out = $creative->render($site, $c, $this->format, $this->admin, $from);
         } catch (\Throwable $e) {
-            Log::warning("RenderAdJob {$site->slug} {$this->key} : ".$e->getMessage());
-            $out = ['error' => 'La création de la pub n\'a pas abouti. Réessayez dans un instant (rien n\'a été décompté).'];
+            Log::warning("RenderAdJob {$site->slug} {$this->key} : ".$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
+            $out = ['error' => 'La création de la pub n\'a pas abouti. Réessayez dans un instant (rien n\'a été décompté).', 'detail' => 'Exception : '.str($e->getMessage())->limit(200).' @ '.basename($e->getFile()).':'.$e->getLine()];
         }
         self::store($this->packId, $this->key, function (array &$cr) use ($out) {
             if (isset($out['error'])) {
-                $cr['jobs'][$this->format] = ['status' => 'error', 'error' => $out['error']];
+                $cr['jobs'][$this->format] = ['status' => 'error', 'error' => $out['error']] + ($this->admin && ! empty($out['detail']) ? ['detail' => $out['detail']] : []);
 
                 return;
             }

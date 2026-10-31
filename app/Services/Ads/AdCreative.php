@@ -40,8 +40,19 @@ class AdCreative
         $prompt = $this->prompt($site, $c, $format, (bool) $from, (bool) count($refs));
         $bytes = null;
         $qa = ['score' => null, 'text_ok' => null, 'issues' => []];
+        $t0 = microtime(true);
         for ($try = 0; $try < 2; $try++) {
+            if ($try && microtime(true) - $t0 > 90) {
+                break; // pas le temps d'une seconde version : on garde la première
+            }
             $bytes = Gemini::image($prompt.($try && $qa['issues'] ? "\n\nCORRIGE IMPÉRATIVEMENT ces défauts de la version précédente : ".implode(' ; ', $qa['issues']) : ''), $aspect, $refs, 'AdCreative');
+            if (! $bytes && $refs && ! $from && microtime(true) - $t0 < 90) {
+                // Photo de référence refusée par le modèle : on retente sans elle
+                Log::warning("AdCreative {$site->slug} {$c['key']} sans photo de référence : ".implode(' | ', Gemini::$lastImageErrors));
+                $refs = [];
+                $prompt = $this->prompt($site, $c, $format, false, false);
+                $bytes = Gemini::image($prompt, $aspect, null, 'AdCreative');
+            }
             if (! $bytes) {
                 break;
             }
@@ -52,7 +63,10 @@ class AdCreative
             Log::info("AdCreative {$site->slug} {$c['key']} : contrôle qualité {$qa['score']}/10, nouvelle tentative (".implode(' ; ', $qa['issues']).')');
         }
         if (! $bytes) {
-            return ['error' => 'La création de la pub n\'a pas abouti. Réessayez dans un instant (rien n\'a été décompté).', 'status' => 502];
+            $why = implode(' | ', Gemini::$lastImageErrors) ?: (config('services.gemini.key') ? 'aucun modèle image disponible' : 'clé Gemini absente');
+            Log::warning("AdCreative {$site->slug} {$c['key']} échec : $why");
+
+            return ['error' => 'La création de la pub n\'a pas abouti. Réessayez dans un instant (rien n\'a été décompté).', 'status' => 502, 'detail' => $why];
         }
         $name = app(ImageStore::class)->storeBytes($bytes, $site->slug);
         if (! $name) {
@@ -133,9 +147,18 @@ class AdCreative
             return null;
         }
         try {
-            $r = Http::timeout(15)->get($url);
+            // Nos propres médias : lus directement sur le disque (pas d'aller-retour par le proxy)
+            if (preg_match('#/media/([^/]+)/([^/?]+)#', $url, $m) && \Illuminate\Support\Facades\Storage::disk('local')->exists("uploads/{$m[1]}/{$m[2]}")) {
+                $raw = \Illuminate\Support\Facades\Storage::disk('local')->get("uploads/{$m[1]}/{$m[2]}");
+            } elseif (str_starts_with($url, 'http')) {
+                $r = Http::timeout(15)->get($url);
+                $raw = $r->successful() ? $r->body() : null;
+            } else {
+                return null;
+            }
 
-            return $r->successful() ? $r->body() : null;
+            // Toujours un vrai JPEG de taille raisonnable (un fichier HTML, AVIF ou géant fait échouer tous les modèles)
+            return $raw ? app(ImageStore::class)->toJpeg($raw) : null;
         } catch (\Throwable) {
             return null;
         }
