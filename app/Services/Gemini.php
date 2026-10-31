@@ -204,7 +204,8 @@ class Gemini
                     break; // réponse sans image : modèle suivant
                 }
                 Log::warning("$context : $model HTTP {$res->status()} ".str($res->json('error.message') ?? '')->limit(160));
-                if ($res->status() === 404) {
+                if (in_array($res->status(), [403, 404], true)) {
+                    Cache::put("joow:gemini:down:$model", true, now()->addHour()); // modèle indisponible pour cette clé (ex. facturation Google requise)
                     break;
                 }
                 if (in_array($res->status(), [429, 500, 503], true)) {

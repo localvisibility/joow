@@ -163,6 +163,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/abonnement', [\App\Http\Controllers\AdsController::class, 'subscribe'])->name('subscribe');
         Route::post('/pack', [\App\Http\Controllers\AdsController::class, 'pack'])->middleware('throttle:10,60')->name('pack');
         Route::post('/pub', [\App\Http\Controllers\AdsController::class, 'creative'])->middleware('throttle:40,10')->name('creative');
+        Route::get('/campagne/{pack}', [\App\Http\Controllers\AdsController::class, 'campaignState'])->name('campaign.state');
         Route::post('/campagne', [\App\Http\Controllers\AdsController::class, 'campaign'])->middleware('throttle:10,60')->name('campaign');
         Route::post('/visuels', [\App\Http\Controllers\AdsController::class, 'visual'])->middleware('throttle:20,10')->name('visual');
         Route::post('/pages', [\App\Http\Controllers\AdsController::class, 'storePage'])->middleware('throttle:20,60')->name('pages.store');

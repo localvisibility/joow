@@ -230,34 +230,42 @@ class AdsController extends Controller
         return response()->json(['campaign' => $camp]);
     }
 
-    /** Pub finale d'un concept, créée par l'IA (format 4:5, puis déclinaisons 1:1 et 9:16 à partir de la 4:5). */
-    public function creative(Request $request, string $slug, \App\Services\Ads\AdCreative $creative)
+    /** Pub finale d'un concept : lancée en arrière-plan (4:5, puis déclinaisons 1:1 et 9:16 à partir de la 4:5). */
+    public function creative(Request $request, string $slug, \App\Services\Ads\AdVisuals $visuals)
     {
         $site = $this->site($request, $slug);
         $data = $request->validate(['pack_id' => ['required', 'uuid'], 'key' => ['required', 'string', 'max:6'], 'format' => ['required', 'in:portrait,square,story'], 'redo' => ['nullable', 'boolean']]);
         $pack = AdsPack::where('site_id', $site->id)->findOrFail($data['pack_id']);
-        $p = (array) $pack->pack;
-        $idx = collect($p['campaign']['creatives'] ?? [])->search(fn ($c) => ($c['key'] ?? '') === $data['key']);
-        abort_if($idx === false, 404);
-        $c = $p['campaign']['creatives'][$idx];
-        @set_time_limit(280);
-        $from = $data['format'] !== 'portrait' && empty($data['redo']) ? ($c['renders']['portrait']['url'] ?? null) : null;
-        $out = $creative->render($site, $c, $data['format'], $request->user()->isAdmin(), $from);
-        if (isset($out['error'])) {
-            return response()->json(['error' => $out['error']], $out['status']);
+        $c = collect($pack->pack['campaign']['creatives'] ?? [])->firstWhere('key', $data['key']);
+        abort_unless($c, 404);
+        $job = $c['jobs'][$data['format']] ?? null;
+        if (($job['status'] ?? '') === 'running' && now()->subMinutes(6)->lt($job['at'] ?? '2000-01-01')) {
+            return response()->json(['queued' => true], 202); // déjà en cours : pas de double facturation
         }
-        $pack->refresh();
-        $p = (array) $pack->pack;
-        $p['campaign']['creatives'][$idx]['renders'][$data['format']] = ['url' => $out['url'], 'qa' => $out['qa'], 'model' => $out['model'] ?? null];
-        if ($data['format'] === 'portrait') {
-            // Nouvelle version principale : les déclinaisons précédentes ne correspondent plus
-            $p['campaign']['creatives'][$idx]['renders'] = ['portrait' => $p['campaign']['creatives'][$idx]['renders']['portrait']];
+        $pay = $visuals->payment($site, $request->user()->isAdmin());
+        if (isset($pay['error'])) {
+            return response()->json(['error' => $pay['error']], $pay['status']);
         }
-        $pack->pack = $p;
-        $pack->save();
+        \App\Jobs\RenderAdJob::store($pack->id, $data['key'], function (array &$cr) use ($data) {
+            $cr['jobs'][$data['format']] = ['status' => 'running', 'at' => now()->toIso8601String()];
+        });
+        \App\Jobs\RenderAdJob::dispatch($pack->id, $data['key'], $data['format'], $request->user()->isAdmin(), (bool) ($data['redo'] ?? false));
 
-        return response()->json(['render' => $p['campaign']['creatives'][$idx]['renders'][$data['format']], 'renders' => $p['campaign']['creatives'][$idx]['renders'],
-            'usage' => app(\App\Services\Ads\AdVisuals::class)->usage($site->fresh())]);
+        return response()->json(['queued' => true], 202);
+    }
+
+    /** État des pubs d'une campagne (rendus terminés, en cours, erreurs) : interrogé toutes les quelques secondes. */
+    public function campaignState(Request $request, string $slug, string $pack)
+    {
+        $site = $this->site($request, $slug);
+        $p = AdsPack::where('site_id', $site->id)->findOrFail($pack);
+
+        return response()->json([
+            'creatives' => collect($p->pack['campaign']['creatives'] ?? [])->map(fn ($c) => ['key' => $c['key'], 'renders' => (object) ($c['renders'] ?? []),
+                'jobs' => (object) collect($c['jobs'] ?? [])->map(fn ($j) => ($j['status'] ?? '') === 'running' && now()->subMinutes(6)->gte($j['at'] ?? '2000-01-01')
+                    ? ['status' => 'error', 'error' => 'La création a été interrompue. Réessayez.'] : $j)->all()])->values(),
+            'usage' => app(\App\Services\Ads\AdVisuals::class)->usage($site),
+        ]);
     }
 
     /** Génère un visuel publicitaire IA (quota mensuel, puis crédits IA). */

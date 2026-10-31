@@ -229,10 +229,12 @@ class JoowAdsTest extends TestCase
             ['key' => 'c1', 'axis' => 'bénéfice', 'headline' => 'Économisez 60 %', 'cta' => 'Appeler', 'art' => 'Plombier en intervention', 'refs' => [], 'renders' => []],
         ]]]]);
 
-        $r = $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/pub', ['pack_id' => $pack->id, 'key' => 'c1', 'format' => 'portrait'])->assertOk()->json();
-        $this->assertSame(9, $r['render']['qa']['score']);
+        $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/pub', ['pack_id' => $pack->id, 'key' => 'c1', 'format' => 'portrait'])->assertStatus(202);
+        $state = $this->actingAs($this->owner)->getJson("/publicite/plombier-ab12/campagne/{$pack->id}")->assertOk()->json('creatives.0');
+        $this->assertSame(9, $state['renders']['portrait']['qa']['score']);
+        $this->assertEmpty($state['jobs']);
         $this->assertSame(2, $calls); // relance après le contrôle qualité
-        $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/pub', ['pack_id' => $pack->id, 'key' => 'c1', 'format' => 'story'])->assertOk();
+        $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/pub', ['pack_id' => $pack->id, 'key' => 'c1', 'format' => 'story'])->assertStatus(202);
         $renders = $pack->fresh()->pack['campaign']['creatives'][0]['renders'];
         $this->assertArrayHasKey('portrait', $renders);
         $this->assertArrayHasKey('story', $renders);

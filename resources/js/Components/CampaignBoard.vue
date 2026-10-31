@@ -2,17 +2,15 @@
 /* Campagne créative : pour chaque concept, la pub finale créée par l'IA image Pro (4:5), déclinable en 1:1 et 9:16,
    avec son insight, sa raison de convertir, son contrôle qualité et son texte de publication. Carrousel, export ZIP, lien suivi. */
 import { FORMATS, renderAd, renderSlide } from '@/adRender.js';
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 
 const props = defineProps({ campaign: Object, brand: Object, slug: String, packId: String, landingUrl: String, campaignName: String });
 const emit = defineEmits(['edit', 'usage', 'error', 'landing']);
 
 const view = ref({});           // format affiché par concept
-const busy = ref({});           // concept -> format en cours
 const slides = ref({});
 const zipping = ref(false);
 const copied = ref('');
-const queue = ref(0);
 const FMT = [['portrait', '4:5'], ['square', '1:1'], ['story', '9:16']];
 const done = computed(() => (props.campaign?.creatives || []).filter((c) => c.renders?.portrait).length);
 
@@ -22,22 +20,46 @@ const api = async (url, body) => {
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || d.message || 'Erreur'); return d;
 };
 
-const render = async (c, format = 'portrait', redo = false) => {
-    busy.value[c.key] = format;
-    try {
-        const d = await api(route('ads.creative', props.slug), { pack_id: props.packId, key: c.key, format, redo });
-        c.renders = d.renders; view.value[c.key] = format; emit('usage', d.usage);
-    } catch (e) { emit('error', e.message); throw e; } finally { busy.value[c.key] = null; }
-};
-const decline = async (c) => { for (const f of ['square', 'story']) { if (!c.renders?.[f]) { try { await render(c, f); } catch { break; } } } };
+// Les pubs sont créées en arrière-plan (≈ 1 min chacune) : on lance, puis on suit l'avancement toutes les 4 s.
+const jobOf = (c, f = 'portrait') => c.jobs?.[f];
+const busyOf = (c) => FMT.map(([f]) => f).find((f) => jobOf(c, f)?.status === 'running') || null;
+const errorOf = (c) => Object.values(c.jobs || {}).find((j) => j?.status === 'error')?.error || '';
+const running = () => (props.campaign?.creatives || []).some((c) => busyOf(c));
+let timer = null; let auto = false;
 
-// Création automatique des pubs principales (l'une après l'autre)
-const autoRender = async () => {
-    const todo = (props.campaign?.creatives || []).filter((c) => !c.renders?.portrait);
-    queue.value = todo.length;
-    for (const c of todo) { try { await render(c, 'portrait'); } catch { break; } queue.value--; }
-    queue.value = 0;
+const render = async (c, format = 'portrait', redo = false) => {
+    c.jobs = { ...(c.jobs || {}), [format]: { status: 'running' } };
+    try {
+        await api(route('ads.creative', props.slug), { pack_id: props.packId, key: c.key, format, redo });
+        view.value[c.key] = format; poll();
+    } catch (e) { c.jobs = { ...(c.jobs || {}), [format]: { status: 'error', error: e.message } }; throw e; }
 };
+const decline = async (c) => { auto = false; for (const f of ['square', 'story']) if (!c.renders?.[f]) { try { await render(c, f); } catch { break; } } };
+
+const sync = async () => {
+    const r = await fetch(route('ads.campaign.state', [props.slug, props.packId]), { headers: { Accept: 'application/json' } });
+    if (!r.ok) return;
+    const d = await r.json();
+    for (const s of d.creatives || []) { const c = props.campaign.creatives.find((x) => x.key === s.key); if (c) { c.renders = s.renders || {}; c.jobs = s.jobs || {}; } }
+    emit('usage', d.usage);
+};
+const next = () => {
+    if (!auto || running()) return;
+    const c = (props.campaign?.creatives || []).find((x) => !x.renders?.portrait && !jobOf(x));
+    if (c) render(c, 'portrait').catch(() => { auto = false; }); else auto = false;
+};
+const poll = () => {
+    if (timer) return;
+    timer = setInterval(async () => {
+        try { await sync(); } catch { /* réseau : on réessaie au prochain tour */ }
+        next();
+        if (!running() && !auto) { clearInterval(timer); timer = null; }
+    }, 4000);
+};
+// Création automatique des pubs principales, l'une après l'autre
+const autoRender = () => { auto = true; next(); if (running()) poll(); };
+const queued = computed(() => auto || running());
+onBeforeUnmount(() => clearInterval(timer));
 
 const drawSlides = async () => {
     await nextTick();
@@ -84,7 +106,7 @@ defineExpose({ landingMatch, trackUrl });
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="max-w-2xl text-sm text-slate-400">
                 <p v-if="campaign.landing_hint">🎯 <b class="text-slate-200">Promesse :</b> {{ campaign.landing_hint }}</p>
-                <p v-if="queue" class="mt-1 text-brand-300">✨ Création des pubs par l'IA… {{ done }} / {{ campaign.creatives.length }} prêtes (≈ 40 s chacune, contrôle qualité compris)</p>
+                <p v-if="queued" class="mt-1 text-brand-300">✨ Création des pubs par l'IA… {{ done }} / {{ campaign.creatives.length }} prêtes (≈ 1 min chacune, contrôle qualité compris — vous pouvez quitter la page, elles continuent)</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <button @click="emit('landing', landingMatch())" class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5">🎯 Créer la page d'offre de la campagne</button>
@@ -96,17 +118,18 @@ defineExpose({ landingMatch, trackUrl });
             <div v-for="c in campaign.creatives" :key="c.key" class="glass flex flex-col overflow-hidden rounded-2xl">
                 <div class="relative grid min-h-[22rem] place-items-center bg-black/40">
                     <img v-if="shown(c)" :src="shown(c).url" class="block h-auto max-h-[34rem] w-full object-contain" alt="" />
-                    <div v-else class="p-6 text-center text-sm text-slate-400">{{ busy[c.key] ? '' : 'Pub pas encore créée' }}</div>
-                    <div v-if="busy[c.key]" class="absolute inset-0 grid place-items-center bg-black/70 p-6 text-center text-sm font-semibold text-white">
-                        <div><div class="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>{{ busy[c.key] === 'portrait' ? 'Création de la pub…' : 'Déclinaison ' + FMT.find((f) => f[0] === busy[c.key])[1] + '…' }}<p class="mt-1 text-xs font-normal text-slate-300">Direction artistique, typographie, puis contrôle qualité</p></div>
+                    <div v-else class="p-6 text-center text-sm text-slate-400"><template v-if="!busyOf(c)"><p v-if="errorOf(c)" class="text-rose-300">{{ errorOf(c) }}</p><p v-else>Pub pas encore créée</p></template></div>
+                    <div v-if="busyOf(c)" class="absolute inset-0 grid place-items-center bg-black/70 p-6 text-center text-sm font-semibold text-white">
+                        <div><div class="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>{{ busyOf(c) === 'portrait' ? 'Création de la pub…' : 'Déclinaison ' + FMT.find((f) => f[0] === busyOf(c))[1] + '…' }}<p class="mt-1 text-xs font-normal text-slate-300">Direction artistique, typographie, puis contrôle qualité</p></div>
                     </div>
                     <span v-if="shown(c)?.qa?.score" class="absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-bold" :class="shown(c).qa.score >= 8 ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-ink-950'" :title="(shown(c).qa.issues || []).join(' · ')">Contrôle {{ shown(c).qa.score }}/10</span>
                 </div>
                 <div v-if="c.renders?.portrait" class="flex gap-1 border-b border-white/[0.06] px-4 py-2">
                     <button v-for="[f, l] in FMT" :key="f" @click="c.renders?.[f] ? (view[c.key] = f) : null" class="rounded-md px-2 py-1 text-xs font-semibold" :class="(view[c.key] || 'portrait') === f ? 'bg-brand-500 text-white' : c.renders?.[f] ? 'bg-white/[0.06] text-slate-300' : 'text-slate-600'">{{ l }}</button>
-                    <button v-if="!c.renders?.square || !c.renders?.story" @click="decline(c)" :disabled="!!busy[c.key]" class="ml-auto rounded-md bg-white/[0.06] px-2 py-1 text-xs font-semibold text-slate-200">Décliner 1:1 + 9:16</button>
+                    <button v-if="!c.renders?.square || !c.renders?.story" @click="decline(c)" :disabled="!!busyOf(c)" class="ml-auto rounded-md bg-white/[0.06] px-2 py-1 text-xs font-semibold text-slate-200">Décliner 1:1 + 9:16</button>
                 </div>
                 <div class="flex flex-1 flex-col gap-2 p-4 text-sm">
+                    <p v-if="errorOf(c) && shown(c)" class="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{{ errorOf(c) }}</p>
                     <div class="flex flex-wrap gap-1.5"><span class="chip bg-brand-500/20 text-brand-200">{{ c.axis }}</span></div>
                     <p class="font-semibold text-white">{{ c.concept }}</p>
                     <p v-if="c.insight" class="text-xs text-slate-400"><b class="text-slate-300">Insight :</b> {{ c.insight }}</p>
@@ -114,7 +137,7 @@ defineExpose({ landingMatch, trackUrl });
                     <details v-if="c.primary_text" class="rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-slate-300"><summary class="cursor-pointer font-semibold text-slate-200">Texte de la publication</summary><p class="mt-2 whitespace-pre-line">{{ c.primary_text }}</p>
                         <button @click="copy(c.primary_text, 't' + c.key)" class="mt-2 text-brand-300">{{ copied === 't' + c.key ? 'Copié ✓' : 'Copier le texte' }}</button></details>
                     <div class="mt-auto flex flex-wrap gap-2 pt-2">
-                        <button @click="render(c, 'portrait', true).catch(() => {})" :disabled="!!busy[c.key]" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">{{ c.renders?.portrait ? '↻ Nouvelle version' : '✨ Créer la pub' }}</button>
+                        <button @click="render(c, 'portrait', true).catch(() => {})" :disabled="!!busyOf(c)" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">{{ c.renders?.portrait ? '↻ Nouvelle version' : '✨ Créer la pub' }}</button>
                         <a v-if="shown(c)" :href="shown(c).url" target="_blank" download class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">⬇ Image</a>
                         <button v-if="landingUrl" @click="copy(trackUrl(c), c.key)" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">{{ copied === c.key ? 'Lien copié ✓' : '🔗 Lien' }}</button>
                         <button @click="emit('edit', { ...c, hook: c.headline || c.hook, offer: c.badge, image: c.refs?.[0] || c.image })" class="rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:text-white" title="Retoucher le texte dans l'éditeur de mise en page">✏️ Gabarit</button>
