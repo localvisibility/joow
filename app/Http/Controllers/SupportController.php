@@ -6,8 +6,6 @@ use App\Models\Site;
 use App\Services\SupportBot;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
 /** Onglet Support du tableau de bord : aide, assistant IA, message à l'équipe. */
@@ -19,7 +17,8 @@ class SupportController extends Controller
 
         return Inertia::render('Support', [
             'sites' => Site::where(fn ($q) => $q->where('user_id', $user->id)->orWhere('owner_email', $user->email))->latest()->take(20)->get(['slug', 'name'])->map->only(['slug', 'name']),
-            'tickets' => DB::table('support_tickets')->where('user_id', $user->id)->latest()->take(10)->get(['id', 'subject', 'status', 'created_at']),
+            'tickets' => DB::table('support_tickets')->where('user_id', $user->id)->orderByDesc('updated_at')->take(10)->get()
+                ->map(fn ($t) => ['id' => $t->id, 'subject' => $t->subject, 'status' => $t->status, 'thread' => app(\App\Services\SupportDesk::class)->thread($t)]),
         ]);
     }
 
@@ -43,20 +42,19 @@ class SupportController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    public function contact(Request $request)
+    public function contact(Request $request, \App\Services\SupportDesk $desk)
     {
-        $user = $request->user();
         $data = $request->validate(['subject' => ['required', 'string', 'max:160'], 'message' => ['required', 'string', 'max:5000'], 'site' => ['nullable', 'string', 'max:120']]);
-        $id = DB::table('support_tickets')->insertGetId(['user_id' => $user->id, 'site_slug' => $data['site'] ?? null, 'subject' => $data['subject'], 'message' => $data['message'], 'created_at' => now(), 'updated_at' => now()]);
-        $body = "Message de {$user->name} <{$user->email}>".(! empty($data['site']) ? "\nSite : https://{$data['site']}.joow.fr" : '')."\n\n{$data['message']}\n\n— Ticket #{$id} · back-office : ".route('admin.index', ['tab' => 'support']);
-        foreach (array_filter((array) config('joow.admins')) ?: ['contact@joow.fr'] as $to) {
-            try {
-                Mail::raw($body, fn ($m) => $m->to($to)->replyTo($user->email, $user->name)->subject("Support Joow #{$id} : {$data['subject']}"));
-            } catch (\Throwable $e) {
-                Log::warning('Support : '.$e->getMessage());
-            }
-        }
+        $desk->create($request->user(), $data['subject'], $data['message'], ($data['site'] ?? null) ?: null);
 
-        return back()->with('status', 'Message envoyé : nous vous répondons par email sous 24 h ouvrées.');
+        return back()->with('status', 'Message envoyé : nous vous répondons ici et par email sous 24 h ouvrées.');
+    }
+
+    public function reply(Request $request, int $id, \App\Services\SupportDesk $desk)
+    {
+        $data = $request->validate(['message' => ['required', 'string', 'max:5000']]);
+        $desk->clientReply($id, $request->user(), $data['message']);
+
+        return back()->with('status', 'Réponse envoyée.');
     }
 }

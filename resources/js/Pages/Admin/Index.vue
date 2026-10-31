@@ -95,6 +95,13 @@ const sendMail = () => {
     });
 };
 const chatSite = ref(null);
+const answers = reactive({});
+const sendingTicket = ref(null);
+const answer = (t, close) => {
+    sendingTicket.value = t.id;
+    router.post(route('admin.support.ticket', t.id), { message: answers[t.id], close }, { preserveScroll: true, onSuccess: () => { answers[t.id] = ''; }, onFinish: () => { sendingTicket.value = null; } });
+};
+const setStatus = (t, status) => router.post(route('admin.support.ticket', t.id), { status }, { preserveScroll: true });
 const aiAsks = (r) => (r.ai_chat || []).filter((m) => m.role === 'user').length;
 const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filter(Boolean).sort().pop();
 </script>
@@ -134,7 +141,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
         <div class="mt-8 flex gap-1 overflow-x-auto border-b border-white/[0.06]">
             <Link v-for="[k, l] in tabs" :key="k" :href="route('admin.index', { tab: k, days })" preserve-scroll
                 class="whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-semibold transition"
-                :class="tab === k ? 'border-brand-400 text-white' : 'border-transparent text-slate-400 hover:text-white'">{{ l }}</Link>
+                :class="tab === k ? 'border-brand-400 text-white' : 'border-transparent text-slate-400 hover:text-white'">{{ l }}<span v-if="k === 'support' && kpis.support_open" class="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-ink-950">{{ kpis.support_open }}</span></Link>
         </div>
 
         <!-- Recherche -->
@@ -335,15 +342,28 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
         <div v-else-if="tab === 'support'" class="mt-5 grid gap-4 xl:grid-cols-2">
             <div class="glass rounded-2xl p-5">
                 <h2 class="font-semibold text-white">✉ Messages à l'équipe <span v-if="data.open" class="chip ml-1 bg-amber-500/15 text-amber-300">{{ data.open }} à traiter</span></h2>
-                <div v-for="t in data.tickets" :key="t.id" class="mt-3 rounded-xl border border-white/[0.06] p-4" :class="t.status === 'closed' ? 'opacity-60' : ''">
+                <div v-for="t in data.tickets" :key="t.id" class="mt-3 rounded-xl border p-4" :class="t.status === 'open' ? 'border-amber-400/30' : 'border-white/[0.06] opacity-80'">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div><p class="font-semibold text-white">#{{ t.id }} · {{ t.subject }}</p><p class="text-xs text-slate-500">{{ t.name }} · {{ t.email }}<span v-if="t.site"> · {{ t.site }}</span> · {{ ago(t.at) }}</p></div>
-                        <div class="flex gap-2">
-                            <a :href="`mailto:${t.email}?subject=${encodeURIComponent('Re: ' + t.subject + ' (Joow #' + t.id + ')')}`" class="rounded-lg bg-brand-500/15 px-2.5 py-1 text-xs font-semibold text-brand-300">Répondre</a>
-                            <Link :href="route('admin.support.ticket', t.id)" method="patch" as="button" :data="{ status: t.status === 'open' ? 'closed' : 'open' }" preserve-scroll class="rounded-lg bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-slate-200">{{ t.status === 'open' ? '✓ Traité' : 'Rouvrir' }}</Link>
+                        <span class="chip" :class="{ open: 'bg-amber-500/15 text-amber-300', answered: 'bg-sky-500/15 text-sky-300', closed: 'bg-emerald-500/15 text-emerald-300' }[t.status]">{{ { open: 'à traiter', answered: 'répondu', closed: 'clos' }[t.status] }}</span>
+                    </div>
+                    <div class="mt-3 space-y-2">
+                        <div v-for="(m, i) in t.thread" :key="i" :class="m.author === 'team' ? 'ml-8' : 'mr-8'">
+                            <div class="rounded-xl px-3 py-2 text-sm" :class="m.author === 'team' ? 'bg-brand-500/15 text-slate-100' : 'bg-white/[0.05] text-slate-300'">
+                                <p class="mb-0.5 text-[11px] font-semibold uppercase tracking-wide" :class="m.author === 'team' ? 'text-brand-300' : 'text-slate-500'">{{ m.author === 'team' ? 'Équipe Joow' : t.name }} · {{ ago(m.at) }}</p>
+                                <p class="whitespace-pre-line">{{ m.message }}</p>
+                            </div>
                         </div>
                     </div>
-                    <p class="mt-2 whitespace-pre-line text-sm text-slate-300">{{ t.message }}</p>
+                    <div v-if="t.status !== 'closed'" class="mt-3">
+                        <textarea v-model="answers[t.id]" rows="3" class="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" placeholder="Votre réponse (envoyée par email au client et visible dans son espace)…"></textarea>
+                        <div class="mt-2 flex flex-wrap justify-end gap-2">
+                            <button @click="setStatus(t, 'closed')" class="rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:text-white">Clore sans répondre</button>
+                            <button @click="answer(t, true)" :disabled="!answers[t.id]?.trim() || sendingTicket === t.id" class="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200">Répondre et clore</button>
+                            <button @click="answer(t, false)" :disabled="!answers[t.id]?.trim() || sendingTicket === t.id" class="btn-brand !px-4 !py-1.5 text-xs">{{ sendingTicket === t.id ? 'Envoi…' : 'Envoyer la réponse' }}</button>
+                        </div>
+                    </div>
+                    <div v-else class="mt-2 text-right"><button @click="setStatus(t, 'open')" class="text-xs text-slate-400 hover:text-white">Rouvrir</button></div>
                 </div>
                 <p v-if="!data.tickets.length" class="mt-3 text-sm text-slate-500">Aucun message.</p>
             </div>

@@ -90,7 +90,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [\App\Http\Controllers\AdminController::class, 'index'])->name('index');
         Route::post('/abonnements/{site}', [\App\Http\Controllers\AdminController::class, 'subscription'])->name('subscription');
         Route::delete('/sites/{site}', [\App\Http\Controllers\AdminController::class, 'destroySite'])->name('sites.destroy');
-        Route::patch('/support/{id}', [\App\Http\Controllers\AdminController::class, 'ticket'])->name('support.ticket');
+        Route::match(['patch', 'post'], '/support/{id}', [\App\Http\Controllers\AdminController::class, 'ticket'])->name('support.ticket');
         Route::post('/sites/{site}/email', [\App\Http\Controllers\AdminController::class, 'email'])->middleware('throttle:30,1')->name('sites.email');
         Route::post('/clients/{user}/connexion', [\App\Http\Controllers\AdminController::class, 'impersonate'])->name('impersonate');
     });
@@ -155,6 +155,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/support/assistant', [\App\Http\Controllers\SupportController::class, 'ask'])->middleware('throttle:30,10')->name('support.ask');
     Route::post('/support/assistant/{id}/avis', [\App\Http\Controllers\SupportController::class, 'feedback'])->name('support.feedback');
     Route::post('/support/message', [\App\Http\Controllers\SupportController::class, 'contact'])->middleware('throttle:5,10')->name('support.contact');
+    Route::post('/support/message/{id}/reponse', [\App\Http\Controllers\SupportController::class, 'reply'])->middleware('throttle:20,10')->name('support.reply');
     // Module Joow Ads
     Route::get('/publicite', [\App\Http\Controllers\AdsController::class, 'index'])->name('ads.index');
     Route::prefix('/publicite/{slug}')->name('ads.')->group(function () {

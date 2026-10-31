@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import HelpChat from '@/Components/HelpChat.vue';
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 const props = defineProps({ sites: Array, tickets: Array });
@@ -21,6 +21,12 @@ const FAQ = [
     ['Comment résilier ?', 'Hébergement → « Gérer l\'abonnement » → Annuler. La résiliation prend effet à la fin de la période déjà payée, sans frais.'],
 ];
 const openFaq = ref(null);
+const replies = ref({});
+const replying = ref(null);
+const reply = (t) => {
+    replying.value = t.id;
+    router.post(route('support.reply', t.id), { message: replies.value[t.id] }, { preserveScroll: true, onSuccess: () => { replies.value[t.id] = ''; }, onFinish: () => { replying.value = null; } });
+};
 </script>
 
 <template>
@@ -40,6 +46,27 @@ const openFaq = ref(null);
             </div>
 
             <div class="space-y-6">
+                <!-- Mes demandes -->
+                <div v-if="tickets.length" class="glass rounded-2xl p-5">
+                    <p class="font-semibold text-white">Vos demandes</p>
+                    <details v-for="t in tickets" :key="t.id" class="mt-3 rounded-xl border border-white/[0.06] p-3" :open="t.status === 'answered'">
+                        <summary class="flex cursor-pointer items-center justify-between gap-3 text-sm"><span class="truncate font-medium text-slate-200">#{{ t.id }} · {{ t.subject }}</span>
+                            <span class="shrink-0 text-xs" :class="{ open: 'text-amber-300', answered: 'text-sky-300', closed: 'text-emerald-300' }[t.status]">{{ { open: 'en attente', answered: 'réponse reçue', closed: 'traitée' }[t.status] }}</span></summary>
+                        <div class="mt-3 space-y-2">
+                            <div v-for="(m, i) in t.thread" :key="i" :class="m.author === 'team' ? 'mr-6' : 'ml-6'">
+                                <div class="rounded-xl px-3 py-2 text-sm" :class="m.author === 'team' ? 'bg-brand-500/15 text-slate-100' : 'bg-white/[0.05] text-slate-300'">
+                                    <p class="mb-0.5 text-[11px] font-semibold" :class="m.author === 'team' ? 'text-brand-300' : 'text-slate-500'">{{ m.author === 'team' ? 'Équipe Joow' : 'Vous' }} · {{ new Date(m.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) }}</p>
+                                    <p class="whitespace-pre-line">{{ m.message }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <textarea v-model="replies[t.id]" rows="2" class="flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white" placeholder="Répondre…"></textarea>
+                            <button @click="reply(t)" :disabled="!replies[t.id]?.trim() || replying === t.id" class="btn-brand self-end !px-4 text-sm">Envoyer</button>
+                        </div>
+                    </details>
+                </div>
+
                 <div class="glass rounded-2xl p-5">
                     <p class="font-semibold text-white">Questions fréquentes</p>
                     <div v-for="([qq, a], i) in FAQ" :key="i" class="mt-2 border-b border-white/[0.04] pb-2 last:border-0">
@@ -59,10 +86,6 @@ const openFaq = ref(null);
                         <p v-if="form.errors.message || form.errors.subject" class="text-sm text-rose-300">{{ form.errors.message || form.errors.subject }}</p>
                         <button :disabled="form.processing" class="btn-brand w-full text-sm">{{ form.processing ? 'Envoi…' : 'Envoyer' }}</button>
                     </form>
-                    <div v-if="tickets.length" class="mt-4 border-t border-white/[0.06] pt-3">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Vos messages</p>
-                        <p v-for="t in tickets" :key="t.id" class="mt-1.5 flex justify-between gap-3 text-sm"><span class="truncate text-slate-300">#{{ t.id }} · {{ t.subject }}</span><span class="shrink-0 text-xs" :class="t.status === 'open' ? 'text-amber-300' : 'text-emerald-300'">{{ t.status === 'open' ? 'en cours' : 'traité' }}</span></p>
-                    </div>
                 </div>
             </div>
         </div>

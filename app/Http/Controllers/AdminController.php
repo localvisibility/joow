@@ -95,6 +95,7 @@ class AdminController extends Controller
             'churn' => round($canceledPeriod / $startPro * 100, 1),
             'canceled_period' => $canceledPeriod,
             'clients' => User::count(),
+            'support_open' => \Illuminate\Support\Facades\DB::table('support_tickets')->where('status', 'open')->count(),
             'blocked' => \Illuminate\Support\Facades\DB::table('creation_blocks')->where('created_at', '>=', $since)->count(),
             'arpu' => $activePro ? round($mrr / $activePro, 2) : 0,
         ];
@@ -276,22 +277,31 @@ class AdminController extends Controller
     {
         $db = \Illuminate\Support\Facades\DB::class;
         $users = fn ($ids) => User::whereIn('id', $ids)->get(['id', 'name', 'email'])->keyBy('id');
-        $tickets = $db::table('support_tickets')->orderByRaw("case when status = 'open' then 0 else 1 end")->orderByDesc('created_at')->take(100)->get();
+        $tickets = $db::table('support_tickets')->orderByRaw("case status when 'open' then 0 when 'answered' then 1 else 2 end")->orderByDesc('updated_at')->take(100)->get();
         $questions = $db::table('support_questions')->orderByDesc('created_at')->take(150)->get();
         $u = $users($tickets->pluck('user_id')->merge($questions->pluck('user_id'))->unique());
         $who = fn ($id) => ['name' => $u[$id]->name ?? '—', 'email' => $u[$id]->email ?? '—'];
 
         return [
-            'tickets' => $tickets->map(fn ($t) => ['id' => $t->id, 'subject' => $t->subject, 'message' => $t->message, 'site' => $t->site_slug, 'status' => $t->status, 'at' => \Illuminate\Support\Carbon::parse($t->created_at)->toIso8601String()] + $who($t->user_id))->all(),
+            'tickets' => $tickets->map(fn ($t) => ['id' => $t->id, 'subject' => $t->subject, 'site' => $t->site_slug, 'status' => $t->status, 'at' => \Illuminate\Support\Carbon::parse($t->updated_at)->toIso8601String(),
+                'thread' => app(\App\Services\SupportDesk::class)->thread($t)] + $who($t->user_id))->all(),
             'questions' => $questions->map(fn ($q) => ['id' => $q->id, 'question' => $q->question, 'answer' => $q->answer, 'escalate' => (bool) $q->escalate, 'helpful' => $q->helpful === null ? null : (bool) $q->helpful, 'at' => \Illuminate\Support\Carbon::parse($q->created_at)->toIso8601String()] + $who($q->user_id))->all(),
             'open' => $tickets->where('status', 'open')->count(),
         ];
     }
 
+    /** Statut d'une demande, ou réponse de l'équipe (envoyée par email au client). */
     public function ticket(Request $request, int $id)
     {
-        $data = $request->validate(['status' => ['required', 'in:open,closed']]);
-        \Illuminate\Support\Facades\DB::table('support_tickets')->where('id', $id)->update(['status' => $data['status'], 'updated_at' => now()]);
+        $data = $request->validate(['status' => ['nullable', 'in:open,answered,closed'], 'message' => ['nullable', 'string', 'max:5000'], 'close' => ['nullable', 'boolean']]);
+        if (! empty($data['message'])) {
+            app(\App\Services\SupportDesk::class)->answer($id, $request->user(), $data['message'], (bool) ($data['close'] ?? false));
+
+            return back()->with('status', 'Réponse envoyée au client.');
+        }
+        if (! empty($data['status'])) {
+            \Illuminate\Support\Facades\DB::table('support_tickets')->where('id', $id)->update(['status' => $data['status'], 'updated_at' => now()]);
+        }
 
         return back();
     }
