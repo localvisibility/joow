@@ -21,6 +21,24 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Joow Ads : un compteur par action (et non un compteur commun à toutes les actions), sans limite pour les admins
+        \Illuminate\Support\Facades\RateLimiter::for('ads', function (\Illuminate\Http\Request $request) {
+            $user = $request->user();
+            if ($user?->isAdmin()) {
+                return \Illuminate\Cache\RateLimiting\Limit::none();
+            }
+            $route = (string) $request->route()?->getName();
+            [$max, $minutes] = match ($route) {
+                'ads.pack', 'ads.campaign' => [15, 60],
+                'ads.creative' => [60, 10],
+                'ads.visual' => [30, 10],
+                default => [30, 60],
+            };
+
+            return \Illuminate\Cache\RateLimiting\Limit::perMinutes($minutes, $max)->by($route.'|'.($user?->id ?: $request->ip()))
+                ->response(fn () => response()->json(['error' => 'Vous avez lancé beaucoup de créations d\'un coup : patientez quelques minutes avant de recommencer.'], 429));
+        });
+
         Vite::prefetch(concurrency: 3);
 
         // Paiements Stripe Connect (acomptes, empreintes) — Cashier vérifie la signature.
