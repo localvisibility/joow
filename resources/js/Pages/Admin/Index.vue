@@ -11,7 +11,7 @@ const props = defineProps({
 const page = usePage();
 const tabs = [
     ['overview', 'Vue d\'ensemble'], ['subscriptions', 'Abonnements'], ['clients', 'Clients'],
-    ['sites', 'Sites'], ['emails', 'Emails'], ['invoices', 'Factures'], ['domains', 'Domaines'], ['ai', 'IA & coûts'],
+    ['sites', 'Sites'], ['support', 'Support'], ['emails', 'Emails'], ['invoices', 'Factures'], ['domains', 'Domaines'], ['ai', 'IA & coûts'],
 ];
 const search = ref(props.q || '');
 const qs = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
@@ -329,6 +329,40 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                     <tr v-if="!rows.length"><td colspan="7" class="px-5 py-10 text-center text-slate-500">Aucun site.</td></tr>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Support -->
+        <div v-else-if="tab === 'support'" class="mt-5 grid gap-4 xl:grid-cols-2">
+            <div class="glass rounded-2xl p-5">
+                <h2 class="font-semibold text-white">✉ Messages à l'équipe <span v-if="data.open" class="chip ml-1 bg-amber-500/15 text-amber-300">{{ data.open }} à traiter</span></h2>
+                <div v-for="t in data.tickets" :key="t.id" class="mt-3 rounded-xl border border-white/[0.06] p-4" :class="t.status === 'closed' ? 'opacity-60' : ''">
+                    <div class="flex flex-wrap items-start justify-between gap-2">
+                        <div><p class="font-semibold text-white">#{{ t.id }} · {{ t.subject }}</p><p class="text-xs text-slate-500">{{ t.name }} · {{ t.email }}<span v-if="t.site"> · {{ t.site }}</span> · {{ ago(t.at) }}</p></div>
+                        <div class="flex gap-2">
+                            <a :href="`mailto:${t.email}?subject=${encodeURIComponent('Re: ' + t.subject + ' (Joow #' + t.id + ')')}`" class="rounded-lg bg-brand-500/15 px-2.5 py-1 text-xs font-semibold text-brand-300">Répondre</a>
+                            <Link :href="route('admin.support.ticket', t.id)" method="patch" as="button" :data="{ status: t.status === 'open' ? 'closed' : 'open' }" preserve-scroll class="rounded-lg bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-slate-200">{{ t.status === 'open' ? '✓ Traité' : 'Rouvrir' }}</Link>
+                        </div>
+                    </div>
+                    <p class="mt-2 whitespace-pre-line text-sm text-slate-300">{{ t.message }}</p>
+                </div>
+                <p v-if="!data.tickets.length" class="mt-3 text-sm text-slate-500">Aucun message.</p>
+            </div>
+            <div class="glass rounded-2xl p-5">
+                <h2 class="font-semibold text-white">💬 Questions posées à l'assistant</h2>
+                <p class="mt-1 text-xs text-slate-500">👎 et « à transmettre » = réponses à améliorer dans la base d'aide.</p>
+                <details v-for="qq in data.questions" :key="qq.id" class="mt-2 rounded-xl border border-white/[0.06] px-4 py-2.5">
+                    <summary class="flex cursor-pointer items-start justify-between gap-3 text-sm">
+                        <span class="text-slate-200">{{ qq.question }}</span>
+                        <span class="flex shrink-0 gap-1 text-xs">
+                            <span v-if="qq.helpful === true">👍</span><span v-if="qq.helpful === false">👎</span>
+                            <span v-if="qq.escalate" class="chip bg-amber-500/15 text-amber-300">à transmettre</span>
+                        </span>
+                    </summary>
+                    <p class="mt-2 text-xs text-slate-500">{{ qq.name }} · {{ qq.email }} · {{ ago(qq.at) }}</p>
+                    <p class="mt-1 whitespace-pre-line text-sm text-slate-400">{{ qq.answer }}</p>
+                </details>
+                <p v-if="!data.questions.length" class="mt-3 text-sm text-slate-500">Aucune question pour le moment.</p>
+            </div>
         </div>
 
         <!-- Emails -->

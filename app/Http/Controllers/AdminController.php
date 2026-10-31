@@ -25,7 +25,7 @@ class AdminController extends Controller
 {
     private string $like = '%%';
 
-    public const TABS = ['overview', 'subscriptions', 'clients', 'sites', 'emails', 'invoices', 'domains', 'ai'];
+    public const TABS = ['overview', 'subscriptions', 'clients', 'sites', 'support', 'emails', 'invoices', 'domains', 'ai'];
 
     /** Emails envoyés, par destinataire (préchargés pour la liste en cours). */
     private array $mails = [];
@@ -49,6 +49,7 @@ class AdminController extends Controller
                 'clients' => $this->clients($q),
                 'sites' => $this->sites($q, (string) $request->query('status', ''), (string) $request->query('f', '')),
                 'emails' => $this->emails($q),
+                'support' => $this->support(),
                 'invoices' => $this->invoices($q),
                 'domains' => $this->domains(),
                 'ai' => $this->ai($days),
@@ -268,6 +269,31 @@ class AdminController extends Controller
                 'sent' => $g->count(), 'opened' => $g->whereNotNull('opened_at')->count(), 'tracked' => $g->where('tracked', true)->count(),
                 'last' => $g->take(8)->map(fn ($m) => ['subject' => $m->subject, 'at' => $m->sent_at->toIso8601String(), 'opened' => optional($m->opened_at)->toIso8601String(), 'tracked' => (bool) $m->tracked])->values()->all(),
             ])->all();
+    }
+
+    /** Support : messages à l'équipe et questions posées à l'assistant d'aide. */
+    private function support(): array
+    {
+        $db = \Illuminate\Support\Facades\DB::class;
+        $users = fn ($ids) => User::whereIn('id', $ids)->get(['id', 'name', 'email'])->keyBy('id');
+        $tickets = $db::table('support_tickets')->orderByRaw("case when status = 'open' then 0 else 1 end")->orderByDesc('created_at')->take(100)->get();
+        $questions = $db::table('support_questions')->orderByDesc('created_at')->take(150)->get();
+        $u = $users($tickets->pluck('user_id')->merge($questions->pluck('user_id'))->unique());
+        $who = fn ($id) => ['name' => $u[$id]->name ?? '—', 'email' => $u[$id]->email ?? '—'];
+
+        return [
+            'tickets' => $tickets->map(fn ($t) => ['id' => $t->id, 'subject' => $t->subject, 'message' => $t->message, 'site' => $t->site_slug, 'status' => $t->status, 'at' => \Illuminate\Support\Carbon::parse($t->created_at)->toIso8601String()] + $who($t->user_id))->all(),
+            'questions' => $questions->map(fn ($q) => ['id' => $q->id, 'question' => $q->question, 'answer' => $q->answer, 'escalate' => (bool) $q->escalate, 'helpful' => $q->helpful === null ? null : (bool) $q->helpful, 'at' => \Illuminate\Support\Carbon::parse($q->created_at)->toIso8601String()] + $who($q->user_id))->all(),
+            'open' => $tickets->where('status', 'open')->count(),
+        ];
+    }
+
+    public function ticket(Request $request, int $id)
+    {
+        $data = $request->validate(['status' => ['required', 'in:open,closed']]);
+        \Illuminate\Support\Facades\DB::table('support_tickets')->where('id', $id)->update(['status' => $data['status'], 'updated_at' => now()]);
+
+        return back();
     }
 
     /** Journal des emails envoyés (automatiques et manuels) avec ouverture. */

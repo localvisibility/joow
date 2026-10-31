@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import BrandLogo from '@/Components/BrandLogo.vue';
+import HelpBubble from '@/Components/HelpBubble.vue';
 
 const page = usePage();
 const drawer = ref(false);
@@ -19,6 +20,7 @@ ic.modules = '<path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><p
 ic.calendar = '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>';
 ic.chart = '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>';
 
+ic.help = '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>';
 ic.megaphone = '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>';
 ic.shield = '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>';
 const groups = [
@@ -37,6 +39,7 @@ const groups = [
     { title: 'Compte', items: [
         { label: 'Mes factures', route: 'invoices.index', icon: ic.receipt },
         { label: 'Paramètres', route: 'profile.edit', icon: ic.settings },
+        { label: 'Support', route: 'support.index', icon: ic.help },
     ]},
 ];
 
@@ -137,5 +140,7 @@ const isActive = (name) => { try { return route().current(name); } catch (e) { r
                 <slot />
             </main>
         </div>
+        <!-- Assistant d'aide : sur tout le tableau de bord, sauf la page Support qui l'affiche en grand -->
+        <HelpBubble v-if="!isActive('support.index')" />
     </div>
 </template>
