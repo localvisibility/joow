@@ -118,45 +118,67 @@ TXT;
      * Campagne créative : un concept par axe (idée, scène à photographier, accroche, mise en page)
      * + un carrousel narratif. Les images sont produites ensuite (photo réelle ou image IA).
      */
-    public function creatives(Site $site, array $pack): ?array
+    public function creatives(Site $site, array $pack, ?string $goal = null, ?string $offer = null): ?array
     {
         $photos = $this->photos($site);
-        $angles = collect($pack['strategy']['angles'] ?? [])->map(fn ($a) => '- '.($a['name'] ?? '').' : '.($a['idea'] ?? ''))->implode("\n");
+        $st = (array) ($pack['strategy'] ?? []);
+        $angles = collect($st['angles'] ?? [])->map(fn ($a) => '- '.($a['name'] ?? '').' : '.($a['idea'] ?? ''))->implode("\n");
+        $audiences = collect($st['audiences'] ?? [])->map(fn ($a) => '- '.($a['name'] ?? '').' : '.($a['targeting'] ?? '').' ('.($a['why'] ?? '').')')->implode("\n");
         $hooks = collect($pack['meta_ads'] ?? [])->map(fn ($a) => '- '.($a['hook'] ?? ''))->implode("\n");
         $layouts = implode(', ', self::LAYOUTS);
         $reviews = collect($site->site_data['business']['reviews'] ?? [])->filter(fn ($r) => ($r['rating'] ?? 5) >= 4 && strlen($r['text'] ?? '') > 30)->take(3)
             ->map(fn ($r, $i) => "[$i] « ".Str::limit($r['text'], 200).' » — '.($r['author'] ?? ''))->implode("\n");
+        $goalTxt = self::GOALS[$goal ?? 'leads'] ?? self::GOALS['leads'];
+        $color = $site->site_data['accent'] ?? (config("sectors.{$site->sector}.color") ?? '#4f46e5');
+        $month = now()->locale('fr')->isoFormat('MMMM YYYY');
         $prompt = <<<TXT
-Tu es directeur artistique d'une agence de publicité Meta spécialisée dans les commerces et artisans locaux.
-{$this->brief($site)}
+Tu es le directeur de création d'un studio de publicité Meta (Facebook / Instagram) qui obtient les meilleurs coûts par contact
+pour les commerces et artisans locaux. Tu raisonnes comme un média-acheteur : chaque visuel doit ARRÊTER LE DÉFILEMENT en moins
+d'une seconde sur un téléphone, porter UN seul message, et donner envie d'agir maintenant.
 
-Stratégie retenue : {$this->orNone($pack['strategy']['summary'] ?? null)}
+=== CONTEXTE ===
+{$this->brief($site)}
+Objectif de la campagne : {$goalTxt}.
+Offre : {$this->orNone($offer)}
+Période : {$month} (tiens compte de la saison et de ce qui préoccupe les gens en ce moment pour ce métier).
+Couleur de marque : {$color}
+Stratégie : {$this->orNone($st['summary'] ?? null)}
+Cibles :
+{$audiences}
 Angles :
 {$angles}
 Accroches déjà écrites :
 {$hooks}
-Avis Google disponibles (à citer tels quels, jamais inventés) :
+Avis Google réels (citables tels quels, jamais inventés) :
 {$this->orNone($reviews ?: null)}
-Photos réelles disponibles : {$this->count($photos)} (indices 0 à {$this->maxIndex($photos)}).
+Photos réelles de l'établissement : {$this->count($photos)} (indices 0 à {$this->maxIndex($photos)}). Les pubs avec les vraies photos du professionnel
+(son équipe, son lieu, ses réalisations) inspirent plus confiance que des images génériques.
 
-Conçois une campagne de 5 visuels publicitaires, un par axe différent, qui arrêtent le défilement sur mobile.
-Règles : texte sur l'image très court (accroche ≤ 6 mots, sous-titre ≤ 10 mots), un seul message par visuel,
-français naturel, aucune promesse invérifiable, aucun chiffre inventé (un chiffre seulement s'il vient des informations ci-dessus ou d'une offre).
-Mises en page possibles : {$layouts}
-(impact = photo plein cadre + accroche ; offre = photo + bandeau couleur avec l'offre ; avis = citation d'un vrai avis ;
-chiffre = un chiffre clé géant ; probleme = le problème barré puis la solution ; question = une question qui interpelle ; ugc = photo naturelle façon publication d'un client).
+=== MÉTHODE ===
+Pour chaque visuel : 1) l'insight client (la vraie tension ou envie de la cible), 2) le déclencheur (preuve, gain chiffré, peur de rater, curiosité…),
+3) l'idée visuelle qui arrête le pouce (contraste, visage, situation reconnaissable, avant/après, gros chiffre), 4) le texte minimal sur l'image,
+5) pourquoi ça va convertir pour CET objectif. Puis critique-toi : si un concept est banal, interchangeable avec un concurrent ou illisible
+en petit sur mobile, remplace-le avant de répondre.
+
+Règles du texte SUR l'image : titre ≤ 6 mots, sous-titre ≤ 8 mots, badge d'offre ≤ 4 mots, bouton ≤ 3 mots, en français parfait avec accents.
+Aucune promesse invérifiable, aucun chiffre, label ou certification inventé (un chiffre seulement s'il vient du contexte ou de l'offre).
+
+Mises en page de secours (si la pub est retouchée à la main) : {$layouts}
 
 Réponds UNIQUEMENT en JSON :
-{"creatives": [{"key": "c1", "axis": "preuve sociale | bénéfice | urgence | curiosité | offre | problème/solution", "concept": "l'idée en 1 phrase",
-  "layout": "une des mises en page", "hook": "≤ 6 mots", "sub": "≤ 10 mots", "stat": "chiffre clé si layout chiffre, sinon vide", "problem": "le problème si layout probleme, sinon vide",
-  "review": 0, "cta": "≤ 3 mots", "photo": 0, "use_ai_image": false, "scene": "description précise de la photo publicitaire à créer (si use_ai_image) : sujet, lieu, lumière, cadrage, sans texte"}],
+{"creatives": [{"key": "c1", "axis": "preuve sociale | bénéfice | urgence | curiosité | offre | problème/solution",
+  "insight": "la tension ou l'envie de la cible (1 phrase)", "concept": "l'idée créative (1 phrase)", "why": "pourquoi ça va convertir pour cet objectif (1 phrase)",
+  "headline": "texte principal sur l'image (≤ 6 mots)", "sub": "≤ 8 mots ou vide", "badge": "badge d'offre ≤ 4 mots ou vide", "cta": "≤ 3 mots",
+  "art": "direction artistique précise pour l'image finale : sujet, situation, cadrage, lumière, ambiance, style (photo réaliste, éditorial, graphique audacieux…), emplacement et style de la typographie, place du logo / nom, couleurs",
+  "photos": [0], "use_real_photo": true,
+  "layout": "mise en page de secours", "hook": "= headline", "stat": "chiffre clé si pertinent, sinon vide", "problem": "problème si axe problème/solution, sinon vide", "review": 0,
+  "primary_text": "texte de la publication Meta (2-4 phrases, émojis sobres)", "title": "titre sous la pub (≤ 6 mots)"}],
  "carousel": {"slides": [{"title": "≤ 6 mots", "text": "≤ 14 mots"}], "photo": 0},
- "landing_hint": "en 1 phrase : la promesse que la page d'offre doit tenir pour être cohérente avec ces pubs"}
-Le carrousel raconte une histoire en 5 vignettes : problème → conséquence → solution → preuve → offre et appel à l'action.
-Mets use_ai_image à true pour 2 concepts au plus, quand aucune photo réelle ne convient ; sinon choisis la photo réelle la plus adaptée.
+ "landing_hint": "la promesse que la page d'offre doit tenir (1 phrase)"}
+Produis 5 visuels aux axes tous différents. Le carrousel raconte : problème → conséquence → solution → preuve → offre et appel à l'action.
 TXT;
 
-        $data = $this->ask($prompt, 'AdsStudio.creatives');
+        $data = $this->ask($prompt, 'AdsStudio.creatives', pro: true);
         if (! $data || empty($data['creatives'])) {
             return null;
         }
@@ -168,14 +190,21 @@ TXT;
             if ($layout === 'avis' && ! $rv) {
                 $layout = 'impact'; // pas d'avis réel : on ne cite rien
             }
+            $refIdx = array_values(array_filter(array_map('intval', (array) ($c['photos'] ?? [$c['photo'] ?? 0])), fn ($k) => isset($photos[$k])));
             $out[] = [
+                'insight' => Str::limit((string) ($c['insight'] ?? ''), 200, ''), 'why' => Str::limit((string) ($c['why'] ?? ''), 200, ''),
+                'headline' => Str::limit((string) ($c['headline'] ?? $c['hook'] ?? ''), 60, ''), 'badge' => Str::limit((string) ($c['badge'] ?? ''), 40, ''),
+                'art' => Str::limit((string) ($c['art'] ?? $c['scene'] ?? ''), 900, ''),
+                'refs' => array_slice(array_map(fn ($k) => $photos[$k], $refIdx), 0, 2), 'use_real_photo' => ! empty($c['use_real_photo']) && $refIdx,
+                'primary_text' => Str::limit((string) ($c['primary_text'] ?? ''), 600, ''), 'title' => Str::limit((string) ($c['title'] ?? ''), 60, ''),
+                'renders' => [],
                 'key' => 'c'.($i + 1), 'axis' => Str::limit((string) ($c['axis'] ?? ''), 40, ''), 'concept' => Str::limit((string) ($c['concept'] ?? ''), 200, ''),
-                'layout' => $layout, 'hook' => Str::limit((string) ($c['hook'] ?? ''), 70, ''), 'sub' => Str::limit((string) ($c['sub'] ?? ''), 90, ''),
+                'layout' => $layout, 'hook' => Str::limit((string) ($c['hook'] ?? $c['headline'] ?? ''), 70, ''), 'sub' => Str::limit((string) ($c['sub'] ?? ''), 90, ''),
                 'stat' => Str::limit((string) ($c['stat'] ?? ''), 12, ''), 'problem' => Str::limit((string) ($c['problem'] ?? ''), 70, ''),
                 'review' => $rv ? ['text' => Str::limit($rv['text'], 220), 'author' => $rv['author'] ?? 'Client', 'rating' => $rv['rating'] ?? 5] : null,
                 'cta' => Str::limit((string) ($c['cta'] ?? 'En savoir plus'), 24, ''),
-                'image' => ! empty($c['use_ai_image']) ? null : ($photos[(int) ($c['photo'] ?? 0)] ?? ($photos[0] ?? null)),
-                'scene' => Str::limit((string) ($c['scene'] ?? ''), 400, ''), 'use_ai_image' => ! empty($c['use_ai_image']) || ! $photos,
+                'image' => $photos[$refIdx[0] ?? 0] ?? null,
+                'scene' => Str::limit((string) ($c['art'] ?? $c['scene'] ?? ''), 400, ''), 'use_ai_image' => false,
             ];
         }
 
@@ -207,13 +236,15 @@ TXT;
         return $this->ask($prompt, 'AdsStudio.landing');
     }
 
-    private function ask(string $prompt, string $ctx): ?array
+    private function ask(string $prompt, string $ctx, bool $pro = false): ?array
     {
         try {
             $res = Gemini::generate([
                 'contents' => [['parts' => [['text' => $prompt]]]],
-                'generationConfig' => ['temperature' => 0.8, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 8000, 'thinkingConfig' => ['thinkingBudget' => 0]],
-            ], 90, $ctx);
+                'generationConfig' => $pro
+                    ? ['temperature' => 0.9, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 16000, 'thinkingConfig' => ['thinkingBudget' => 4096]]
+                    : ['temperature' => 0.8, 'responseMimeType' => 'application/json', 'maxOutputTokens' => 8000, 'thinkingConfig' => ['thinkingBudget' => 0]],
+            ], $pro ? 170 : 90, $ctx, pro: $pro);
             $data = json_decode((string) Gemini::text($res), true);
 
             return is_array($data) ? $data : null;

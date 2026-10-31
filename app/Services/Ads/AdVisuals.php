@@ -38,6 +38,36 @@ class AdVisuals
         return array_reverse(array_slice((array) ($site->site_data['addons']['ads']['visuals'] ?? []), -40));
     }
 
+    /** Mode de paiement d'un nouveau visuel (quota mensuel, crédits IA) ou erreur si impossible. */
+    public function payment(Site $site, bool $admin = false): array
+    {
+        $usage = $this->usage($site);
+        $credits = app(AiCredits::class);
+        $credits->refresh($site);
+        $payWith = $admin ? 'admin' : ($usage['left'] > 0 ? 'quota' : 'credits');
+        if ($payWith === 'credits' && $credits->balance($site) < self::CREDIT_COST) {
+            return ['error' => 'Vos '.self::included().' visuels du mois sont utilisés. Il faut '.self::CREDIT_COST.' crédits IA par visuel supplémentaire : rechargez vos crédits depuis le Studio.', 'status' => 402];
+        }
+
+        return ['pay_with' => $payWith];
+    }
+
+    /** Décompte du visuel produit et ajout à la galerie. */
+    public function commit(Site $site, string $payWith, array $entry): void
+    {
+        $site->refresh();
+        $d = $site->site_data ?? [];
+        if ($payWith === 'quota') {
+            $u = $this->usage($site);
+            $d['addons']['ads']['usage'] = ['month' => now()->format('Y-m'), 'used' => $u['used'] + 1];
+        }
+        $d['addons']['ads']['visuals'] = array_slice(array_merge((array) ($d['addons']['ads']['visuals'] ?? []), [$entry + ['at' => now()->toIso8601String()]]), -60);
+        $site->forceFill(['site_data' => $d])->save();
+        if ($payWith === 'credits') {
+            app(AiCredits::class)->charge($site->fresh(), self::CREDIT_COST, ['message' => 'Visuel publicitaire IA', 'applied' => [$entry['brief'] ?? 'Visuel']]);
+        }
+    }
+
     /**
      * @return array{url: string, format: string, paid_with: string}|array{error: string, status: int}
      */

@@ -165,7 +165,7 @@ class JoowAdsTest extends TestCase
         $c = $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/campagne', ['pack_id' => $pack->id])->assertOk()->json('campaign');
         $this->assertSame('impact', $c['creatives'][0]['layout']); // aucun avis Google réel : pas de citation
         $this->assertSame('chiffre', $c['creatives'][1]['layout']);
-        $this->assertTrue($c['creatives'][1]['use_ai_image']);
+        $this->assertSame([], $c['creatives'][1]['renders']); // la pub finale est créée ensuite, concept par concept
         $this->assertSame('impact', $c['creatives'][2]['layout']);
         $this->assertSame('c2', $c['creatives'][1]['key']);
         $this->assertNotEmpty($pack->fresh()->pack['campaign']['carousel']['slides']);
@@ -202,5 +202,40 @@ class JoowAdsTest extends TestCase
         $this->getJson("/api/site/plombier-ab12/lp/{$lp->id}/pick")->assertOk()->assertJsonStructure(['v']);
         $lp->update(['winner' => 'A']);
         $this->assertSame('A', app(AbTest::class)->pick($lp->fresh()));
+    }
+
+    public function test_full_ad_is_rendered_with_quality_control_and_declined(): void
+    {
+        $this->activate();
+        config(['services.gemini.key' => 'k', 'joow.ads_visuals_per_month' => 10]);
+        \Illuminate\Support\Facades\Storage::fake('local');
+        $img = imagecreatetruecolor(20, 25); ob_start(); imagepng($img); $png = ob_get_clean();
+        $calls = 0;
+        \Illuminate\Support\Facades\Http::fake(function ($req) use ($png, &$calls) {
+            if (str_contains($req->url(), 'image') && str_contains($req->url(), 'generateContent')) {
+                $calls++;
+
+                return \Illuminate\Support\Facades\Http::response(['candidates' => [['content' => ['parts' => [['inlineData' => ['data' => base64_encode($png)]]]]]]]);
+            }
+            if (str_contains($req->url(), 'generateContent')) { // contrôle qualité : 1re version refusée, 2e acceptée
+                $ok = $calls >= 2;
+
+                return \Illuminate\Support\Facades\Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode(['text_ok' => $ok, 'score' => $ok ? 9 : 4, 'issues' => $ok ? [] : ['« Économisez » mal orthographié']])]]]]]]);
+            }
+
+            return \Illuminate\Support\Facades\Http::response(['models' => []]);
+        });
+        $pack = \App\Models\AdsPack::create(['site_id' => $this->site->id, 'goal' => 'calls', 'pack' => ['campaign' => ['creatives' => [
+            ['key' => 'c1', 'axis' => 'bénéfice', 'headline' => 'Économisez 60 %', 'cta' => 'Appeler', 'art' => 'Plombier en intervention', 'refs' => [], 'renders' => []],
+        ]]]]);
+
+        $r = $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/pub', ['pack_id' => $pack->id, 'key' => 'c1', 'format' => 'portrait'])->assertOk()->json();
+        $this->assertSame(9, $r['render']['qa']['score']);
+        $this->assertSame(2, $calls); // relance après le contrôle qualité
+        $this->actingAs($this->owner)->postJson('/publicite/plombier-ab12/pub', ['pack_id' => $pack->id, 'key' => 'c1', 'format' => 'story'])->assertOk();
+        $renders = $pack->fresh()->pack['campaign']['creatives'][0]['renders'];
+        $this->assertArrayHasKey('portrait', $renders);
+        $this->assertArrayHasKey('story', $renders);
+        $this->assertSame(2, $this->site->fresh()->site_data['addons']['ads']['usage']['used']);
     }
 }

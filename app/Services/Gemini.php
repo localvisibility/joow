@@ -29,11 +29,12 @@ class Gemini
      * @param  array  $body  contents + generationConfig
      * @return Response|null  dernière réponse (réussie ou non), null si aucune requête n'a abouti
      */
-    public static function generate(array $body, int $timeout = 60, string $context = 'gemini', bool $fast = false): ?Response
+    public static function generate(array $body, int $timeout = 60, string $context = 'gemini', bool $fast = false, bool $pro = false): ?Response
     {
         $key = (string) config('services.gemini.key');
         $last = null;
-        $models = self::candidates($key);
+        // Tâches créatives exigeantes : modèles « Pro » d'abord, repli sur les Flash
+        $models = $pro ? array_values(array_unique(array_merge(self::proCandidates($key), self::candidates($key)))) : self::candidates($key);
         if ($fast) {
             // Tâches simples (classification, lecture de photos) : les modèles « lite », plus rapides, d'abord
             usort($models, fn ($a, $b) => (int) str_contains($b, 'lite') <=> (int) str_contains($a, 'lite'));
@@ -112,6 +113,35 @@ class Gemini
         return array_values(array_unique(array_merge(self::PREFERRED, $published ?: ['gemini-3.8-flash', 'gemini-2.5-flash-lite'])));
     }
 
+    /** Dernier modèle ayant produit une image (journal / suivi des coûts). */
+    public static ?string $lastImageModel = null;
+
+    private static function mime(string $bytes): string
+    {
+        return str_starts_with($bytes, "\x89PNG") ? 'image/png' : (str_starts_with($bytes, 'RIFF') ? 'image/webp' : 'image/jpeg');
+    }
+
+    /** Modèles « Pro » (raisonnement) : alias stables puis modèles pro publiés, les plus récents d'abord. */
+    public static function proCandidates(string $key): array
+    {
+        $published = Cache::remember('joow:gemini:pro-models', now()->addHours(6), function () use ($key) {
+            try {
+                $res = Http::timeout(10)->get('https://generativelanguage.googleapis.com/v1beta/models', ['key' => $key, 'pageSize' => 200]);
+                $ver = fn ($n) => (float) (preg_match('/(\d+(?:\.\d+)?)/', $n, $m) ? $m[1] : 0);
+
+                return $res->successful() ? collect($res->json('models') ?? [])
+                    ->filter(fn ($m) => in_array('generateContent', $m['supportedGenerationMethods'] ?? [], true))
+                    ->map(fn ($m) => str_replace('models/', '', $m['name']))
+                    ->filter(fn ($n) => str_contains($n, '-pro') && ! preg_match('/image|tts|audio|live|vision|exp/', $n))
+                    ->sortByDesc($ver)->values()->all() : [];
+            } catch (\Throwable) {
+                return [];
+            }
+        });
+
+        return array_values(array_unique(array_merge(['gemini-pro-latest'], $published)));
+    }
+
     /** Modèles capables de produire des images (alias préférés + modèles « image » publiés). */
     public static function imageModels(string $key): array
     {
@@ -128,24 +158,32 @@ class Gemini
             }
         });
 
-        return array_values(array_unique(array_merge(['gemini-2.5-flash-image', 'gemini-2.5-flash-image-preview'], $published)));
+        // « Nano Banana Pro » d'abord (texte lisible dans l'image, fidélité aux photos de référence), puis Flash Image
+        $pro = array_values(array_filter($published, fn ($n) => str_contains($n, 'pro')));
+        $flash = array_values(array_filter($published, fn ($n) => ! str_contains($n, 'pro')));
+
+        return array_values(array_unique(array_merge(['gemini-3-pro-image-preview'], $pro, ['gemini-2.5-flash-image'], $flash, ['gemini-2.5-flash-image-preview'])));
     }
 
     /**
      * Génère une image (JPEG/PNG en octets) au format demandé, éventuellement à partir d'une photo de référence.
      * Retourne null si aucun modèle n'a produit d'image.
      */
-    public static function image(string $prompt, string $aspect = '1:1', ?string $refBytes = null, string $context = 'image'): ?string
+    public static function image(string $prompt, string $aspect = '1:1', string|array|null $refBytes = null, string $context = 'image', bool $flashOnly = false): ?string
     {
         $key = (string) config('services.gemini.key');
         if ($key === '') {
             return null;
         }
         $parts = [['text' => $prompt]];
-        if ($refBytes) {
-            $parts[] = ['inline_data' => ['mime_type' => 'image/jpeg', 'data' => base64_encode($refBytes)]];
+        foreach (array_filter((array) $refBytes) as $ref) {
+            $parts[] = ['inline_data' => ['mime_type' => self::mime($ref), 'data' => base64_encode($ref)]];
         }
-        foreach (self::imageModels($key) as $model) {
+        $models = self::imageModels($key);
+        if ($flashOnly) {
+            $models = array_values(array_filter($models, fn ($m) => ! str_contains($m, 'pro')));
+        }
+        foreach ($models as $model) {
             if (Cache::has("joow:gemini:down:$model")) {
                 continue;
             }
@@ -158,6 +196,8 @@ class Gemini
                     foreach ((array) data_get($res->json(), 'candidates.0.content.parts', []) as $p) {
                         $data = $p['inlineData']['data'] ?? $p['inline_data']['data'] ?? null;
                         if ($data) {
+                            self::$lastImageModel = $model;
+
                             return base64_decode($data);
                         }
                     }

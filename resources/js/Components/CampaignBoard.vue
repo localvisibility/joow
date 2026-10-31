@@ -1,18 +1,20 @@
 <script setup>
-/* Campagne créative : un visuel fini par axe (rendu automatique), images IA créées à la volée,
-   carrousel narratif, export ZIP de toute la campagne aux 3 formats, lien suivi par visuel. */
-import { FORMATS, LAYOUTS, renderAd, renderSlide } from '@/adRender.js';
-import { nextTick, onMounted, ref, watch } from 'vue';
+/* Campagne créative : pour chaque concept, la pub finale créée par l'IA image Pro (4:5), déclinable en 1:1 et 9:16,
+   avec son insight, sa raison de convertir, son contrôle qualité et son texte de publication. Carrousel, export ZIP, lien suivi. */
+import { FORMATS, renderAd, renderSlide } from '@/adRender.js';
+import { computed, nextTick, onMounted, ref } from 'vue';
 
 const props = defineProps({ campaign: Object, brand: Object, slug: String, packId: String, landingUrl: String, campaignName: String });
 const emit = defineEmits(['edit', 'usage', 'error', 'landing']);
 
-const cards = ref({});
+const view = ref({});           // format affiché par concept
+const busy = ref({});           // concept -> format en cours
 const slides = ref({});
-const busy = ref({});
 const zipping = ref(false);
 const copied = ref('');
-const layoutName = (k) => (LAYOUTS.find((l) => l[0] === k) || [k, k])[1];
+const queue = ref(0);
+const FMT = [['portrait', '4:5'], ['square', '1:1'], ['story', '9:16']];
+const done = computed(() => (props.campaign?.creatives || []).filter((c) => c.renders?.portrait).length);
 
 const cookie = (n) => document.cookie.split('; ').find((c) => c.startsWith(n + '='))?.split('=')[1];
 const api = async (url, body) => {
@@ -20,35 +22,36 @@ const api = async (url, body) => {
     const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || d.message || 'Erreur'); return d;
 };
 
-const drawAll = async () => {
+const render = async (c, format = 'portrait', redo = false) => {
+    busy.value[c.key] = format;
+    try {
+        const d = await api(route('ads.creative', props.slug), { pack_id: props.packId, key: c.key, format, redo });
+        c.renders = d.renders; view.value[c.key] = format; emit('usage', d.usage);
+    } catch (e) { emit('error', e.message); throw e; } finally { busy.value[c.key] = null; }
+};
+const decline = async (c) => { for (const f of ['square', 'story']) { if (!c.renders?.[f]) { try { await render(c, f); } catch { break; } } } };
+
+// Création automatique des pubs principales (l'une après l'autre)
+const autoRender = async () => {
+    const todo = (props.campaign?.creatives || []).filter((c) => !c.renders?.portrait);
+    queue.value = todo.length;
+    for (const c of todo) { try { await render(c, 'portrait'); } catch { break; } queue.value--; }
+    queue.value = 0;
+};
+
+const drawSlides = async () => {
     await nextTick();
-    for (const c of props.campaign?.creatives || []) if (cards.value[c.key]) await renderAd(cards.value[c.key], c, props.brand, 'portrait');
     const sl = props.campaign?.carousel?.slides || [];
     for (let i = 0; i < sl.length; i++) if (slides.value[i]) await renderSlide(slides.value[i], sl[i], i, sl.length, props.brand, props.campaign.carousel.image, props.campaign.creatives?.[0]?.cta);
 };
 
-const genImage = async (c) => {
-    busy.value[c.key] = true;
-    try {
-        const d = await api(route('ads.visual', props.slug), { brief: c.scene || c.concept || c.hook, format: 'portrait', pack_id: props.packId, creative: c.key });
-        c.image = d.url; c.use_ai_image = false; emit('usage', d.usage);
-        await renderAd(cards.value[c.key], c, props.brand, 'portrait');
-    } catch (e) { emit('error', e.message); } finally { busy.value[c.key] = false; }
-};
-
-// Images IA des concepts qui en demandent une (l'une après l'autre)
-const autoImages = async () => {
-    for (const c of props.campaign?.creatives || []) {
-        if (c.use_ai_image && !c.image) { await genImage(c); if (busy.value.stop) break; }
-    }
-};
-
 const trackUrl = (c) => {
     const base = props.landingUrl || '';
-    const p = new URLSearchParams({ c: c.key, utm_source: 'meta', utm_medium: 'paid', utm_campaign: (props.campaignName || 'joow-ads').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-'), utm_content: c.key + '-' + c.layout });
+    const p = new URLSearchParams({ c: c.key, utm_source: 'meta', utm_medium: 'paid', utm_campaign: (props.campaignName || 'joow-ads').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-'), utm_content: c.key + '-' + (c.axis || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]+/gi, '-') });
     return base + (base.includes('?') ? '&' : '?') + p.toString();
 };
 const copy = async (t, k) => { try { await navigator.clipboard.writeText(t); copied.value = k; setTimeout(() => (copied.value = ''), 1600); } catch { prompt('Copiez :', t); } };
+const shown = (c) => c.renders?.[view.value[c.key] || 'portrait'] || c.renders?.portrait;
 
 const zipAll = async () => {
     zipping.value = true;
@@ -57,46 +60,64 @@ const zipAll = async () => {
         const zip = new JSZip(); const cv = document.createElement('canvas');
         const blob = () => new Promise((r) => cv.toBlob(r, 'image/png'));
         for (const c of props.campaign.creatives) {
-            for (const f of Object.keys(FORMATS)) { await renderAd(cv, c, props.brand, f); zip.file(`${c.key}-${c.layout}/${FORMATS[f][0]}x${FORMATS[f][1]}.png`, await blob()); }
-            zip.file(`${c.key}-${c.layout}/texte.txt`, `Accroche : ${c.hook}\nSous-titre : ${c.sub || ''}\nAxe : ${c.axis}\nIdée : ${c.concept}\nLien : ${trackUrl(c)}\n`);
+            const dir = `${c.key}-${(c.axis || 'pub').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/gi, '-')}`;
+            for (const [f] of FMT) {
+                if (c.renders?.[f]) { const r = await fetch(c.renders[f].url); zip.file(`${dir}/${FORMATS[f][0]}x${FORMATS[f][1]}.jpg`, await r.blob()); }
+                else if (!c.renders?.portrait) { await renderAd(cv, { ...c, hook: c.headline || c.hook, offer: c.badge }, props.brand, f); zip.file(`${dir}/${FORMATS[f][0]}x${FORMATS[f][1]}-gabarit.png`, await blob()); }
+            }
+            zip.file(`${dir}/publication.txt`, `Texte de la publication :\n${c.primary_text || ''}\n\nTitre : ${c.title || c.headline || ''}\nBouton : ${c.cta || ''}\nLien : ${trackUrl(c)}\n\nAxe : ${c.axis}\nInsight : ${c.insight || ''}\nIdée : ${c.concept}\nPourquoi ça convertit : ${c.why || ''}\n`);
         }
         const sl = props.campaign.carousel?.slides || [];
         for (let i = 0; i < sl.length; i++) { await renderSlide(cv, sl[i], i, sl.length, props.brand, props.campaign.carousel.image, props.campaign.creatives?.[0]?.cta); zip.file(`carrousel/${i + 1}.png`, await blob()); }
         const out = await zip.generateAsync({ type: 'blob' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(out); a.download = `campagne-${(props.brand?.name || 'joow').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.zip`; a.click();
-    } catch (e) { emit('error', 'Export impossible : une photo est protégée par son site d\'origine. Remplacez-la par une photo du site ou une image IA.'); } finally { zipping.value = false; }
+        const a = document.createElement('a'); a.href = URL.createObjectURL(out); a.download = `campagne-${(props.brand?.name || 'joow').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-')}.zip`; a.click();
+    } catch { emit('error', 'Export impossible pour le moment, réessayez.'); } finally { zipping.value = false; }
 };
 
-const landingMatch = () => Object.fromEntries((props.campaign.creatives || []).map((c) => [c.key, { headline: c.hook, sub: c.sub, image: c.image }]));
-
-watch(() => props.campaign, drawAll, { deep: true });
-onMounted(async () => { await drawAll(); autoImages(); });
+const landingMatch = () => Object.fromEntries((props.campaign.creatives || []).map((c) => [c.key, { headline: c.headline || c.hook, sub: c.sub, image: c.refs?.[0] || c.image }]));
+onMounted(async () => { await drawSlides(); autoRender(); });
 defineExpose({ landingMatch, trackUrl });
 </script>
 
 <template>
     <div class="space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <p v-if="campaign.landing_hint" class="max-w-2xl text-sm text-slate-400">🎯 <b class="text-slate-200">Promesse de la campagne :</b> {{ campaign.landing_hint }}</p>
+            <div class="max-w-2xl text-sm text-slate-400">
+                <p v-if="campaign.landing_hint">🎯 <b class="text-slate-200">Promesse :</b> {{ campaign.landing_hint }}</p>
+                <p v-if="queue" class="mt-1 text-brand-300">✨ Création des pubs par l'IA… {{ done }} / {{ campaign.creatives.length }} prêtes (≈ 40 s chacune, contrôle qualité compris)</p>
+            </div>
             <div class="flex flex-wrap gap-2">
                 <button @click="emit('landing', landingMatch())" class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5">🎯 Créer la page d'offre de la campagne</button>
                 <button @click="zipAll" :disabled="zipping" class="btn-brand text-sm">{{ zipping ? 'Préparation…' : '⬇ Toute la campagne (ZIP)' }}</button>
             </div>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             <div v-for="c in campaign.creatives" :key="c.key" class="glass flex flex-col overflow-hidden rounded-2xl">
-                <div class="relative bg-black/30">
-                    <canvas :ref="(el) => (cards[c.key] = el)" class="block h-auto w-full"></canvas>
-                    <div v-if="busy[c.key]" class="absolute inset-0 grid place-items-center bg-black/60 text-sm font-semibold text-white">✨ Création de l'image…</div>
+                <div class="relative grid min-h-[22rem] place-items-center bg-black/40">
+                    <img v-if="shown(c)" :src="shown(c).url" class="block h-auto max-h-[34rem] w-full object-contain" alt="" />
+                    <div v-else class="p-6 text-center text-sm text-slate-400">{{ busy[c.key] ? '' : 'Pub pas encore créée' }}</div>
+                    <div v-if="busy[c.key]" class="absolute inset-0 grid place-items-center bg-black/70 p-6 text-center text-sm font-semibold text-white">
+                        <div><div class="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white"></div>{{ busy[c.key] === 'portrait' ? 'Création de la pub…' : 'Déclinaison ' + FMT.find((f) => f[0] === busy[c.key])[1] + '…' }}<p class="mt-1 text-xs font-normal text-slate-300">Direction artistique, typographie, puis contrôle qualité</p></div>
+                    </div>
+                    <span v-if="shown(c)?.qa?.score" class="absolute right-3 top-3 rounded-full px-2.5 py-1 text-xs font-bold" :class="shown(c).qa.score >= 8 ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-ink-950'" :title="(shown(c).qa.issues || []).join(' · ')">Contrôle {{ shown(c).qa.score }}/10</span>
                 </div>
-                <div class="flex flex-1 flex-col p-4 text-sm">
-                    <div class="flex flex-wrap gap-1.5"><span class="chip bg-brand-500/20 text-brand-200">{{ c.axis }}</span><span class="chip bg-white/10 text-slate-300">{{ layoutName(c.layout) }}</span></div>
-                    <p class="mt-2 text-slate-300">{{ c.concept }}</p>
-                    <div class="mt-auto flex flex-wrap gap-2 pt-3">
-                        <button @click="emit('edit', c)" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">✏️ Modifier</button>
-                        <button @click="genImage(c)" :disabled="busy[c.key]" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10" :title="c.scene">✨ {{ c.image ? 'Nouvelle image IA' : 'Créer l\'image IA' }}</button>
-                        <button v-if="landingUrl" @click="copy(trackUrl(c), c.key)" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">{{ copied === c.key ? 'Lien copié ✓' : '🔗 Lien de la pub' }}</button>
+                <div v-if="c.renders?.portrait" class="flex gap-1 border-b border-white/[0.06] px-4 py-2">
+                    <button v-for="[f, l] in FMT" :key="f" @click="c.renders?.[f] ? (view[c.key] = f) : null" class="rounded-md px-2 py-1 text-xs font-semibold" :class="(view[c.key] || 'portrait') === f ? 'bg-brand-500 text-white' : c.renders?.[f] ? 'bg-white/[0.06] text-slate-300' : 'text-slate-600'">{{ l }}</button>
+                    <button v-if="!c.renders?.square || !c.renders?.story" @click="decline(c)" :disabled="!!busy[c.key]" class="ml-auto rounded-md bg-white/[0.06] px-2 py-1 text-xs font-semibold text-slate-200">Décliner 1:1 + 9:16</button>
+                </div>
+                <div class="flex flex-1 flex-col gap-2 p-4 text-sm">
+                    <div class="flex flex-wrap gap-1.5"><span class="chip bg-brand-500/20 text-brand-200">{{ c.axis }}</span></div>
+                    <p class="font-semibold text-white">{{ c.concept }}</p>
+                    <p v-if="c.insight" class="text-xs text-slate-400"><b class="text-slate-300">Insight :</b> {{ c.insight }}</p>
+                    <p v-if="c.why" class="text-xs text-emerald-300/90"><b>Pourquoi ça convertit :</b> {{ c.why }}</p>
+                    <details v-if="c.primary_text" class="rounded-lg bg-white/[0.03] px-3 py-2 text-xs text-slate-300"><summary class="cursor-pointer font-semibold text-slate-200">Texte de la publication</summary><p class="mt-2 whitespace-pre-line">{{ c.primary_text }}</p>
+                        <button @click="copy(c.primary_text, 't' + c.key)" class="mt-2 text-brand-300">{{ copied === 't' + c.key ? 'Copié ✓' : 'Copier le texte' }}</button></details>
+                    <div class="mt-auto flex flex-wrap gap-2 pt-2">
+                        <button @click="render(c, 'portrait', true).catch(() => {})" :disabled="!!busy[c.key]" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">{{ c.renders?.portrait ? '↻ Nouvelle version' : '✨ Créer la pub' }}</button>
+                        <a v-if="shown(c)" :href="shown(c).url" target="_blank" download class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">⬇ Image</a>
+                        <button v-if="landingUrl" @click="copy(trackUrl(c), c.key)" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">{{ copied === c.key ? 'Lien copié ✓' : '🔗 Lien' }}</button>
+                        <button @click="emit('edit', { ...c, hook: c.headline || c.hook, offer: c.badge, image: c.refs?.[0] || c.image })" class="rounded-lg px-3 py-1.5 text-xs text-slate-400 hover:text-white" title="Retoucher le texte dans l'éditeur de mise en page">✏️ Gabarit</button>
                     </div>
                 </div>
             </div>
@@ -104,7 +125,7 @@ defineExpose({ landingMatch, trackUrl });
 
         <div v-if="campaign.carousel?.slides?.length" class="glass rounded-2xl p-5">
             <p class="font-semibold text-white">🎠 Carrousel ({{ campaign.carousel.slides.length }} vignettes)</p>
-            <p class="mt-1 text-xs text-slate-500">Une histoire qui se fait défiler : problème → solution → preuve → offre. Format idéal pour Facebook et Instagram.</p>
+            <p class="mt-1 text-xs text-slate-500">Une histoire qui se fait défiler : problème → solution → preuve → offre.</p>
             <div class="mt-4 flex gap-3 overflow-x-auto pb-2">
                 <canvas v-for="(sl, i) in campaign.carousel.slides" :key="i" :ref="(el) => (slides[i] = el)" class="h-48 w-48 shrink-0 rounded-xl"></canvas>
             </div>

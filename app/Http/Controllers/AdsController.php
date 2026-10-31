@@ -220,7 +220,7 @@ class AdsController extends Controller
         $data = $request->validate(['pack_id' => ['required', 'uuid']]);
         $pack = AdsPack::where('site_id', $site->id)->findOrFail($data['pack_id']);
         @set_time_limit(150);
-        $camp = $studio->creatives($site, (array) $pack->pack);
+        $camp = $studio->creatives($site, (array) $pack->pack, $pack->goal, $pack->offer);
         if (! $camp) {
             return response()->json(['error' => 'La création de la campagne n\'a pas abouti, réessayez dans un instant.'], 502);
         }
@@ -228,6 +228,36 @@ class AdsController extends Controller
         $pack->save();
 
         return response()->json(['campaign' => $camp]);
+    }
+
+    /** Pub finale d'un concept, créée par l'IA (format 4:5, puis déclinaisons 1:1 et 9:16 à partir de la 4:5). */
+    public function creative(Request $request, string $slug, \App\Services\Ads\AdCreative $creative)
+    {
+        $site = $this->site($request, $slug);
+        $data = $request->validate(['pack_id' => ['required', 'uuid'], 'key' => ['required', 'string', 'max:6'], 'format' => ['required', 'in:portrait,square,story'], 'redo' => ['nullable', 'boolean']]);
+        $pack = AdsPack::where('site_id', $site->id)->findOrFail($data['pack_id']);
+        $p = (array) $pack->pack;
+        $idx = collect($p['campaign']['creatives'] ?? [])->search(fn ($c) => ($c['key'] ?? '') === $data['key']);
+        abort_if($idx === false, 404);
+        $c = $p['campaign']['creatives'][$idx];
+        @set_time_limit(280);
+        $from = $data['format'] !== 'portrait' && empty($data['redo']) ? ($c['renders']['portrait']['url'] ?? null) : null;
+        $out = $creative->render($site, $c, $data['format'], $request->user()->isAdmin(), $from);
+        if (isset($out['error'])) {
+            return response()->json(['error' => $out['error']], $out['status']);
+        }
+        $pack->refresh();
+        $p = (array) $pack->pack;
+        $p['campaign']['creatives'][$idx]['renders'][$data['format']] = ['url' => $out['url'], 'qa' => $out['qa'], 'model' => $out['model'] ?? null];
+        if ($data['format'] === 'portrait') {
+            // Nouvelle version principale : les déclinaisons précédentes ne correspondent plus
+            $p['campaign']['creatives'][$idx]['renders'] = ['portrait' => $p['campaign']['creatives'][$idx]['renders']['portrait']];
+        }
+        $pack->pack = $p;
+        $pack->save();
+
+        return response()->json(['render' => $p['campaign']['creatives'][$idx]['renders'][$data['format']], 'renders' => $p['campaign']['creatives'][$idx]['renders'],
+            'usage' => app(\App\Services\Ads\AdVisuals::class)->usage($site->fresh())]);
     }
 
     /** Génère un visuel publicitaire IA (quota mensuel, puis crédits IA). */
