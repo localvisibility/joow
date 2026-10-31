@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Génération d'image publicitaire via OpenAI (gpt-image-1), en secours de Gemini.
+ * Génération d'image publicitaire via OpenAI (dernier modèle GPT Image), prioritaire sur Gemini.
  * Actif seulement si OPENAI_API_KEY est renseignée. Rendu en 2:3 / 1:1 puis recadré au format Meta demandé.
  */
 class OpenAiImage
@@ -29,7 +29,7 @@ class OpenAiImage
         }
         $size = $aspect === '1:1' ? '1024x1024' : '1024x1536';
         // Dernier modèle d'abord ; si le compte n'y a pas encore accès, le précédent
-        $models = array_values(array_unique(array_filter([(string) config('services.openai.image_model'), 'gpt-image-2', 'gpt-image-1.5', 'gpt-image-1'])));
+        $models = array_values(array_unique(array_filter([(string) config('services.openai.image_model'), 'gpt-image-2.5', 'gpt-image-2', 'gpt-image-1.5', 'gpt-image-1'])));
         foreach ($models as $model) {
             try {
                 $http = Http::withToken((string) config('services.openai.key'))->timeout(170);

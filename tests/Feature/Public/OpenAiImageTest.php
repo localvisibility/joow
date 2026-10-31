@@ -15,7 +15,7 @@ class OpenAiImageTest extends TestCase
         $img = imagecreatetruecolor(1024, 1536);
         ob_start(); imagepng($img); $png = ob_get_clean();
         Http::fake(function ($req) use ($png) {
-            if (($req->data()['model'] ?? '') === 'gpt-image-2') {
+            if (in_array($req->data()['model'] ?? '', ['gpt-image-2.5', 'gpt-image-2'], true)) {
                 return Http::response(['error' => ['message' => 'The model gpt-image-2 does not exist']], 404);
             }
 
