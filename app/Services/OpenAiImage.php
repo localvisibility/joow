@@ -13,6 +13,8 @@ class OpenAiImage
 {
     public static ?string $lastError = null;
 
+    public static ?string $lastModel = null;
+
     public static function enabled(): bool
     {
         return (string) config('services.openai.key') !== '';
@@ -26,28 +28,39 @@ class OpenAiImage
             return null;
         }
         $size = $aspect === '1:1' ? '1024x1024' : '1024x1536';
-        $model = (string) config('services.openai.image_model', 'gpt-image-1');
-        try {
-            $http = Http::withToken((string) config('services.openai.key'))->timeout(170);
-            if ($refs) {
-                $req = $http->asMultipart();
-                foreach (array_slice($refs, 0, 3) as $i => $bytes) {
-                    $req = $req->attach('image[]', $bytes, "ref$i.jpg", ['Content-Type' => 'image/jpeg']);
+        // Dernier modèle d'abord ; si le compte n'y a pas encore accès, le précédent
+        $models = array_values(array_unique(array_filter([(string) config('services.openai.image_model'), 'gpt-image-2', 'gpt-image-1.5', 'gpt-image-1'])));
+        foreach ($models as $model) {
+            try {
+                $http = Http::withToken((string) config('services.openai.key'))->timeout(170);
+                if ($refs) {
+                    $req = $http->asMultipart();
+                    foreach (array_slice($refs, 0, 3) as $i => $bytes) {
+                        $req = $req->attach('image[]', $bytes, "ref$i.jpg", ['Content-Type' => 'image/jpeg']);
+                    }
+                    $res = $req->post('https://api.openai.com/v1/images/edits', ['model' => $model, 'prompt' => $prompt, 'size' => $size, 'quality' => 'high']);
+                } else {
+                    $res = $http->post('https://api.openai.com/v1/images/generations', ['model' => $model, 'prompt' => $prompt, 'size' => $size, 'quality' => 'high']);
                 }
-                $res = $req->post('https://api.openai.com/v1/images/edits', ['model' => $model, 'prompt' => $prompt, 'size' => $size, 'quality' => 'high']);
-            } else {
-                $res = $http->post('https://api.openai.com/v1/images/generations', ['model' => $model, 'prompt' => $prompt, 'size' => $size, 'quality' => 'high']);
-            }
-        } catch (\Throwable $e) {
-            self::$lastError = 'OpenAI : délai dépassé ou réseau';
-            Log::warning('OpenAiImage : '.str($e->getMessage())->limit(160));
+            } catch (\Throwable $e) {
+                self::$lastError = "OpenAI $model : délai dépassé ou réseau";
+                Log::warning('OpenAiImage : '.str($e->getMessage())->limit(160));
 
-            return null;
+                return null;
+            }
+            if ($res->successful()) {
+                self::$lastModel = $model;
+                break;
+            }
+            self::$lastError = "OpenAI $model : HTTP ".$res->status().' '.str($res->json('error.message') ?? '')->limit(140);
+            Log::warning('OpenAiImage '.self::$lastError);
+            $msg = strtolower((string) $res->json('error.message'));
+            $modelIssue = in_array($res->status(), [403, 404], true) || ($res->status() === 400 && (str_contains($msg, 'model') || str_contains($msg, 'verif')));
+            if (! $modelIssue) {
+                return null; // quota, facturation, contenu refusé : inutile d'essayer un autre modèle
+            }
         }
         if (! $res->successful()) {
-            self::$lastError = 'OpenAI : HTTP '.$res->status().' '.str($res->json('error.message') ?? '')->limit(140);
-            Log::warning('OpenAiImage '.self::$lastError);
-
             return null;
         }
         $b64 = $res->json('data.0.b64_json');

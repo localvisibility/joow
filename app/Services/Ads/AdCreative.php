@@ -79,18 +79,27 @@ class AdCreative
         return ['url' => $url, 'format' => $format, 'qa' => $qa, 'model' => Gemini::$lastImageModel];
     }
 
-    /** Gemini d'abord ; en secours (quota, facturation, indisponibilité), OpenAI si une clé est configurée. */
+    /** OpenAI (dernier modèle GPT Image) quand une clé est configurée, Gemini en secours ; sinon Gemini seul. */
     private function draw(string $prompt, string $aspect, array $refs): ?string
     {
-        $bytes = Gemini::image($prompt, $aspect, $refs, 'AdCreative');
-        if (! $bytes && \App\Services\OpenAiImage::enabled()) {
+        return self::drawWith($prompt, $aspect, $refs, 'AdCreative');
+    }
+
+    public static function drawWith(string $prompt, string $aspect, array $refs, string $ctx): ?string
+    {
+        $errors = [];
+        if (\App\Services\OpenAiImage::enabled()) {
             $bytes = \App\Services\OpenAiImage::image($prompt, $aspect, $refs);
             if ($bytes) {
-                Gemini::$lastImageModel = (string) config('services.openai.image_model');
-            } else {
-                Gemini::$lastImageErrors[] = \App\Services\OpenAiImage::$lastError ?? 'OpenAI : pas d\'image';
+                Gemini::$lastImageModel = \App\Services\OpenAiImage::$lastModel;
+                Gemini::$lastImageErrors = [];
+
+                return $bytes;
             }
+            $errors[] = \App\Services\OpenAiImage::$lastError ?? 'OpenAI : pas d\'image';
         }
+        $bytes = Gemini::image($prompt, $aspect, $refs ?: null, $ctx);
+        Gemini::$lastImageErrors = array_merge($errors, Gemini::$lastImageErrors);
 
         return $bytes;
     }
