@@ -87,7 +87,12 @@ services:
     volumes:
       - ./:/var/www/html
     profiles: ["build"]
-    command: sh -c "npm ci && npm run build"
+    # Compilation bornée : en cas d'emballement, seul ce conteneur s'arrête (pas le serveur ni le déploiement)
+    mem_limit: 3g
+    memswap_limit: 4g
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=2048"
+    command: sh -c "npm ci --no-audit --no-fund && npm run build"
 
 volumes:
   pgdata:
