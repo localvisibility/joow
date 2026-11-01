@@ -89,7 +89,25 @@ class NurtureLeads extends Command
                 continue;
             }
 
-            // 2) Séquence après génération
+            // 2) Offre de relance -30 % (72 h) : rappel 24 h avant la fin, puis envoi initial vers J8
+            $until = ! empty($emails['offer_until']) ? \Illuminate\Support\Carbon::parse($emails['offer_until']) : null;
+            $remind = $until && empty($emails['offer_reminder_at']) && $until->isFuture() && $until->lte(now()->addHours(26));
+            $launch = ! $until && isset($emails['nurture_j6']) && $site->created_at->lte(now()->subDays(8));
+            if ($remind || $launch) {
+                $this->line(($dry ? '[dry-run] ' : '')."{$user->email} → offre -".\App\Services\Offer::PERCENT.' % '.($remind ? '(rappel)' : '')." ({$site->slug})");
+                if (! $dry) {
+                    $until = $remind ? $until : \App\Services\Offer::start($site, $accounts, ['last_nurture_day' => $today]);
+                    $this->sendOffer($accounts, $user, $site, $until, $remind);
+                    if ($remind) {
+                        $accounts->mark($site, 'offer_reminder_at', ['last_nurture_day' => $today]);
+                    }
+                    $sent++;
+                }
+
+                continue;
+            }
+
+            // 3) Séquence après génération
             foreach (self::STEPS as $step => [$days, $subject, $preheader, $title, $intro, $bullets, $button, $dest]) {
                 if (isset($emails['nurture_'.$step]) || $site->created_at->gt(now()->subDays($days))) {
                     continue;
@@ -116,5 +134,32 @@ class NurtureLeads extends Command
         $this->info("$sent email(s) envoyé(s).");
 
         return self::SUCCESS;
+    }
+
+    private function sendOffer(Accounts $accounts, \App\Models\User $user, Site $site, \Illuminate\Support\Carbon $until, bool $reminder): void
+    {
+        $o = \App\Services\Offer::class;
+        $pct = $o::PERCENT;
+        $months = $o::COUPONS['pro']['months'];
+        $pro = $o::euros(round(39 * (100 - $o::PERCENT) / 100, 2));
+        $lib = $o::euros(round(349 * (100 - $o::PERCENT) / 100, 2));
+        $end = $until->copy()->timezone('Europe/Paris')->locale('fr')->isoFormat('dddd D MMMM [à] H[h]mm');
+        $first = \Illuminate\Support\Str::before($user->name, ' ');
+        $accounts->send($user, $reminder ? "Plus que 24 h : -$pct % pour mettre {$site->name} en ligne" : "-$pct % pour mettre {$site->name} en ligne (72 h seulement)", [
+            'preheader' => $reminder ? "Votre réduction se termine $end." : "Une offre de bienvenue, valable jusqu'à $end.",
+            'title' => $reminder ? 'Votre réduction se termine demain' : "-$pct % pour mettre votre site en ligne",
+            'image' => $site->site_data['images']['hero'] ?? null,
+            'intro' => "Bonjour $first,\n\n".($reminder
+                ? "Petit rappel : votre réduction de $pct % pour mettre votre site en ligne se termine $end. Elle s'applique toute seule au paiement, rien à saisir."
+                : "Votre site est prêt depuis quelques jours. Pour vous aider à franchir le pas, on vous offre $pct % de réduction pour le mettre en ligne, valable 72 heures, jusqu'à $end.\n\nLa réduction s'applique automatiquement au paiement : aucun code à saisir."),
+            'bullets' => [
+                ['🚀', "Pro · $pro HT/mois au lieu de 39 €", "Pendant $months mois, puis 39 € HT/mois. Sans engagement, résiliable en un clic."],
+                ['🔒', "Liberté · $lib HT au lieu de 349 €", 'Paiement unique : votre site pour toujours, domaine inclus la première année.'],
+                ['💬', 'Une question avant de vous lancer ?', 'Répondez simplement à cet email, on vous répond rapidement.'],
+            ],
+            'rows' => [['Votre site', 'https://'.$site->slug.'.joow.fr'], ['Offre valable jusqu\'au', $end]],
+            'cta' => ['label' => "Mettre mon site en ligne à -$pct %", 'url' => $accounts->magicLink($user, route('public.site', $site->slug, absolute: false), 7)],
+            'note' => 'Offre réservée à votre site, non cumulable. Pour ne plus recevoir nos conseils : '.$accounts->unsubscribeLink($user),
+        ]);
     }
 }

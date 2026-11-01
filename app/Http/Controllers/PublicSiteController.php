@@ -137,6 +137,7 @@ class PublicSiteController extends Controller
             // Refonte : adresse de l'ancien site pour le comparatif avant / après
             'old_url' => $site->site_data['import']['url'] ?? null,
             'combo' => (bool) ($site->place_id && ! empty($site->site_data['import']['pages'])),
+            'offer' => \App\Services\Offer::active($site),
         ]);
     }
 

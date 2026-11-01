@@ -38,6 +38,7 @@ const cards = computed(() => [
     { label: 'Impayés', value: props.kpis.past_due, hint: 'abonnements en défaut', warn: props.kpis.past_due > 0 },
     { label: 'Liberté', value: props.kpis.liberte_total, hint: `${eur(props.kpis.liberte_revenue)} encaissés au total` },
     { label: 'ARPU', value: eur(props.kpis.arpu), hint: `${props.kpis.clients} comptes clients` },
+    { label: 'Offre -30 % : envoyées → achats', value: `${props.kpis.offers_sent ?? 0} → ${props.kpis.offers_won ?? 0}`, hint: 'relance J8, valable 72 h' },
     { label: `Créations bloquées · ${props.days} j`, value: props.kpis.blocked ?? 0, hint: 'garde-fou multi-sites', warn: (props.kpis.blocked ?? 0) > 0 },
 ]);
 
@@ -317,6 +318,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                                 <button v-if="aiAsks(r)" type="button" @click="chatSite = r" class="chip bg-violet-500/15 text-violet-300 hover:bg-violet-500/25" title="Voir la conversation avec l'assistant IA">🤖 {{ aiAsks(r) }}</button>
                                 <span v-if="r.mails" class="chip bg-sky-500/15 text-sky-300" :title="r.mails.last.map((m) => (m.opened ? '✓ ouvert ' : (m.tracked ? '· non ouvert ' : '· (non suivi) ')) + ago(m.at) + ' · ' + m.subject).join('\n')">📬 {{ r.mails.opened }}/{{ r.mails.sent }}</span>
                                 <span v-if="r.messages?.length" class="chip bg-brand-500/15 text-brand-300" :title="r.messages.map((m) => ago(m.at) + ' · ' + m.subject).join('\n')">📨 {{ r.messages.length }}</span>
+                                <span v-if="r.offer_at" class="chip bg-rose-500/15 text-rose-300" :title="'Offre -30 % envoyée ' + ago(r.offer_at)">🎁</span>
                                 <span v-if="r.checkout_at" class="chip bg-amber-500/15 text-amber-300" :title="'Page de paiement ouverte ' + ago(r.checkout_at)">💳</span>
                                 <span v-if="!Object.keys(r.activity || {}).length && !r.checkout_at && !r.mails && !aiAsks(r)" class="text-xs text-slate-600">aucune</span>
                             </div>

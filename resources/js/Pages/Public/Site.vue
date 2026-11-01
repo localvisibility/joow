@@ -5,7 +5,18 @@ import BrandLogo from '@/Components/BrandLogo.vue';
 import GenerationShow from '@/Components/GenerationShow.vue';
 import { track, fire, uuid } from '@/tracking';
 
-const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false }, has_email: { type: Boolean, default: false }, expires_in_days: { type: Number, default: 7 }, old_url: { type: String, default: null }, combo: { type: Boolean, default: false } });
+const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false }, has_email: { type: Boolean, default: false }, expires_in_days: { type: Number, default: 7 }, old_url: { type: String, default: null }, combo: { type: Boolean, default: false }, offer: { type: Object, default: null } });
+const euro = (v) => Number(v).toFixed(2).replace('.', ',').replace(/,00$/, '') + ' €';
+const left = ref('');
+const tick = () => {
+    if (!props.offer) return;
+    const ms = new Date(props.offer.until) - Date.now();
+    if (ms <= 0) { left.value = ''; return; }
+    const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+    left.value = h >= 24 ? `${Math.floor(h / 24)} j ${h % 24} h` : `${h} h ${String(m).padStart(2, '0')} min`;
+};
+if (typeof window !== 'undefined' && props.offer) { tick(); setInterval(tick, 30000); }
+const offerOn = computed(() => !!props.offer && !!left.value);
 // Mis à jour pendant la génération (le site indiqué sur la fiche Google est découvert en cours de route)
 const oldUrl = ref(props.old_url);
 const combo = ref(props.combo);
@@ -248,13 +259,19 @@ onUnmounted(() => timer && clearInterval(timer));
                     <span class="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-brand-gradient text-xs font-bold text-white">2</span>
                     Choisissez votre formule
                 </p>
+                <div v-if="offerOn" class="mb-5 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-4 text-center">
+                    <p class="font-display text-lg font-bold text-amber-200">🎁 Offre de bienvenue : -{{ offer.percent }} % pour mettre votre site en ligne</p>
+                    <p class="mt-1 text-sm text-amber-100/90">Réduction appliquée automatiquement au paiement · se termine dans <b>{{ left }}</b></p>
+                </div>
                 <div class="grid gap-5 sm:grid-cols-2">
                     <!-- Pro -->
                     <div class="glass relative overflow-hidden rounded-2xl border-brand-500/40 p-6">
                         <span class="absolute right-4 top-4 rounded-full bg-brand-gradient px-3 py-1 text-xs font-bold text-white shadow-glow">Recommandé</span>
                         <h4 class="font-display text-lg font-bold text-white">Pro</h4>
                         <p class="mt-1 text-xs text-slate-400">Sans engagement · .joow.fr + domaine .com/.fr</p>
-                        <p class="mt-4 font-display text-4xl font-bold text-white">39€<span class="text-base font-medium text-slate-400"> HT/mois</span></p>
+                        <p v-if="offerOn" class="mt-4 font-display text-4xl font-bold text-white"><span class="mr-2 text-xl text-slate-500 line-through">39€</span>{{ euro(offer.pro) }}<span class="text-base font-medium text-slate-400"> HT/mois</span></p>
+                        <p v-if="offerOn" class="text-xs font-semibold text-amber-300">pendant {{ offer.months }} mois, puis 39 € HT/mois</p>
+                        <p v-else class="mt-4 font-display text-4xl font-bold text-white">39€<span class="text-base font-medium text-slate-400"> HT/mois</span></p>
                         <p class="mt-1 text-xs font-semibold text-emerald-300">{{ trialDays > 0 ? '🎉 ' + trialDays + ' jours d\'essai gratuit' : 'Mise en ligne immédiate · sans engagement' }}</p>
                         <ul class="mt-4 space-y-1.5 text-sm text-slate-300">
                             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .com / .fr inclus</li>
@@ -263,7 +280,7 @@ onUnmounted(() => timer && clearInterval(timer));
                             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Support prioritaire 7j/7</li>
                         </ul>
                         <button @click="buy('pro')" class="btn-brand mt-6 w-full" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
-                            {{ checkout.processing && checkout.plan==='pro' ? '…' : (trialDays > 0 ? 'Essai gratuit ' + trialDays + ' jours' : 'Souscrire · 39 € HT/mois') }}
+                            {{ checkout.processing && checkout.plan==='pro' ? '…' : (trialDays > 0 ? 'Essai gratuit ' + trialDays + ' jours' : (offerOn ? 'Souscrire · ' + euro(offer.pro) + ' HT/mois' : 'Souscrire · 39 € HT/mois')) }}
                         </button>
                         <p class="mt-2 text-center text-xs text-slate-500">{{ trialDays > 0 ? '0 € aujourd\'hui · résiliez quand vous voulez' : 'Résiliable à tout moment · site en ligne dans la minute' }}</p>
                     </div>
@@ -272,7 +289,8 @@ onUnmounted(() => timer && clearInterval(timer));
                     <div class="glass relative overflow-hidden rounded-2xl p-6">
                         <h4 class="font-display text-lg font-bold text-white">Liberté</h4>
                         <p class="mt-1 text-xs text-slate-400">Paiement unique · autonomie totale</p>
-                        <p class="mt-4 font-display text-4xl font-bold text-white">349€<span class="text-base font-medium text-slate-400"> HT</span></p>
+                        <p v-if="offerOn" class="mt-4 font-display text-4xl font-bold text-white"><span class="mr-2 text-xl text-slate-500 line-through">349€</span>{{ euro(offer.liberte) }}<span class="text-base font-medium text-slate-400"> HT</span></p>
+                        <p v-else class="mt-4 font-display text-4xl font-bold text-white">349€<span class="text-base font-medium text-slate-400"> HT</span></p>
                         <p class="mt-1 text-xs font-semibold text-brand-400">≈ 9 mois d'abo · économies garanties</p>
                         <ul class="mt-4 space-y-1.5 text-sm text-slate-300">
                             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Domaine .com / .fr inclus</li>
@@ -281,7 +299,7 @@ onUnmounted(() => timer && clearInterval(timer));
                             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Téléchargement de votre site</li>
                         </ul>
                         <button @click="buy('liberte')" class="mt-6 w-full rounded-xl border border-emerald-400/40 px-6 py-3 font-semibold text-emerald-300 transition hover:bg-emerald-500/10" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
-                            {{ checkout.processing && checkout.plan==='liberte' ? '…' : 'Paiement unique 349€' }}
+                            {{ checkout.processing && checkout.plan==='liberte' ? '…' : (offerOn ? 'Paiement unique ' + euro(offer.liberte) : 'Paiement unique 349€') }}
                         </button>
                         <p class="mt-2 text-center text-xs text-slate-500">Sans abonnement · site à vie</p>
                     </div>

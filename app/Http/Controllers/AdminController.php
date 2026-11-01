@@ -97,6 +97,8 @@ class AdminController extends Controller
             'clients' => User::count(),
             'support_open' => \Illuminate\Support\Facades\DB::table('support_tickets')->where('status', 'open')->count(),
             'blocked' => \Illuminate\Support\Facades\DB::table('creation_blocks')->where('created_at', '>=', $since)->count(),
+            'offers_sent' => Site::whereNotNull('site_data->emails->offer_at')->count(),
+            'offers_won' => Site::whereNotNull('site_data->emails->offer_at')->whereIn('status', ['paid', 'published'])->count(),
             'arpu' => $activePro ? round($mrr / $activePro, 2) : 0,
         ];
     }
@@ -197,6 +199,7 @@ class AdminController extends Controller
             'stripe' => $s->user?->stripe_id ? 'https://dashboard.stripe.com/customers/'.$s->user->stripe_id : null,
             'activity' => (array) ($s->site_data['activity'] ?? []),
             'checkout_at' => $s->site_data['emails']['checkout_started_at'] ?? null,
+            'offer_at' => $s->site_data['emails']['offer_at'] ?? null,
             'messages' => array_slice((array) ($s->site_data['emails']['admin_messages'] ?? []), -5),
             'ip' => $s->creator_ip,
             'multi' => max((int) ($this->multi['device'][$s->creator_device] ?? 0), (int) ($this->multi['email'][strtolower((string) $s->owner_email)] ?? 0)),

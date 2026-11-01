@@ -152,6 +152,36 @@ class AccountsTest extends TestCase
         $this->assertArrayHasKey('checkout_reminder_at', $site->fresh()->site_data['emails']);
     }
 
+    public function test_discount_offer_is_sent_at_day_8_then_reminded_and_shown_with_prices(): void
+    {
+        $site = $this->site(['created_at' => now()->subDays(9)]);
+        [$user] = app(Accounts::class)->ensure('pro@exemple.fr', [$site->slug]);
+        app(Accounts::class)->mark($site->fresh(), 'nurture_j6');
+        config(['services.nurture.enabled' => true]);
+
+        $this->travel(1)->days();
+        $this->artisan('emails:nurture')->assertSuccessful();
+        Mail::assertSent(\App\Mail\JoowNotification::class, fn (\App\Mail\JoowNotification $m) => $m->hasTo('pro@exemple.fr') && str_contains($m->subjectLine, '-30 %') && str_contains($m->render(), '27,30 €') && str_contains($m->render(), '244,30 €'));
+        $this->assertNotNull($site->fresh()->site_data['emails']['offer_until'] ?? null);
+
+        // Le prix remisé est affiché sur la page du site
+        $this->get(route('public.site', $site->slug))->assertInertia(fn ($p) => $p->where('offer.percent', 30)->where('offer.pro', 27.3));
+
+        // Rappel 24 h avant la fin, une seule fois
+        $this->travel(2)->days();
+        Mail::fake();
+        $this->artisan('emails:nurture')->assertSuccessful();
+        Mail::assertSent(\App\Mail\JoowNotification::class, fn (\App\Mail\JoowNotification $m) => str_contains($m->subjectLine, 'Plus que 24 h'));
+        $this->travel(1)->days();
+        Mail::fake();
+        $this->artisan('emails:nurture')->assertSuccessful();
+        Mail::assertNotSent(\App\Mail\JoowNotification::class, fn (\App\Mail\JoowNotification $m) => str_contains($m->subjectLine, '-30 %') || str_contains($m->subjectLine, '24 h'));
+
+        // Offre expirée : plus de prix remisé
+        $this->travel(1)->days();
+        $this->get(route('public.site', $site->slug))->assertInertia(fn ($p) => $p->where('offer', null));
+    }
+
     public function test_leaving_an_email_signs_in_a_brand_new_account_but_never_an_existing_one(): void
     {
         \Illuminate\Support\Facades\Mail::fake();

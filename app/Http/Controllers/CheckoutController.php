@@ -66,13 +66,22 @@ class CheckoutController extends Controller
             'metadata'    => ['site_slug' => $slug, 'user_id' => $user->id, 'plan' => $plan],
         ];
 
+        // Offre de relance en cours (-30 %) : coupon appliqué automatiquement
+        $coupon = \App\Services\Offer::active($site) ? \App\Services\Offer::coupon($plan) : null;
+        if ($coupon) {
+            $urls['metadata']['offer'] = $coupon;
+        }
+
         // Liberté : paiement unique. Pro : abonnement mensuel avec essai gratuit.
-        return $user->withValidStripeCustomer(function () use ($user, $plan, $price, $urls) {
+        return $user->withValidStripeCustomer(function () use ($user, $plan, $price, $urls, $coupon) {
             if ($plan === 'liberte') {
-                return $user->checkout([$price => 1], $urls + ['invoice_creation' => ['enabled' => true]])->redirect();
+                return $user->checkout([$price => 1], $urls + ['invoice_creation' => ['enabled' => true]] + ($coupon ? ['discounts' => [['coupon' => $coupon]]] : []))->redirect();
             }
 
             $sub = $user->newSubscription('hosting', $price);
+            if ($coupon) {
+                $sub->withCoupon($coupon);
+            }
             if (($days = (int) config('services.stripe.trial_days')) > 0) {
                 $sub->trialUntil(now()->addDays($days)->endOfDay());
             }
