@@ -423,6 +423,12 @@ const copy = async (txt) => { try { await navigator.clipboard.writeText(txt); al
 const welcome = () => ({ role: 'ai', text: `Bonjour 👋 Je suis votre assistant Studio. Dites-moi ce que vous voulez : changer un texte, ajouter une page « Nos réalisations », passer en thème sombre, activer WhatsApp… J'applique directement et vous pouvez annuler d'un clic.`, applied: [] });
 const messages = ref([welcome()]);
 const input = ref(''); const sending = ref(false); const chatBox = ref(null); const workLabel = ref('');
+// Depuis le module Référencement : ?ia=<demande>&page=<slug> pré-remplit l'assistant sur la bonne page
+if (typeof window !== 'undefined') {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('page')) curPage.value = q.get('page');
+    if (q.get('ia')) { tab.value = 'ia'; input.value = q.get('ia'); }
+}
 const WORK = ['Je lis votre site…', 'Je réfléchis à la meilleure façon de faire…', 'Je rédige…', 'J\'applique les modifications…', 'Je mets l\'aperçu à jour…'];
 const suggestions = computed(() => curPage.value
     ? [`Enrichis la page « ${page.value?.title} » avec une FAQ`, 'Ajoute une galerie photos à cette page', 'Rends le texte de cette page plus court et percutant', 'Ajoute un appel à l\'action en bas de page']

@@ -22,6 +22,7 @@ ic.chart = '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12"
 
 ic.help = '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>';
 ic.megaphone = '<path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>';
+ic.search = '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M8 11h6M11 8v6"/>';
 ic.shield = '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>';
 const groups = [
     { title: 'Principal', items: [
@@ -33,6 +34,7 @@ const groups = [
     { title: 'Hébergement', items: [
         { label: 'Modules', route: 'modules.index', icon: ic.modules },
         { label: 'Hébergement', route: 'hosting.index', icon: ic.rocket },
+        { label: 'Référencement', route: 'seo.index', icon: ic.search },
         { label: 'Joow Ads', route: 'ads.index', icon: ic.megaphone },
     ]},
     ...(page.props.auth?.is_admin ? [{ title: 'Joow', items: [{ label: 'Back-office', route: 'admin.index', icon: ic.shield }] }] : []),

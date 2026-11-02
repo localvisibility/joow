@@ -158,6 +158,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/support/message', [\App\Http\Controllers\SupportController::class, 'contact'])->middleware('throttle:5,10')->name('support.contact');
     Route::post('/support/message/{id}/reponse', [\App\Http\Controllers\SupportController::class, 'reply'])->middleware('throttle:20,10')->name('support.reply');
     // Module Joow Ads
+    Route::get('/referencement', [\App\Http\Controllers\SeoController::class, 'index'])->name('seo.index');
+    Route::post('/referencement/{slug}', [\App\Http\Controllers\SeoController::class, 'save'])->middleware('throttle:60,1')->name('seo.save');
+    Route::post('/referencement/{slug}/ia', [\App\Http\Controllers\SeoController::class, 'fix'])->middleware('throttle:20,1')->name('seo.fix');
     Route::get('/publicite', [\App\Http\Controllers\AdsController::class, 'index'])->name('ads.index');
     Route::prefix('/publicite/{slug}')->name('ads.')->group(function () {
         Route::post('/abonnement', [\App\Http\Controllers\AdsController::class, 'subscribe'])->name('subscribe');

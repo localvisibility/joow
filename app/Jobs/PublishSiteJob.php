@@ -34,5 +34,6 @@ class PublishSiteJob implements ShouldQueue
         $all = $renderer->renderAll($site);
         $site->update(['html_content' => $all['']]);
         $renderer->writeAll($site->slug, $all);
+        \App\Services\Seo\SeoFiles::write($site, array_keys($all));
     }
 }

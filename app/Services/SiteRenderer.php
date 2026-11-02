@@ -76,7 +76,7 @@ class SiteRenderer
         }
         $brand['inline'] = \App\Services\LogoStudio::inline($brand['logo']);
 
-        return View::make('generated.site', [
+        $html = View::make('generated.site', [
             // Aperçu pas encore payé : barre Joow (retour, modifier, mettre en ligne) ; disparaît au paiement
             'joowBar'  => ! $editMode && ! in_array($site->status, ['paid', 'published'], true),
             'brand'    => $brand,
@@ -113,6 +113,8 @@ class SiteRenderer
                 'order' => $cfg['order'] ?? [],
             ],
         ])->render();
+
+        return \App\Services\Seo\SeoApply::apply($html, $site, $page ? $pageSlug : null, $editMode);
     }
 
     /** Rend toutes les pages : ['' => html accueil, 'slug-page' => html…]. */
@@ -134,6 +136,7 @@ class SiteRenderer
 
         try {
             $this->writeAll($site->slug, $all);
+            \App\Services\Seo\SeoFiles::write($site, array_keys($all));
 
             return ['ok' => true, 'queued' => false];
         } catch (\Throwable $e) {
