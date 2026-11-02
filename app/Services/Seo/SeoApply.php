@@ -23,6 +23,18 @@ class SeoApply
 
     public static function apply(string $html, Site $site, ?string $pageSlug, bool $editMode = false): string
     {
+        try {
+            return self::transform($html, $site, $pageSlug, $editMode);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("SeoApply {$site->slug} : ".$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
+
+            return $html; // jamais de page cassée à cause du SEO
+        }
+    }
+
+    private static function transform(string $html, Site $site, ?string $pageSlug, bool $editMode): string
+    {
+        $orig = $html;
         $seo = (array) ($site->site_data['seo'] ?? []);
         $meta = (array) ($seo['meta'][self::key($pageSlug)] ?? []);
         $attr = fn (string $v) => htmlspecialchars($v, ENT_QUOTES | ENT_HTML5, 'UTF-8');
@@ -55,10 +67,10 @@ class SeoApply
 
         if (! $editMode && ! str_contains($html, 'application/ld+json')) {
             $json = json_encode(self::schema($site, $pageSlug), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
-            $html = preg_replace('#</head>#i', '<script type="application/ld+json">'.$json."</script>\n</head>", $html, 1);
+            $html = preg_replace('#</head>#i', '<script type="application/ld+json">'.$json."</script>\n</head>", (string) $html, 1);
         }
 
-        return $html;
+        return is_string($html) && $html !== '' ? $html : $orig;
     }
 
     /** Données structurées : uniquement des informations réelles de l'établissement (aucun avis ni prix inventé). */

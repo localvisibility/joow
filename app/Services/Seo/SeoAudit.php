@@ -20,8 +20,15 @@ class SeoAudit
     public function run(Site $site): array
     {
         $renderer = app(SiteRenderer::class);
-        $all = $renderer->renderAll($site);
-        $labels = ['' => 'Accueil'] + collect($renderer->pages($site))->mapWithKeys(fn ($p) => [$p['slug'] => $p['title']])->all();
+        $labels = ['' => 'Accueil'] + collect($renderer->pages($site))->mapWithKeys(fn ($p) => [(string) $p['slug'] => $p['title']])->all();
+        $all = [];
+        foreach (array_keys($labels) as $slug) {
+            try {
+                $all[(string) $slug] = $renderer->html($site, false, $slug === '' ? null : (string) $slug);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("SeoAudit {$site->slug}/$slug : ".$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
+            }
+        }
         $seo = (array) ($site->site_data['seo'] ?? []);
         $city = (string) ($site->site_data['business']['city'] ?? $site->city ?? '');
         $base = SeoApply::baseUrl($site);
@@ -35,6 +42,7 @@ class SeoAudit
 
         $pages = [];
         foreach ($parsed as $slug => $p) {
+            $slug = (string) $slug;
             $key = SeoApply::key($slug ?: null);
             $kw = trim((string) ($seo['keywords'][$key] ?? ''));
             $pages[] = [
@@ -56,6 +64,13 @@ class SeoAudit
         $siteChecks = $this->siteChecks($site, $parsed[''] ?? null, count($all));
         $all = array_merge($siteChecks, ...array_column($pages, 'checks'));
 
+        // Textes extraits des pages : toujours en UTF-8 valide (sinon l'envoi à l'écran échoue)
+        array_walk_recursive($pages, function (&$v) {
+            if (is_string($v)) {
+                $v = mb_scrub($v, 'UTF-8');
+            }
+        });
+
         return [
             'score' => $this->score($all),
             'counts' => ['error' => count(array_filter($all, fn ($c) => $c['status'] === 'error')), 'warn' => count(array_filter($all, fn ($c) => $c['status'] === 'warn')), 'ok' => count(array_filter($all, fn ($c) => $c['status'] === 'ok'))],
@@ -73,7 +88,7 @@ class SeoAudit
         $dom->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_NOWARNING | LIBXML_NOERROR);
         libxml_clear_errors();
         $xp = new \DOMXPath($dom);
-        $txt = fn ($n) => trim(preg_replace('/\s+/u', ' ', $n->textContent));
+        $txt = fn ($n) => trim((string) (preg_replace('/\s+/u', ' ', (string) $n->textContent) ?? preg_replace('/\s+/', ' ', (string) $n->textContent)));
 
         $title = ($n = $xp->query('//title')->item(0)) ? $txt($n) : '';
         $desc = ($n = $xp->query('//meta[@name="description"]/@content')->item(0)) ? trim($n->nodeValue) : '';

@@ -5,7 +5,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { computed, reactive, ref, watch } from 'vue';
 
-const props = defineProps({ sites: Array, current: String, audit: Object, credits: Object, suggestions: Object, cost: Number });
+const props = defineProps({ error: String, sites: Array, current: String, audit: Object, credits: Object, suggestions: Object, cost: Number });
 
 const audit = ref(props.audit);
 const credits = ref(props.credits);
@@ -87,7 +87,7 @@ const costLabel = computed(() => (credits.value?.free ? 'gratuit (admin)' : `${p
             </div>
         </template>
 
-        <div v-if="!audit" class="glass rounded-2xl p-10 text-center text-slate-400">Créez d'abord un site.</div>
+        <div v-if="!audit" class="glass rounded-2xl p-10 text-center text-slate-400">{{ error || 'Créez d\'abord un site.' }}</div>
         <div v-else class="space-y-6">
             <p v-if="err" class="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{{ err }}</p>
             <p v-if="done" class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">{{ done }}</p>

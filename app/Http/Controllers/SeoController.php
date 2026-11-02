@@ -23,11 +23,22 @@ class SeoController extends Controller
             ->orderByDesc('created_at')->take($user->isAdmin() ? 300 : 50)->get(['id', 'slug', 'name', 'city', 'status']);
         $site = $sites->firstWhere('slug', $request->query('site')) ?? $sites->first(fn ($s) => in_array($s->status, ['paid', 'published'], true)) ?? $sites->first();
         $site = $site ? Site::find($site->id) : null;
+        $report = null;
+        $error = null;
+        if ($site) {
+            try {
+                $report = $audit->run($site);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error("SEO {$site->slug} : ".$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine());
+                $error = 'L\'analyse de ce site n\'a pas pu aboutir, réessayez dans un instant.'.($user->isAdmin() ? ' [admin] '.$e->getMessage().' @ '.basename($e->getFile()).':'.$e->getLine() : '');
+            }
+        }
 
         return Inertia::render('Seo', [
+            'error' => $error,
             'sites' => $sites->map(fn ($s) => ['slug' => $s->slug, 'name' => $s->name, 'city' => $s->city, 'online' => in_array($s->status, ['paid', 'published'], true)]),
             'current' => $site?->slug,
-            'audit' => $site ? $audit->run($site) : null,
+            'audit' => $report,
             'credits' => $site ? $this->credits($site, $user) : null,
             'suggestions' => $site ? ($site->site_data['seo']['suggestions'] ?? null) : null,
             'cost' => self::COST,
