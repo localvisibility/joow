@@ -35,7 +35,8 @@ class PublicSiteController extends Controller
     public function search(Request $request, GooglePlaces $places)
     {
         return response()->json([
-            'results' => $places->autocomplete((string) $request->query('q', '')),
+            // full=1 : recherche élargie (payante) demandée explicitement par le visiteur
+            'results' => $places->autocomplete(mb_substr((string) $request->query('q', ''), 0, 120), $request->boolean('full')),
         ]);
     }
 

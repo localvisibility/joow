@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -43,11 +44,25 @@ class GooglePlaces
     /** Types Google désignant un lieu géographique (ville, quartier, rue…) et non un établissement. */
     private const GEO_TYPES = ['locality', 'sublocality', 'sublocality_level_1', 'political', 'administrative_area_level_1', 'administrative_area_level_2', 'administrative_area_level_3', 'country', 'route', 'street_address', 'postal_code', 'neighborhood', 'premise', 'plus_code', 'geocode'];
 
-    /** Autocomplétion : liste d'établissements candidats pour une saisie. */
-    public function autocomplete(string $input): array
+    /**
+     * Autocomplétion : liste d'établissements candidats pour une saisie.
+     * La recherche textuelle (payante, ~30 € / 1000) n'est faite que sur demande explicite ($allowText),
+     * jamais à chaque frappe ; résultats mis en cache 24 h ; plafond quotidien de sécurité.
+     */
+    public function autocomplete(string $input, bool $allowText = false): array
     {
-        if (mb_strlen(trim($input)) < 3) {
+        $input = trim($input);
+        if (mb_strlen($input) < 3) {
             return [];
+        }
+        $norm = Str::lower(Str::ascii(preg_replace('/\s+/u', ' ', $input)));
+        $cached = Cache::get('places:ac:'.md5($norm));
+        if (is_array($cached) && ($cached || ! $allowText)) {
+            return $cached;
+        }
+        if (is_array($cached) && $allowText) {
+            // Autocomplétion déjà vide pour cette saisie : directement la recherche élargie
+            return Cache::remember('places:tx:'.md5($norm), now()->addDay(), fn () => $this->searchEstablishments($input));
         }
         if (! $this->key) {
             Log::warning('Places : GOOGLE_PLACES_API_KEY absente, recherche désactivée.');
@@ -74,14 +89,40 @@ class GooglePlaces
                 'secondary' => $p['structuredFormat']['secondaryText']['text'] ?? '',
             ])->values()->all();
 
-        // L'autocomplétion ignore les requêtes descriptives (« garage auto Toulouse ») :
-        // on se replie sur la recherche textuelle, qui comprend « métier + ville ».
-        return $results ?: $this->searchEstablishments($input);
+        if ($res->successful()) {
+            Cache::put('places:ac:'.md5($norm), $results, now()->addDay());
+        }
+        if ($results || ! $allowText) {
+            return $results;
+        }
+        // Recherche élargie demandée explicitement : « métier + ville » ou nom approximatif
+        return Cache::remember('places:tx:'.md5($norm), now()->addDay(), fn () => $this->searchEstablishments($input));
+    }
+
+    /** Plafond quotidien de recherches textuelles payantes (coupe-circuit en cas d'abus ou de bug). */
+    private function textBudget(): bool
+    {
+        $key = 'places:text:'.now()->toDateString();
+        Cache::add($key, 0, now()->addDays(2));
+        $n = Cache::increment($key);
+        $cap = (int) config('services.google_places.text_daily_cap', 300);
+        if ($n > $cap) {
+            if ($n === $cap + 1) {
+                Log::error("Places : plafond quotidien de recherches textuelles atteint ($cap) — recherches élargies suspendues jusqu'à demain.");
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     /** Recherche textuelle : établissements correspondant à « métier + ville » ou à un nom approximatif. */
     private function searchEstablishments(string $text): array
     {
+        if (! $this->textBudget()) {
+            return [];
+        }
         $res = $this->client('places.id,places.displayName,places.formattedAddress,places.types')->post(self::BASE.'/places:searchText', [
             'textQuery'    => $text,
             'languageCode' => 'fr',

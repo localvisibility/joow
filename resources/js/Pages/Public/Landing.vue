@@ -48,8 +48,19 @@ watch(q, (val) => {
             noResult.value = results.value.length === 0;
         } catch (e) { results.value = []; }
         finally { searching.value = false; }
-    }, 300);
+    }, 450);
 });
+
+// Recherche élargie (métier + ville, nom approximatif) : seulement sur demande, jamais à chaque frappe
+const widening = ref(false);
+const widen = async () => {
+    widening.value = true;
+    try {
+        const r = await fetch(route('public.search', { q: q.value, full: 1 }), { headers: { Accept: 'application/json' } });
+        const d = await r.json();
+        results.value = d.results || []; open.value = true; noResult.value = results.value.length === 0;
+    } catch (e) { /* on garde l'affichage actuel */ } finally { widening.value = false; }
+};
 
 const pick = (r) => { selected.value = r; form.query = r.place_id; q.value = r.main; open.value = false; results.value = []; track('Search', { search_string: r.main, content_category: 'fiche_google' }); };
 const reset = () => { selected.value = null; form.query = ''; q.value = ''; results.value = []; open.value = false; };
@@ -305,7 +316,7 @@ onUnmounted(() => {
                                         <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/5 text-slate-400"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path :d="icons.pin"/></svg></span>
                                         <span class="min-w-0"><span class="block truncate font-semibold text-white">{{ r.main }}</span><span class="block truncate text-xs text-slate-500">{{ r.secondary }}</span></span>
                                     </button>
-                                    <p v-if="noResult" class="px-4 pt-3 text-xs text-slate-400">Aucune fiche Google ne correspond à « {{ q }} ».</p>
+                                    <p v-if="noResult" class="px-4 pt-3 text-xs text-slate-400">Aucune fiche Google ne correspond à « {{ q }} ». <button type="button" @click.stop="widen" :disabled="widening" class="font-semibold text-brand-300 hover:underline">{{ widening ? 'Recherche…' : 'Recherche élargie' }}</button></p>
                                     <!-- Dernière ligne : pas de fiche Google → questionnaire -->
                                     <Link :href="intakeUrl" class="flex w-full items-center gap-3 border-t border-white/[0.06] px-4 py-3 text-left transition hover:bg-white/5" :class="noResult ? 'bg-brand-500/10' : ''">
                                         <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-gradient text-sm text-white">✎</span>

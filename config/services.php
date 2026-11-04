@@ -38,6 +38,8 @@ return [
     // Génération de sites
     'google_places' => [
         'key' => env('GOOGLE_PLACES_API_KEY'),
+        // Coupe-circuit : nombre maximum de recherches textuelles payantes par jour
+        'text_daily_cap' => (int) env('GOOGLE_PLACES_TEXT_DAILY_CAP', 300),
     ],
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),

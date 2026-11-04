@@ -58,7 +58,7 @@ Route::middleware(\App\Http\Middleware\MarketingHost::class)->name('marketing.')
     Route::get('/{page}', [\App\Http\Controllers\MarketingController::class, 'legal'])->where('page', 'mentions-legales|confidentialite|cgv')->name('legal');
     Route::get('/sitemap.xml', [\App\Http\Controllers\MarketingController::class, 'sitemap'])->name('sitemap');
 });
-Route::get('/recherche', [PublicSiteController::class, 'search'])->middleware('throttle:60,1')->name('public.search');
+Route::get('/recherche', [PublicSiteController::class, 'search'])->middleware('throttle:30,1')->name('public.search');
 Route::post('/generer', [PublicSiteController::class, 'generate'])->middleware('throttle:8,1')->name('public.generate');
 // Sans fiche Google : mini-questionnaire → même génération
 Route::get('/creer', [\App\Http\Controllers\IntakeController::class, 'create'])->name('intake.create');
