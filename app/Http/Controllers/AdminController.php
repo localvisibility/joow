@@ -359,6 +359,7 @@ class AdminController extends Controller
             'recent_errors' => $jobs->where('status', 'failed')->sortByDesc('created_at')->take(10)->map(fn ($j) => ['at' => $j->created_at->toIso8601String(), 'error' => Str::limit((string) $j->error, 200)])->values()->all(),
             'cost_estimate' => round($jobs->count() * 0.03, 2), // ≈ 0,03 € d'IA par génération (estimation)
             'requests' => $this->aiRequests($since),
+            'api' => \App\Services\ApiUsage::report(),
         ];
     }
 

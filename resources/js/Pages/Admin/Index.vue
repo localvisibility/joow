@@ -475,6 +475,33 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                     <p class="mt-1 font-display text-2xl font-bold text-white">{{ v }}</p>
                 </div>
             </div>
+            <div v-if="data.api" class="glass mt-4 rounded-2xl p-5">
+                <div class="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 class="font-semibold text-white">Coûts des API externes (comptés par Joow)</h2>
+                    <p class="text-sm text-slate-300">Estimation du mois en cours : <b class="text-white">{{ eur(data.api.total_eur) }}</b></p>
+                </div>
+                <p class="mt-1 text-xs text-slate-500">Chaque appel réussi à Google Places, Gemini et OpenAI est compté au moment où Joow le fait (depuis la mise en place du compteur). Coût = tarifs publics indicatifs, gratuités mensuelles déduites. Comparez avec la console Google : un écart signifie qu'un autre programme utilise la même clé.</p>
+                <div class="mt-3 overflow-x-auto">
+                    <table class="w-full min-w-[56rem] text-left text-sm">
+                        <thead class="text-[11px] uppercase tracking-wider text-slate-500">
+                            <tr><th class="py-2 pr-3">Service</th><th class="px-3 text-right">Aujourd'hui</th><th class="px-3 text-right">7 j</th><th class="px-3 text-right">Mois</th><th class="px-3 text-right">Gratuit / mois</th><th class="px-3 text-right">Prix</th><th class="px-3 text-right">Coût du mois</th><th class="pl-3">14 derniers jours</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/[0.05]">
+                            <tr v-for="r in data.api.rows" :key="r.sku">
+                                <td class="py-2 pr-3 text-slate-200">{{ r.label }}<span v-if="r.tokens" class="block text-[11px] text-slate-500">{{ r.tokens.toLocaleString('fr-FR') }} jetons ce mois</span></td>
+                                <td class="px-3 text-right text-slate-300">{{ r.today.toLocaleString('fr-FR') }}</td>
+                                <td class="px-3 text-right text-slate-300">{{ r.week.toLocaleString('fr-FR') }}</td>
+                                <td class="px-3 text-right font-semibold text-white">{{ r.month.toLocaleString('fr-FR') }}</td>
+                                <td class="px-3 text-right text-slate-500">{{ r.free ? r.free.toLocaleString('fr-FR') : '—' }}</td>
+                                <td class="px-3 text-right text-xs text-slate-500">{{ r.unit_eur ? (r.per === 1 ? eur(r.unit_eur / 1000) + ' / unité' : eur(r.unit_eur) + ' / 1000') : 'au jeton' }}</td>
+                                <td class="px-3 text-right font-semibold" :class="r.cost_eur > 50 ? 'text-rose-300' : r.cost_eur > 0 ? 'text-amber-300' : 'text-emerald-300'">{{ eur(r.cost_eur) }}</td>
+                                <td class="pl-3"><div class="flex h-6 items-end gap-0.5"><span v-for="(n, i) in r.daily" :key="i" class="w-1.5 rounded-sm bg-brand-400/70" :style="{ height: Math.max(2, (n / Math.max(...r.daily, 1)) * 24) + 'px' }" :title="data.api.days[i] + ' : ' + n"></span></div></td>
+                            </tr>
+                            <tr v-if="!data.api.rows.length"><td colspan="8" class="py-4 text-center text-slate-500">Aucun appel compté pour l'instant (le compteur démarre à cette mise à jour).</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
             <div class="mt-4 grid gap-4 lg:grid-cols-2">
                 <div class="glass rounded-2xl p-5">
                     <h2 class="font-semibold text-white">Crédits par usage · {{ days }} j</h2>

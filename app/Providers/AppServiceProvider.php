@@ -21,6 +21,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Comptage des appels aux API payantes (back-office → IA & coûts)
+        \Illuminate\Support\Facades\Http::globalMiddleware(fn ($handler) => fn ($request, $options) => $handler($request, $options)->then(function ($response) use ($request) {
+            \App\Services\ApiUsage::record($request, $response);
+
+            return $response;
+        }));
+
         // Joow Ads : un compteur par action (et non un compteur commun à toutes les actions), sans limite pour les admins
         \Illuminate\Support\Facades\RateLimiter::for('ads', function (\Illuminate\Http\Request $request) {
             $user = $request->user();

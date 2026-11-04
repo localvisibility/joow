@@ -38,4 +38,23 @@ return [
             '200' => ['credits' => 200, 'label' => '29 € HT', 'price_id' => env('STRIPE_PRICE_CREDITS_200'), 'best' => true],
         ],
     ],
+    // Tarifs publics indicatifs des API (USD) pour l'estimation des coûts du back-office :
+    // usd = prix pour `per` appels (1000) ou par image (per = 1), free = gratuité mensuelle. À ajuster selon vos factures.
+    'usd_eur' => (float) env('JOOW_USD_EUR', 0.88),
+    'api_prices' => [
+        'places.autocomplete' => ['per' => 1000, 'usd' => 2.83, 'free' => 10000],
+        'places.text_ids' => ['per' => 1000, 'usd' => 0, 'free' => 0],
+        'places.text_pro' => ['per' => 1000, 'usd' => 32, 'free' => 5000],
+        'places.text_enterprise' => ['per' => 1000, 'usd' => 35, 'free' => 1000],
+        'places.details_essentials' => ['per' => 1000, 'usd' => 5, 'free' => 10000],
+        'places.details_pro' => ['per' => 1000, 'usd' => 17, 'free' => 5000],
+        'places.details_enterprise' => ['per' => 1000, 'usd' => 20, 'free' => 1000],
+        'places.details_atmosphere' => ['per' => 1000, 'usd' => 25, 'free' => 1000],
+        'places.photo' => ['per' => 1000, 'usd' => 7, 'free' => 1000],
+        'gemini.text' => ['per' => 1000, 'usd' => 0, 'free' => 0],
+        'gemini.image_pro' => ['per' => 1, 'usd' => 0.134, 'free' => 0],
+        'gemini.image_flash' => ['per' => 1, 'usd' => 0.039, 'free' => 0],
+        'openai.image' => ['per' => 1, 'usd' => 0.2, 'free' => 0],
+    ],
+
 ];
