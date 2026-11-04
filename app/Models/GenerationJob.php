@@ -11,6 +11,16 @@ class GenerationJob extends Model
 
     protected $guarded = [];
 
+    /** Jamais de clé Google dans les données enregistrées : photos Places réécrites vers /gphoto. */
+    protected static function booted(): void
+    {
+        static::saving(function ($m) {
+            if ($m->isDirty('result') && str_contains((string) json_encode($m->result), 'places.googleapis.com')) {
+                $m->result = \App\Services\PlacesPhoto::scrub($m->result);
+            }
+        });
+    }
+
     protected $casts = [
         'input'        => 'array',
         'result'       => 'array',

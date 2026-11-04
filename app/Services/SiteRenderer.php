@@ -114,7 +114,8 @@ class SiteRenderer
             ],
         ])->render();
 
-        return \App\Services\Seo\SeoApply::apply($html, $site, $page ? $pageSlug : null, $editMode);
+        // Filet de sécurité : jamais de clé Google dans une page (photos Places servies via /gphoto)
+        return \App\Services\PlacesPhoto::scrubString(\App\Services\Seo\SeoApply::apply($html, $site, $page ? $pageSlug : null, $editMode));
     }
 
     /** Rend toutes les pages : ['' => html accueil, 'slug-page' => html…]. */

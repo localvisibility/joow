@@ -13,6 +13,16 @@ class Site extends Model
 
     protected $guarded = [];
 
+    /** Jamais de clé Google dans les données enregistrées : photos Places réécrites vers /gphoto. */
+    protected static function booted(): void
+    {
+        static::saving(function ($m) {
+            if ($m->isDirty('site_data') && str_contains((string) json_encode($m->site_data), 'places.googleapis.com')) {
+                $m->site_data = \App\Services\PlacesPhoto::scrub($m->site_data);
+            }
+        });
+    }
+
     protected $casts = [
         'pages'               => 'array',
         'site_data'           => 'array',

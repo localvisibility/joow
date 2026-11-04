@@ -58,6 +58,7 @@ Route::middleware(\App\Http\Middleware\MarketingHost::class)->name('marketing.')
     Route::get('/{page}', [\App\Http\Controllers\MarketingController::class, 'legal'])->where('page', 'mentions-legales|confidentialite|cgv')->name('legal');
     Route::get('/sitemap.xml', [\App\Http\Controllers\MarketingController::class, 'sitemap'])->name('sitemap');
 });
+Route::get('/gphoto/{token}', [\App\Http\Controllers\PlacesPhotoController::class, 'show'])->where('token', '[A-Za-z0-9_\-\.]+')->middleware('throttle:300,1')->name('gphoto');
 Route::get('/recherche', [PublicSiteController::class, 'search'])->middleware('throttle:30,1')->name('public.search');
 Route::post('/generer', [PublicSiteController::class, 'generate'])->middleware('throttle:8,1')->name('public.generate');
 // Sans fiche Google : mini-questionnaire → même génération
