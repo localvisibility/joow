@@ -195,6 +195,8 @@ Route::prefix('/sites/{slug}/editeur')->name('sites.editor')->group(function () 
     Route::post('/content', [SiteEditorController::class, 'content'])->middleware('throttle:120,1')->name('.content');
     Route::post('/bulk', [SiteEditorController::class, 'bulk'])->middleware('throttle:120,1')->name('.bulk');
     Route::post('/image', [SiteEditorController::class, 'image'])->middleware('throttle:30,1')->name('.image');
+    Route::post('/fichier', [SiteEditorController::class, 'file'])->middleware('throttle:20,1')->name('.file');
+    Route::post('/image-format', [SiteEditorController::class, 'imageFit'])->middleware('throttle:60,1')->name('.fit');
     Route::post('/sections', [SiteEditorController::class, 'sections'])->name('.sections');
     Route::post('/style', [SiteEditorController::class, 'style'])->name('.style');
     Route::post('/publish', [SiteEditorController::class, 'publish'])->middleware('throttle:20,1')->name('.publish');

@@ -27,6 +27,18 @@ return [
         'features' => ['Adapté au métier', 'Email instantané', 'Anti-spam'],
         'sectors' => [],
     ],
+    'popup' => [
+        'name' => 'Popup', 'icon' => '📣', 'free' => true,
+        'desc' => 'Une fenêtre qui s\'ouvre à l\'arrivée sur votre site : offre du moment, événement, fermeture exceptionnelle, nouvelle carte…',
+        'features' => ['Image, titre, texte et bouton', 'Délai d\'apparition', 'Une fois par visite ou par jour', 'Dates de début et de fin'],
+        'sectors' => [],
+    ],
+    'announce' => [
+        'name' => 'Bandeau d\'annonce', 'icon' => '📢', 'free' => true,
+        'desc' => 'Une fine bande en haut de toutes les pages : « Fermé le 15 août », « Livraison offerte ce week-end »…',
+        'features' => ['Texte court', 'Lien optionnel', 'Couleur de la marque ou sombre'],
+        'sectors' => [],
+    ],
     'whatsapp' => [
         'name' => 'Chat WhatsApp', 'icon' => '💬', 'free' => true,
         'desc' => 'Une bulle WhatsApp flottante sur votre site : vos visiteurs vous écrivent en un clic, avec un message pré-rempli.',

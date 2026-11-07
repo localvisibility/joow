@@ -212,7 +212,8 @@ const removePage = (i) => { if (!confirm(`Supprimer la page « ${st.value.pages[
 const movePage = (i, d) => { const p = st.value.pages; const j = i + d; if (j < 0 || j >= p.length) return; [p[i], p[j]] = [p[j], p[i]]; commitPages(true); };
 const MODULE_BLOCKS = [['menu', 'Carte / menu'], ['booking', 'Réservation / demande'], ['rooms', 'Chambres & séjour'], ['reviews', 'Avis Google'], ['gallery', 'Galerie photos']];
 const BLOCK_DEFAULTS = {
-    text: { title: 'Un titre clair', body: 'Votre texte ici.\n\nUn second paragraphe.', image: null, image_side: 'right' },
+    text: { title: 'Un titre clair', body: 'Votre texte ici.\n\nUn second paragraphe.', image: null, image_side: 'right', image_ratio: 'landscape' },
+    document: { title: 'Notre carte', text: '', file: null, button: 'Voir la carte en PDF' },
     features: { title: 'Nos points forts', intro: '', items: [{ icon: 'fa-circle-check', title: 'Point fort 1', desc: 'Une phrase concrète.' }, { icon: 'fa-circle-check', title: 'Point fort 2', desc: 'Une phrase concrète.' }, { icon: 'fa-circle-check', title: 'Point fort 3', desc: 'Une phrase concrète.' }] },
     steps: { title: 'Comment ça se passe', items: [{ title: 'Étape 1', desc: '' }, { title: 'Étape 2', desc: '' }, { title: 'Étape 3', desc: '' }] },
     gallery: { title: 'En images', images: [] },
@@ -235,7 +236,7 @@ const blockPath = (j) => `pages.${pageIndex.value}.blocks.${j}`;
 const scrollBlock = (j) => { openBlock.value = j; post({ type: 'scrollTo', id: j === -2 ? 'phero' : 'block-' + j }); };
 
 /* ───────────── images ───────────── */
-const openPicker = (path, current = '') => { picker.value = { open: true, path, current, tab: 'upload', url: '', uploading: false }; openBank(); };
+const openPicker = (path, current = '') => { picker.value = { open: true, path, current, tab: 'upload', url: '', uploading: false }; if (!/\.file$/.test(path)) openBank(); };
 /* Banque d'images : recherche intelligente (français → mots-clés, métier, emplacement) */
 const bank = ref({ q: '', results: [], suggestions: [], loading: false, searched: false, using: null });
 const searchBank = async (initial = false) => {
@@ -255,8 +256,17 @@ const useBankPhoto = async (r, i) => {
     catch (e) { alert(e?.message || 'Impossible d\'ajouter cette photo.'); }
     finally { bank.value.using = null; }
 };
+const isDocPath = computed(() => /\.file$/.test(picker.value.path || ''));
+const fitOn = computed(() => !!(st.value?.image_fit && picker.value.current && st.value.image_fit[picker.value.current] === 'contain'));
+const setFit = async (on) => {
+    const url = picker.value.current; if (!url) return;
+    status.value = 'saving';
+    try { const d = await postJson(route('sites.editor.fit', slug), { url, fit: on ? 'contain' : 'cover' }); st.value.image_fit = d.image_fit || {}; status.value = d.queued ? 'queued' : 'saved'; reload(d.version); }
+    catch { status.value = 'error'; }
+};
 const applyImage = (url) => {
     const p = picker.value.path;
+    if (p.startsWith('module.')) { const [, key, field] = p.split('.'); setModCfg(key, field, url); picker.value.open = false; return; }
     if (p.startsWith('images.gallery.')) {
         const i = Number(p.split('.').pop()); const g = [...(st.value.images?.gallery || galleryDefault())]; g[i] = url;
         edit('images.gallery', g, { reload: true });
@@ -271,8 +281,9 @@ const removeGallery = (i) => { const g = [...galleryList.value]; g.splice(i, 1);
 const upload = async (ev) => {
     const f = ev.target.files?.[0]; if (!f) return;
     picker.value.uploading = true;
-    try { const fd = new FormData(); fd.append('file', f); const d = await postJson(route('sites.editor.image', slug), fd); applyImage(d.url); }
-    catch (e) { alert(e?.message || 'Upload impossible (8 Mo max, jpg/png/webp).'); }
+    const doc = isDocPath.value || f.type === 'application/pdf';
+    try { const fd = new FormData(); fd.append('file', f); const d = await postJson(route(doc ? 'sites.editor.file' : 'sites.editor.image', slug), fd); applyImage(d.url); }
+    catch (e) { alert(e?.message || (doc ? 'Import impossible (PDF ou image, 15 Mo max).' : 'Import impossible (8 Mo max, jpg/png/webp).')); }
     finally { picker.value.uploading = false; ev.target.value = ''; }
 };
 
@@ -314,7 +325,7 @@ const setAccent = (c) => { if (!/^#[0-9a-fA-F]{6}$/.test(c)) return; st.value.ac
 const setFont = (f) => { st.value.font = f; saveStyle({ font: f }); };
 const setTheme = (t) => { st.value.theme = t; saveStyle({ theme: t }); };
 const setHeroStyle = (h) => { st.value.hero_style = h; saveStyle({ hero_style: h }); };
-const QUICK_MODULES = [['booking', 'Formulaire de demande'], ['whatsapp', 'Bulle WhatsApp'], ['bot', 'Assistant IA 24h/24'], ['reviews', 'Avis Google'], ['legal', 'Mentions légales RGPD']];
+const QUICK_MODULES = [['booking', 'Formulaire de demande'], ['popup', 'Popup (offre, événement, annonce)'], ['announce', 'Bandeau d\'annonce en haut du site'], ['whatsapp', 'Bulle WhatsApp'], ['bot', 'Assistant IA 24h/24'], ['reviews', 'Avis Google'], ['legal', 'Mentions légales RGPD']];
 // Un module peut être un booléen (historique) ou un objet { enabled, …réglages }
 const moduleOn = (key) => { const v = st.value?.modules?.[key]; if (key === 'reviews') return v !== false && !(v && typeof v === 'object' && v.enabled === false); return typeof v === 'object' && v !== null ? !!v.enabled : !!v; };
 const toggleModule = async (key = 'booking') => {
@@ -328,6 +339,13 @@ const bot = computed(() => st.value?.module_config?.bot || {});
 const setBot = async (field, value) => {
     status.value = 'saving';
     try { const d = await postJson(route('sites.editor.module', slug), { key: 'bot', enabled: true, config: { [field]: value } }); st.value.modules = d.modules; st.value.module_config = d.module_config; status.value = d.queued ? 'queued' : 'saved'; if (['name', 'welcome'].includes(field)) reload(d.version); }
+    catch { status.value = 'error'; }
+};
+// Réglages de la popup et du bandeau d'annonce
+const modCfg = (key) => st.value?.module_config?.[key] || {};
+const setModCfg = async (key, field, value) => {
+    status.value = 'saving';
+    try { const d = await postJson(route('sites.editor.module', slug), { key, enabled: true, config: { [field]: value } }); st.value.modules = d.modules; st.value.module_config = d.module_config; status.value = d.queued ? 'queued' : 'saved'; reload(d.version); }
     catch { status.value = 'error'; }
 };
 const setHours = (txt) => edit('business.opening_hours', txt.split('\n').map((l) => l.trim()).filter(Boolean), { reload: true });
@@ -810,7 +828,20 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                     <button @click="openPicker(blockPath(j)+'.image')" class="flex flex-1 items-center gap-3 rounded-lg bg-white/[0.04] p-2 text-left text-sm text-slate-200 hover:bg-white/[0.07]"><img v-if="blk.image" :src="blk.image" class="h-10 w-14 rounded object-cover" /><span v-else class="grid h-10 w-14 place-items-center rounded bg-white/5 text-xs">—</span> {{ blk.image ? 'Changer l\'image' : 'Ajouter une image' }}</button>
                                     <button v-if="blk.image" @click="blk.image=null; commitPages(true)" class="text-xs text-slate-500 hover:text-rose-300">Retirer</button>
                                 </div>
-                                <label class="lbl">Position de l'image<select class="fld" :value="blk.image_side" @change="blk.image_side=$event.target.value; commitPages(true)"><option value="right">À droite</option><option value="left">À gauche</option></select></label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label class="lbl">Position de l'image<select class="fld" :value="blk.image_side" @change="blk.image_side=$event.target.value; commitPages(true)"><option value="right">À droite</option><option value="left">À gauche</option></select></label>
+                                    <label class="lbl">Format de l'image<select class="fld" :value="blk.image_ratio || 'landscape'" @change="blk.image_ratio=$event.target.value; commitPages(true)"><option value="landscape">Paysage (4:3)</option><option value="portrait">Portrait (3:4)</option><option value="square">Carré</option><option value="full">Image entière, sans recadrage (menu, affiche)</option></select></label>
+                                </div>
+                            </template>
+                            <!-- document / menu PDF -->
+                            <template v-if="blk.type==='document'">
+                                <label class="lbl">Texte d'introduction<textarea class="fld" rows="2" :value="blk.text" @change="blk.text=$event.target.value; commitPages()"></textarea></label>
+                                <div class="flex items-center gap-2">
+                                    <button @click="openPicker(blockPath(j)+'.file', blk.file || '')" class="flex flex-1 items-center gap-3 rounded-lg bg-white/[0.04] p-2 text-left text-sm text-slate-200 hover:bg-white/[0.07]"><span class="grid h-10 w-14 place-items-center rounded bg-white/5 text-lg">{{ blk.file ? (/\.pdf(\?|$)/i.test(blk.file) ? '📄' : '🖼️') : '—' }}</span> {{ blk.file ? 'Remplacer le document' : 'Ajouter un PDF ou une image' }}</button>
+                                    <a v-if="blk.file" :href="blk.file" target="_blank" class="text-xs text-brand-300">Voir</a>
+                                </div>
+                                <label v-if="blk.file && /\.pdf(\?|$)/i.test(blk.file)" class="lbl">Texte du bouton<input class="fld" :value="blk.button" @change="blk.button=$event.target.value; commitPages()" /></label>
+                                <p class="text-[11px] text-slate-500">Un PDF s'affiche avec un bouton d'ouverture (et en aperçu sur ordinateur) ; une image s'affiche en entier, sans recadrage.</p>
                             </template>
                             <!-- features / pricing intro -->
                             <label v-if="['features','pricing'].includes(blk.type)" class="lbl">Introduction<textarea class="fld" rows="2" :value="blk.intro" @change="blk.intro=$event.target.value; commitPages()"></textarea></label>
@@ -956,6 +987,33 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                                 <label class="flex items-center justify-between px-3 py-2 text-sm text-slate-300">{{ m[1] }}
                                     <button type="button" @click="toggleModule(m[0])" :class="moduleOn(m[0]) ? 'bg-brand-500' : 'bg-white/10'" class="relative h-6 w-11 rounded-full transition"><span :class="moduleOn(m[0]) ? 'translate-x-5' : 'translate-x-0.5'" class="absolute top-0.5 h-5 w-5 rounded-full bg-white transition"></span></button>
                                 </label>
+                                <!-- Popup -->
+                                <div v-if="m[0]==='popup' && moduleOn('popup')" class="space-y-3 border-t border-white/[0.06] bg-white/[0.02] px-3 pb-3 pt-2">
+                                    <p class="text-[11px] text-slate-500">Elle s'ouvre quelques secondes après l'arrivée du visiteur. Visible sur le site en ligne (pas dans le Studio).</p>
+                                    <label class="lbl">Titre<input class="fld" :value="modCfg('popup').title" placeholder="Ex : Nouvelle carte d'automne 🍂" @change="setModCfg('popup','title',$event.target.value)" /></label>
+                                    <label class="lbl">Texte<textarea class="fld" rows="3" :value="modCfg('popup').text" placeholder="Ex : Découvrez nos nouveaux plats de saison, servis midi et soir." @change="setModCfg('popup','text',$event.target.value)"></textarea></label>
+                                    <div class="flex items-center gap-2">
+                                        <button @click="openPicker('module.popup.image', modCfg('popup').image)" class="flex flex-1 items-center gap-3 rounded-lg bg-white/[0.04] p-2 text-left text-sm text-slate-200 hover:bg-white/[0.07]"><img v-if="modCfg('popup').image" :src="modCfg('popup').image" class="h-10 w-14 rounded object-contain bg-black/40" /><span v-else class="grid h-10 w-14 place-items-center rounded bg-white/5 text-xs">—</span> {{ modCfg('popup').image ? 'Changer l\'image' : 'Ajouter une image (affiche, menu…)' }}</button>
+                                        <button v-if="modCfg('popup').image" @click="setModCfg('popup','image','')" class="text-xs text-slate-500 hover:text-rose-300">Retirer</button>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="lbl">Bouton<input class="fld" :value="modCfg('popup').button_label" placeholder="Réserver" @change="setModCfg('popup','button_label',$event.target.value)" /></label>
+                                        <label class="lbl">Lien du bouton<input class="fld" :value="modCfg('popup').button_url" placeholder="#reserver ou https://…" @change="setModCfg('popup','button_url',$event.target.value)" /></label>
+                                        <label class="lbl">Apparaît après<select class="fld" :value="String(modCfg('popup').delay ?? '3')" @change="setModCfg('popup','delay',$event.target.value)"><option value="0">Tout de suite</option><option value="3">3 secondes</option><option value="8">8 secondes</option><option value="15">15 secondes</option></select></label>
+                                        <label class="lbl">Fréquence<select class="fld" :value="modCfg('popup').frequency || 'session'" @change="setModCfg('popup','frequency',$event.target.value)"><option value="session">1 fois par visite</option><option value="day">1 fois par jour</option><option value="always">À chaque page</option></select></label>
+                                        <label class="lbl">Du (optionnel)<input type="date" class="fld" :value="modCfg('popup').start" @change="setModCfg('popup','start',$event.target.value)" /></label>
+                                        <label class="lbl">Au (optionnel)<input type="date" class="fld" :value="modCfg('popup').end" @change="setModCfg('popup','end',$event.target.value)" /></label>
+                                    </div>
+                                </div>
+                                <!-- Bandeau d'annonce -->
+                                <div v-if="m[0]==='announce' && moduleOn('announce')" class="space-y-3 border-t border-white/[0.06] bg-white/[0.02] px-3 pb-3 pt-2">
+                                    <label class="lbl">Texte du bandeau<input class="fld" :value="modCfg('announce').text" placeholder="Ex : Fermeture exceptionnelle le 15 août" @change="setModCfg('announce','text',$event.target.value)" /></label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="lbl">Texte du lien<input class="fld" :value="modCfg('announce').link_label" placeholder="En savoir plus" @change="setModCfg('announce','link_label',$event.target.value)" /></label>
+                                        <label class="lbl">Lien<input class="fld" :value="modCfg('announce').link" placeholder="#contact ou https://…" @change="setModCfg('announce','link',$event.target.value)" /></label>
+                                    </div>
+                                    <label class="lbl">Couleur<select class="fld" :value="modCfg('announce').style || 'accent'" @change="setModCfg('announce','style',$event.target.value)"><option value="accent">Couleur de la marque</option><option value="dark">Sombre</option></select></label>
+                                </div>
                                 <!-- Réglages de l'assistant IA -->
                                 <div v-if="m[0]==='bot' && moduleOn('bot')" class="space-y-3 border-t border-white/[0.06] bg-white/[0.02] px-3 pb-3 pt-2">
                                     <p class="text-[11px] text-slate-500">L'assistant connaît déjà tout votre site : textes, services, horaires, FAQ, carte, chambres, avis, pages. Ajoutez ici ce qu'il ne peut pas deviner.</p>
@@ -1141,7 +1199,15 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
         <Transition name="fade">
             <div v-if="picker.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur" @click="picker.open=false">
                 <div class="glass max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-ink-800 p-5 sm:p-6" @click.stop>
-                    <div class="mb-4 flex items-center justify-between"><h3 class="font-display text-lg font-bold text-white">Choisir une image</h3><button @click="picker.open=false" class="text-slate-400 hover:text-white">✕</button></div>
+                    <div class="mb-4 flex items-center justify-between"><h3 class="font-display text-lg font-bold text-white">{{ isDocPath ? 'Choisir un document (PDF ou image)' : 'Choisir une image' }}</h3><button @click="picker.open=false" class="text-slate-400 hover:text-white">✕</button></div>
+                    <div v-if="picker.current && !isDocPath && !picker.path.startsWith('module.')" class="mb-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                        <img :src="picker.current" class="h-14 w-20 rounded-lg bg-black/40" :class="fitOn ? 'object-contain' : 'object-cover'" />
+                        <div class="min-w-0 flex-1"><p class="text-sm font-semibold text-white">Image actuelle</p><p class="text-[11px] text-slate-500">Menu, affiche, logo : affichez-la en entier plutôt que recadrée.</p></div>
+                        <div class="flex shrink-0 rounded-lg bg-white/[0.05] p-0.5 text-xs font-semibold">
+                            <button type="button" @click="setFit(false)" class="rounded-md px-2.5 py-1.5" :class="!fitOn ? 'bg-brand-500 text-white' : 'text-slate-400'">Recadrée</button>
+                            <button type="button" @click="setFit(true)" class="rounded-md px-2.5 py-1.5" :class="fitOn ? 'bg-brand-500 text-white' : 'text-slate-400'">Entière</button>
+                        </div>
+                    </div>
                     <div class="mb-4 flex gap-1 rounded-xl bg-white/[0.04] p-1 text-sm font-semibold">
                         <button v-for="t in [['bank','image','Banque d\'images'],['upload','upload','Importer'],['google','pin','Photos Google'],['url','link','Lien']]" :key="t[0]" @click="t[0]==='bank' ? openBank() : (picker.tab=t[0])" class="flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2" :class="picker.tab===t[0] ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'"><Icon :name="t[1]" :size="15" /><span class="hidden sm:inline">{{ t[2] }}</span></button>
                     </div>
@@ -1166,8 +1232,8 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     </div>
                     <div v-else-if="picker.tab==='upload'">
                         <label class="flex h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-white/15 text-slate-400 transition hover:border-brand-400 hover:text-white">
-                            <Icon name="upload" :size="28" /><span class="mt-2 text-sm">{{ picker.uploading ? 'Import en cours…' : 'Cliquez pour importer (jpg, png, webp · 8 Mo max)' }}</span>
-                            <input type="file" accept="image/*" class="hidden" :disabled="picker.uploading" @change="upload" />
+                            <Icon name="upload" :size="28" /><span class="mt-2 text-sm">{{ picker.uploading ? 'Import en cours…' : (isDocPath ? 'Cliquez pour importer un PDF ou une image (15 Mo max)' : 'Cliquez pour importer (jpg, png, webp · 8 Mo max)') }}</span>
+                            <input type="file" :accept="isDocPath ? 'application/pdf,image/*' : 'image/*'" class="hidden" :disabled="picker.uploading" @change="upload" />
                         </label>
                     </div>
                     <div v-else-if="picker.tab==='google'" class="grid max-h-[50vh] grid-cols-3 gap-2 overflow-y-auto">

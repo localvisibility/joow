@@ -65,6 +65,19 @@ class SeoApply
             }, $html);
         }
 
+        // Images à afficher en entier (sans recadrage) : réglage « Afficher l'image entière » du Studio
+        $fit = array_keys(array_filter((array) ($site->site_data['image_fit'] ?? []), fn ($v) => $v === 'contain'));
+        if ($fit) {
+            $html = preg_replace_callback('#<img\b[^>]*>#i', function ($m) use ($fit) {
+                $tag = $m[0];
+                if (! preg_match('#\bsrc="([^"]*)"#i', $tag, $s) || ! in_array(html_entity_decode($s[1], ENT_QUOTES | ENT_HTML5, 'UTF-8'), $fit, true)) {
+                    return $tag;
+                }
+
+                return preg_match('#\bclass="#i', $tag) ? preg_replace('#\bclass="#i', 'class="joow-fit ', $tag, 1) : preg_replace('#^<img\b#i', '<img class="joow-fit"', $tag, 1);
+            }, $html) ?? $html;
+        }
+
         if (! $editMode && ! str_contains($html, 'application/ld+json')) {
             $json = json_encode(self::schema($site, $pageSlug), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
             $html = preg_replace('#</head>#i', '<script type="application/ld+json">'.$json."</script>\n</head>", (string) $html, 1);

@@ -44,7 +44,8 @@
     @if(!empty($blk['image']) || $editMode)
     <div class="reveal relative {{ ($blk['image_side'] ?? 'right') === 'left' ? 'lg:order-1' : '' }}">
       @if(!empty($blk['image']))
-      <img src="{{ $blk['image'] }}" class="aspect-[4/3] w-full rounded-[2rem] object-cover shadow-2xl" alt="{{ $blk['title'] }}" loading="lazy" @if($editMode) data-edit-img="{{ $bp }}.image" @endif>
+      @php $ratio = $blk['image_ratio'] ?? 'landscape'; $rcls = ['landscape' => 'aspect-[4/3] object-cover', 'portrait' => 'aspect-[3/4] object-cover', 'square' => 'aspect-square object-cover', 'full' => 'h-auto object-contain'][$ratio] ?? 'aspect-[4/3] object-cover'; @endphp
+      <img src="{{ $blk['image'] }}" class="{{ $rcls }} w-full rounded-[2rem] shadow-2xl" alt="{{ $blk['title'] }}" loading="lazy" @if($editMode) data-edit-img="{{ $bp }}.image" @elseif($ratio === 'full') data-lb="{{ $blk['image'] }}" @endif>
       @else
       <button type="button" class="joow-img-btn" style="position:static;aspect-ratio:4/3;width:100%;border-radius:2rem;justify-content:center;border:2px dashed #c7d2fe;background:#f5f3ff" data-edit-img="{{ $bp }}.image"><i class="fa-solid fa-image"></i> Ajouter une image</button>
       @endif
@@ -235,6 +236,24 @@
     </div>
     @if(!empty($b['address']) && $mapsKey)
     <div class="reveal overflow-hidden rounded-[2rem] shadow-2xl"><iframe class="h-full min-h-[360px] w-full" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="https://www.google.com/maps/embed/v1/place?key={{ $mapsKey }}&q={{ urlencode(($b['name'] ?? '').' '.$b['address']) }}"></iframe></div>
+    @endif
+  </div>
+</section>
+
+{{-- ── DOCUMENT / MENU (PDF ou image entière) ── --}}
+@elseif($type === 'document')
+<section class="py-20 sm:py-24" data-section="block-{{ $bi }}" data-label="{{ $blk['title'] ?: 'Document' }}">
+  <div class="mx-auto max-w-4xl px-5 text-center">
+    @if($blk['title'] || $editMode)<h2 class="reveal font-display text-3xl font-bold text-slate-900 sm:text-4xl" data-edit="{{ $bp }}.title">{{ $blk['title'] }}</h2>@endif
+    @if(!empty($blk['text']) || $editMode)<p class="reveal mx-auto mt-4 max-w-2xl text-lg text-slate-600" data-edit="{{ $bp }}.text">{{ $blk['text'] ?? '' }}</p>@endif
+    @if(!empty($blk['file']) && ($blk['kind'] ?? '') === 'pdf')
+      <a href="{{ $blk['file'] }}" target="_blank" rel="noopener" class="reveal bg-grad mt-8 inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-bold text-white shadow-lg"><i class="fa-solid fa-file-pdf"></i> {{ $blk['button'] ?: 'Ouvrir le document' }}</a>
+      <div class="reveal mt-8 hidden overflow-hidden rounded-[1.5rem] border border-slate-200 shadow-2xl sm:block"><object data="{{ $blk['file'] }}#view=FitH" type="application/pdf" class="h-[80vh] w-full"><p class="p-6 text-slate-500">Votre navigateur n'affiche pas le PDF ici : <a href="{{ $blk['file'] }}" class="accent underline">ouvrez-le</a>.</p></object></div>
+      @if($editMode)<button type="button" class="joow-img-btn mt-4" style="position:static" data-edit-img="{{ $bp }}.file"><i class="fa-solid fa-file-arrow-up"></i> Remplacer le document</button>@endif
+    @elseif(!empty($blk['file']))
+      <img src="{{ $blk['file'] }}" alt="{{ $blk['title'] ?: 'Document' }}" class="reveal mx-auto mt-8 h-auto w-full max-w-3xl rounded-[1.5rem] object-contain shadow-2xl" loading="lazy" @if($editMode) data-edit-img="{{ $bp }}.file" @else data-lb="{{ $blk['file'] }}" @endif>
+    @elseif($editMode)
+      <button type="button" class="joow-img-btn mt-8" style="position:static;width:100%;min-height:14rem;border-radius:1.5rem;justify-content:center;border:2px dashed #c7d2fe;background:#f5f3ff" data-edit-img="{{ $bp }}.file"><i class="fa-solid fa-file-arrow-up"></i> Ajouter un PDF ou une image (menu, carte, brochure…)</button>
     @endif
   </div>
 </section>

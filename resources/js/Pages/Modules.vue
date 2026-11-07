@@ -18,7 +18,7 @@ const api = async (method, url, body) => {
 const selectSite = (slug) => router.get(route('modules.index'), { site: slug }, { preserveState: false });
 
 const DAYS = [['mon', 'Lundi'], ['tue', 'Mardi'], ['wed', 'Mercredi'], ['thu', 'Jeudi'], ['fri', 'Vendredi'], ['sat', 'Samedi'], ['sun', 'Dimanche']];
-const order = ['ads', 'restaurant', 'rooms', 'menu', 'booking', 'whatsapp', 'reviews', 'bot', 'legal', 'zenchef', 'payment', 'stats'];
+const order = ['ads', 'restaurant', 'rooms', 'menu', 'booking', 'popup', 'announce', 'whatsapp', 'reviews', 'bot', 'legal', 'zenchef', 'payment', 'stats'];
 const modules = computed(() => order.filter((k) => props.catalog[k]).map((k) => ({ key: k, ...props.catalog[k], cfg: props.state?.modules?.[k] || {} }))
     .sort((a, b) => Number(fits(b)) - Number(fits(a))));
 const fits = (m) => !m.sectors?.length || m.sectors.includes(props.sector);
@@ -42,6 +42,19 @@ const openConfig = async (m) => {
     open.value = m.key;
     if (m.key === 'rooms') loadRooms();
     if (m.key === 'menu') loadMenu();
+};
+// Import d'un fichier (PDF de la carte, image de la popup) dans l'espace du site
+const uploading = ref('');
+const uploadTo = async (field, ev) => {
+    const f = ev.target.files?.[0]; if (!f) return;
+    uploading.value = field;
+    try {
+        const fd = new FormData(); fd.append('file', f);
+        const xsrf = decodeURIComponent((document.cookie.split('; ').find((c) => c.startsWith('XSRF-TOKEN=')) || '').split('=')[1] || '');
+        const r = await fetch(route('sites.editor.file', props.current), { method: 'POST', body: fd, headers: { Accept: 'application/json', 'X-XSRF-TOKEN': xsrf, 'X-Requested-With': 'XMLHttpRequest' } });
+        const d = await r.json(); if (!r.ok) throw new Error(d.message || 'Import impossible');
+        cfg[field] = d.url;
+    } catch (e) { alert(e.message || 'Import impossible (PDF ou image, 15 Mo max).'); } finally { uploading.value = ''; ev.target.value = ''; }
 };
 const saveConfig = () => save(open.value, { ...cfg, enabled: true }, () => { open.value = null; });
 
@@ -188,8 +201,38 @@ const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch
                         <button @click="open = null" class="text-slate-400 hover:text-white">✕</button>
                     </div>
 
+                    <!-- Popup -->
+                    <div v-if="open==='popup'" class="space-y-4">
+                        <p class="text-sm text-slate-400">S'ouvre quelques secondes après l'arrivée du visiteur : offre du moment, soirée, fermeture, nouvelle carte…</p>
+                        <label class="lbl">Titre<input v-model="cfg.title" class="fld" placeholder="Soirée jazz vendredi 20 🎷" /></label>
+                        <label class="lbl">Texte<textarea v-model="cfg.text" rows="3" class="fld" placeholder="Réservez votre table dès maintenant, places limitées."></textarea></label>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <img v-if="cfg.image" :src="cfg.image" class="h-16 rounded-lg bg-black/40 object-contain" />
+                            <label class="cursor-pointer rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5">{{ uploading === 'image' ? 'Import…' : (cfg.image ? 'Changer l\'image' : 'Ajouter une image (affiche, flyer…)') }}<input type="file" accept="image/*" class="hidden" @change="uploadTo('image', $event)" /></label>
+                            <button v-if="cfg.image" @click="cfg.image=''" class="text-sm text-slate-500 hover:text-rose-300">Retirer</button>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <label class="lbl">Texte du bouton<input v-model="cfg.button_label" class="fld" placeholder="Réserver" /></label>
+                            <label class="lbl">Lien du bouton<input v-model="cfg.button_url" class="fld" placeholder="#reserver ou https://…" /></label>
+                            <label class="lbl">Apparaît après<select v-model="cfg.delay" class="fld"><option :value="0">Tout de suite</option><option :value="3">3 secondes</option><option :value="8">8 secondes</option><option :value="15">15 secondes</option></select></label>
+                            <label class="lbl">Fréquence<select v-model="cfg.frequency" class="fld"><option value="session">1 fois par visite</option><option value="day">1 fois par jour</option><option value="always">À chaque page</option></select></label>
+                            <label class="lbl">Du (optionnel)<input type="date" v-model="cfg.start" class="fld" /></label>
+                            <label class="lbl">Au (optionnel)<input type="date" v-model="cfg.end" class="fld" /></label>
+                        </div>
+                    </div>
+
+                    <!-- Bandeau d'annonce -->
+                    <div v-else-if="open==='announce'" class="space-y-4">
+                        <label class="lbl">Texte du bandeau<input v-model="cfg.text" class="fld" placeholder="Fermeture exceptionnelle le 15 août" /></label>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <label class="lbl">Texte du lien (optionnel)<input v-model="cfg.link_label" class="fld" placeholder="En savoir plus" /></label>
+                            <label class="lbl">Lien<input v-model="cfg.link" class="fld" placeholder="#contact ou https://…" /></label>
+                        </div>
+                        <label class="lbl">Couleur<select v-model="cfg.style" class="fld"><option value="accent">Couleur de la marque</option><option value="dark">Sombre</option></select></label>
+                    </div>
+
                     <!-- WhatsApp -->
-                    <div v-if="open==='whatsapp'" class="space-y-4">
+                    <div v-else-if="open==='whatsapp'" class="space-y-4">
                         <label class="lbl">Numéro WhatsApp (avec indicatif, ex. 33612345678)<input v-model="cfg.number" class="fld" placeholder="336…" /></label>
                         <label class="lbl">Message pré-rempli<input v-model="cfg.message" class="fld" /></label>
                         <label class="lbl">Position<select v-model="cfg.position" class="fld"><option value="right">En bas à droite</option><option value="left">En bas à gauche</option></select></label>
@@ -362,6 +405,15 @@ const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch
                         <div class="grid gap-4 sm:grid-cols-2">
                             <label class="lbl">Titre de la section<input v-model="cfg.title" class="fld" placeholder="Notre carte" /></label>
                             <label class="flex items-center gap-2 self-end text-sm text-slate-300"><input type="checkbox" v-model="cfg.qr" class="h-4 w-4 rounded border-white/20 bg-white/5" /> Afficher un QR code de la carte</label>
+                        </div>
+                        <div class="rounded-xl border border-white/[0.06] p-4">
+                            <p class="text-sm font-semibold text-white">Carte en PDF ou en image (optionnel)</p>
+                            <p class="mt-1 text-xs text-slate-500">Votre carte telle que vous l'imprimez : elle s'affiche en entier, avec un bouton « Voir la carte ». Utile si vous ne voulez pas saisir les plats un par un.</p>
+                            <div class="mt-3 flex flex-wrap items-center gap-3">
+                                <label class="btn-brand cursor-pointer !px-4 !py-2 text-sm">{{ uploading === 'pdf' ? 'Import…' : (cfg.pdf ? 'Remplacer le fichier' : 'Importer la carte') }}<input type="file" accept="application/pdf,image/*" class="hidden" @change="uploadTo('pdf', $event)" /></label>
+                                <a v-if="cfg.pdf" :href="cfg.pdf" target="_blank" class="text-sm text-brand-300">Voir le fichier</a>
+                                <button v-if="cfg.pdf" @click="cfg.pdf=''" class="text-sm text-slate-500 hover:text-rose-300">Retirer</button>
+                            </div>
                         </div>
                         <div class="rounded-xl border border-white/[0.06] p-4">
                             <p class="mb-3 text-sm font-semibold text-white">Plats ({{ items.length }})</p>

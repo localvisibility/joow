@@ -88,9 +88,13 @@
     $restaurantOn = $on('restaurant');
     $zcCfg = $mod('zenchef');   $zcOn   = $on('zenchef') && !empty($zcCfg['restaurant_id']);
     $roomsOn = $on('rooms') && $rooms->count() > 0;
-    $menuCfg = $mod('menu');    $menuOn = $on('menu') && $menuItems->count() > 0;
+    $menuCfg = $mod('menu');    $menuPdf = !empty($menuCfg['pdf']) ? $menuCfg['pdf'] : null;
+    $menuOn = $on('menu') && ($menuItems->count() > 0 || $menuPdf);
     $waCfg = $mod('whatsapp');  $waOn   = $on('whatsapp') && !empty($waCfg['number']);
     $botCfg = $mod('bot');      $botOn  = $on('bot');
+    $popCfg = $mod('popup');    $popOn  = $on('popup') && (trim($popCfg['title'] ?? '') !== '' || trim($popCfg['text'] ?? '') !== '' || !empty($popCfg['image']))
+        && (empty($popCfg['start']) || $popCfg['start'] <= now()->toDateString()) && (empty($popCfg['end']) || $popCfg['end'] >= now()->toDateString());
+    $annCfg = $mod('announce'); $annOn  = $on('announce') && trim($annCfg['text'] ?? '') !== '';
     $legalOn = $on('legal') && $legalHtml;
     $rvCfg = $mod('reviews');   $reviewsOn = array_key_exists('reviews', $modules) ? $on('reviews') : true;
     $reviews = $reviewsOn
@@ -257,7 +261,7 @@ main{display:flex;flex-direction:column}
 .svc.feat:hover img{transform:scale(1.06)}
 .svc.feat .ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(7,8,14,.05) 0%,rgba(7,8,14,.55) 55%,rgba(7,8,14,.9) 100%)}
 .svc.feat>*:not(img):not(.ov){position:relative}
-.svc.feat .svc-tag{display:inline-flex;align-items:center;gap:.4rem;border-radius:9999px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);padding:.35rem .8rem;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.svc.feat .svc-tag{align-self:flex-start;display:inline-flex;align-items:center;gap:.4rem;border-radius:9999px;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);padding:.35rem .8rem;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 /* ── Parcours (timeline) ── */
 .steps{position:relative;display:grid;gap:1.5rem}
 @media(min-width:768px){.steps{grid-template-columns:repeat(3,minmax(0,1fr))}.steps::before{content:"";position:absolute;left:12%;right:12%;top:2.1rem;height:2px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--c) 45%,transparent),transparent)}}
@@ -398,6 +402,26 @@ footer .accent,footer a.accent{color:color-mix(in srgb,var(--c) 45%,#fff)!import
 .theme-light #nav.solid #links a:not(.bg-grad):hover{color:var(--c,#334155) !important;opacity:1}
 .theme-dark #nav.solid #links a:not(.bg-grad){color:#f1f5f9 !important}
 .theme-dark #nav.solid #links a:not(.bg-grad):hover{color:#fff !important;opacity:1}
+/* Thème sombre : fond, sections, textes, cartes et champs de tout le site (accueil + pages) */
+.theme-dark body{background:#0b0b10 !important;color:#e2e8f0}
+.theme-dark .bg-white{background-color:#12121a !important}
+.theme-dark .bg-slate-50,.theme-dark .bg-slate-100,.theme-dark .bg-gray-50,.theme-dark .bg-indigo-50,.theme-dark .bg-amber-50{background-color:#0f0f16 !important}
+.theme-dark .text-slate-900,.theme-dark .text-slate-800,.theme-dark .text-gray-900,.theme-dark .text-gray-800{color:#f8fafc !important}
+.theme-dark .text-slate-700,.theme-dark .text-slate-600,.theme-dark .text-gray-700,.theme-dark .text-gray-600{color:#cbd5e1 !important}
+.theme-dark .text-slate-500,.theme-dark .text-gray-500{color:#94a3b8 !important}
+.theme-dark .border-slate-100,.theme-dark .border-slate-200,.theme-dark .border-gray-100,.theme-dark .border-gray-200,.theme-dark .border-indigo-200{border-color:rgba(255,255,255,.09) !important}
+.theme-dark .divide-slate-100>*+*,.theme-dark .divide-slate-200>*+*{border-color:rgba(255,255,255,.08) !important}
+.theme-dark input:not([type=checkbox]):not([type=radio]),.theme-dark textarea,.theme-dark select{background-color:#181822 !important;color:#f1f5f9 !important;border-color:rgba(255,255,255,.12) !important}
+.theme-dark .prose-joow,.theme-dark .prose-joow p{color:#cbd5e1}
+.theme-dark .shadow-xl,.theme-dark .shadow-2xl,.theme-dark .shadow-lg{box-shadow:0 20px 50px -20px rgba(0,0,0,.7) !important}
+/* Studio : bouton « Changer la photo » sur chaque image modifiable, même sous un voile */
+.joow-img-chip,.svc.feat>.joow-img-chip{position:absolute !important;left:.75rem;top:.75rem;z-index:40;display:inline-flex;align-items:center;gap:.35rem;border-radius:9999px;background:rgba(79,70,229,.95);color:#fff;font:600 12px/1 system-ui,sans-serif;padding:.45rem .7rem;box-shadow:0 6px 18px rgba(0,0,0,.25);cursor:pointer;opacity:.92}
+.joow-img-chip:hover{opacity:1;transform:translateY(-1px)}
+.svc-img-add{display:flex;align-items:center;justify-content:center;gap:.4rem;margin:-.25rem -.25rem 1.1rem;height:7.5rem;border:2px dashed #c7d2fe;border-radius:1rem;background:#f5f3ff;color:#4f46e5;font-weight:600;font-size:.85rem;cursor:pointer}
+/* Images affichées en entier (menu A4, affiche…) */
+img.joow-fit{object-fit:contain !important;background:#f8fafc}
+.theme-dark img.joow-fit{background:#0f0f16}
+
 #nav:not(.solid) #links a:not(.bg-grad):hover{color:#fff !important}
 </style>
 </head>
@@ -684,6 +708,7 @@ document.getElementById('joow-bar-x').onclick=function(){b.hidden=true;document.
       @else
       <div class="reveal svc tilt group {{ !empty($s['image']) ? 'has-img' : '' }}">
         @if(!empty($s['image']))<div class="svc-img"><img src="{{ $s['image'] }}" alt="{{ $s['name'] ?? '' }}" loading="lazy" decoding="async" @if($editMode) data-edit-img="content.services.{{ $i }}.image" @endif></div>@endif
+        @if(empty($s['image']) && $editMode)<button type="button" class="svc-img-add" data-edit-img="content.services.{{ $i }}.image"><i class="fa-solid fa-image"></i> Ajouter une photo</button>@endif
         <span class="svc-num">{{ sprintf('%02d', $i+1) }}</span>
         <div class="svc-ic mb-5"><i class="fa-solid {{ $svcIcon($s['name'] ?? '') }}"></i></div>
         <h3 class="font-display text-xl font-bold" data-edit="content.services.{{ $i }}.name">{{ $s['name'] ?? '' }}</h3>
@@ -1043,6 +1068,42 @@ dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)
 </style>
 @endif
 
+@if($annOn && !$editMode)
+<div id="joow-ann" style="position:relative;z-index:60;background:{{ ($annCfg['style'] ?? 'accent') === 'dark' ? '#0b0b10' : 'var(--c)' }};color:#fff;text-align:center;font:600 14px/1.4 system-ui,sans-serif;padding:.6rem 2.5rem">
+  {{ $annCfg['text'] }}@if(!empty($annCfg['link']) && !empty($annCfg['link_label'])) <a href="{{ $annCfg['link'] }}" style="color:#fff;text-decoration:underline;margin-left:.4rem">{{ $annCfg['link_label'] }}</a>@endif
+  <button type="button" aria-label="Fermer" onclick="this.parentElement.remove()" style="position:absolute;right:.8rem;top:50%;transform:translateY(-50%);background:none;border:0;color:#fff;font-size:18px;cursor:pointer">×</button>
+</div>
+<script>(function(){
+  var a=document.getElementById('joow-ann');if(!a)return;document.body.prepend(a);
+  a.style.position='fixed';a.style.left='0';a.style.right='0';a.style.top='0';
+  var nav=document.getElementById('nav');
+  function fit(){var h=a.isConnected?a.offsetHeight:0;if(nav)nav.style.top=h+'px';document.body.style.paddingTop=h?h+'px':'';}
+  fit();window.addEventListener('resize',fit);
+  a.querySelector('button').addEventListener('click',function(){setTimeout(fit,0);});
+})();</script>
+@endif
+@if($popOn && !$editMode)
+<div id="joow-pop" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(7,8,14,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:1rem">
+  <div style="position:relative;width:100%;max-width:{{ !empty($popCfg['image']) ? '30rem' : '26rem' }};max-height:90vh;overflow:auto;border-radius:1.5rem;background:{{ $theme === 'dark' ? '#12121a' : '#fff' }};color:{{ $theme === 'dark' ? '#f1f5f9' : '#0f172a' }};box-shadow:0 30px 80px -20px rgba(0,0,0,.5)">
+    <button type="button" aria-label="Fermer" data-pop-close style="position:absolute;right:.7rem;top:.7rem;z-index:2;width:2.2rem;height:2.2rem;border-radius:9999px;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:20px;cursor:pointer">×</button>
+    @if(!empty($popCfg['image']))<img src="{{ $popCfg['image'] }}" alt="" style="display:block;width:100%;height:auto;max-height:60vh;object-fit:contain;background:#000">@endif
+    <div style="padding:1.5rem 1.6rem 1.7rem;text-align:center">
+      @if(!empty($popCfg['title']))<p class="font-display" style="font-size:1.5rem;font-weight:700;line-height:1.2">{{ $popCfg['title'] }}</p>@endif
+      @if(!empty($popCfg['text']))<p style="margin-top:.6rem;opacity:.8;white-space:pre-line">{{ $popCfg['text'] }}</p>@endif
+      @if(!empty($popCfg['button_label']))<a href="{{ $popCfg['button_url'] ?: $ctaHref }}" data-pop-close class="bg-grad" style="display:inline-block;margin-top:1.1rem;border-radius:9999px;padding:.75rem 1.4rem;color:#fff;font-weight:700;text-decoration:none">{{ $popCfg['button_label'] }}</a>@endif
+    </div>
+  </div>
+</div>
+<script>(function(){
+  var el=document.getElementById('joow-pop'),f='{{ $popCfg['frequency'] ?? 'session' }}',k='joow-pop-{{ md5(($popCfg['title'] ?? '').($popCfg['text'] ?? '').($popCfg['image'] ?? '')) }}';
+  function seen(){try{if(f==='always')return false;var v=(f==='day'?localStorage:sessionStorage).getItem(k);return f==='day'?(v&&Date.now()-(+v)<864e5):!!v;}catch(e){return false;}}
+  function mark(){try{(f==='day'?localStorage:sessionStorage).setItem(k,String(Date.now()));}catch(e){}}
+  if(!el||seen())return;
+  setTimeout(function(){el.style.display='flex';mark();},{{ max(0, min(60, (int) ($popCfg['delay'] ?? 3))) }}*1000);
+  el.addEventListener('click',function(e){if(e.target===el||e.target.closest('[data-pop-close]'))el.style.display='none';});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')el.style.display='none';});
+})();</script>
+@endif
 @if($waOn)
 <a href="https://wa.me/{{ preg_replace('/\D/', '', $waCfg['number']) }}?text={{ urlencode($waCfg['message'] ?? '') }}" target="_blank" rel="noopener" class="joow-fab joow-wa" style="{{ ($waCfg['position'] ?? 'right') === 'left' ? 'left:1.25rem' : 'right:1.25rem' }}" aria-label="Discuter sur WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
 @endif
@@ -1284,6 +1345,20 @@ dialog#joow-legal::backdrop{background:rgba(2,6,23,.6);backdrop-filter:blur(4px)
   document.querySelectorAll('[data-edit-img]').forEach(el=>{
     el.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();send({type:'image',path:el.dataset.editImg,current:el.currentSrc||el.src||''});});
   });
+  // Pastille « Changer la photo » sur chaque image modifiable (visible même quand un voile ou un texte la recouvre)
+  document.querySelectorAll('img[data-edit-img]').forEach(img=>{
+    const host=img.parentElement;if(!host||host.querySelector(':scope>.joow-img-chip'))return;
+    if(getComputedStyle(host).position==='static')host.style.position='relative';
+    const b=document.createElement('button');b.type='button';b.className='joow-img-chip';b.innerHTML='<i class="fa-solid fa-camera"></i> Changer la photo';
+    b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();send({type:'image',path:img.dataset.editImg,current:img.currentSrc||img.src||''});});
+    host.appendChild(b);
+  });
+  // Clic sur une photo recouverte par un dégradé : on retrouve l'image sous le pointeur
+  document.addEventListener('click',e=>{
+    if(e.target.closest('[data-edit],[data-edit-img],.joow-img-chip,a,button,input,textarea,select,label'))return;
+    const img=(document.elementsFromPoint(e.clientX,e.clientY)||[]).find(x=>x.matches&&x.matches('img[data-edit-img]'));
+    if(img){e.preventDefault();e.stopPropagation();send({type:'image',path:img.dataset.editImg,current:img.currentSrc||img.src||''});}
+  },true);
   document.querySelectorAll('[data-section]').forEach(s=>{
     s.addEventListener('click',e=>{if(e.target.closest('[data-edit],[data-edit-img]'))return;send({type:'section',id:s.dataset.section});});
   });

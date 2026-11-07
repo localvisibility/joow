@@ -10,6 +10,17 @@
       <div class="text-center"><img src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data={{ urlencode('https://'.$slug.'.joow.fr/#carte') }}" class="mx-auto h-24 w-24 rounded-xl border border-slate-200 bg-white p-1" alt="QR code de la carte" loading="lazy"><p class="mt-1 text-[11px] text-slate-500">Carte sur mobile</p></div>
       @endif
     </div>
+    @if(!empty($menuPdf))
+    @php $menuIsPdf = (bool) preg_match('/\.pdf(\?|$)/i', $menuPdf); @endphp
+    <div class="reveal mb-10 text-center">
+      @if($menuIsPdf)
+        <a href="{{ $menuPdf }}" target="_blank" rel="noopener" class="bg-grad inline-flex items-center gap-2 rounded-full px-7 py-3.5 font-bold text-white shadow-lg"><i class="fa-solid fa-file-pdf"></i> Voir la carte complète (PDF)</a>
+        <div class="mt-8 hidden overflow-hidden rounded-[1.5rem] border border-slate-200 shadow-2xl sm:block"><object data="{{ $menuPdf }}#view=FitH" type="application/pdf" class="h-[80vh] w-full"><p class="p-6 text-slate-500"><a href="{{ $menuPdf }}" class="accent underline">Ouvrir la carte</a></p></object></div>
+      @else
+        <img src="{{ $menuPdf }}" alt="{{ $menuCfg['title'] ?? 'Notre carte' }}" class="mx-auto h-auto w-full max-w-3xl rounded-[1.5rem] object-contain shadow-2xl" loading="lazy" data-lb="{{ $menuPdf }}">
+      @endif
+    </div>
+    @endif
     <div class="grid gap-8 md:grid-cols-2">
       @php $catOrder = ['menus', 'formules', 'entrées', 'entrees', 'plats', 'poissons', 'viandes', 'pizzas', 'burgers', 'desserts', 'fromages', 'boissons', 'vins', 'cocktails']; @endphp
       @foreach($menuItems->groupBy('category')->sortBy(fn($g, $cat) => (($i = array_search(mb_strtolower($cat), $catOrder, true)) === false ? 50 : $i)) as $cat => $items)

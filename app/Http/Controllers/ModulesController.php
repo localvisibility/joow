@@ -101,10 +101,12 @@ class ModulesController extends Controller
             'restaurant' => ReservationAvailability::defaults(),
             'legal'      => LegalGenerator::defaults(),
             'bot'        => BotAnswer::defaults(),
+            'popup'      => ['enabled' => false, 'title' => '', 'text' => '', 'image' => '', 'button_label' => '', 'button_url' => '', 'delay' => 3, 'frequency' => 'session', 'start' => '', 'end' => ''],
+            'announce'   => ['enabled' => false, 'text' => '', 'link' => '', 'link_label' => '', 'style' => 'accent'],
+            'menu'       => ['enabled' => false, 'title' => 'Notre carte', 'qr' => true, 'pdf' => ''],
             'whatsapp'   => ['enabled' => false, 'number' => '', 'message' => 'Bonjour, je souhaite avoir des informations.', 'position' => 'right'],
             'reviews'    => ['enabled' => true, 'min_rating' => 4, 'count' => 6],
             'rooms'      => ['enabled' => false, 'notify_email' => '', 'title' => '', 'intro' => '', 'instant' => false],
-            'menu'       => ['enabled' => false, 'title' => 'Notre carte', 'qr' => true],
             'zenchef'    => ['enabled' => false, 'restaurant_id' => ''],
             'payment'    => ['enabled' => false, 'type' => 'deposit', 'deposit_percent' => 30, 'hold_per_cover' => 10, 'notify_email' => ''],
             'booking'    => ['enabled' => true],
@@ -130,6 +132,18 @@ class ModulesController extends Controller
         }
         if (array_key_exists('instant', $out)) {
             $out['instant'] = (bool) $out['instant'];
+        }
+        if ($key === 'popup') {
+            $out['delay'] = max(0, min(60, (int) ($out['delay'] ?? 3)));
+            $out['frequency'] = in_array($out['frequency'] ?? '', ['session', 'day', 'always'], true) ? $out['frequency'] : 'session';
+            foreach (['start', 'end'] as $d) {
+                $out[$d] = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($out[$d] ?? '')) ? $out[$d] : '';
+            }
+        }
+        foreach (['image', 'button_url', 'link', 'pdf'] as $u) {
+            if (isset($out[$u]) && $out[$u] !== '' && ! preg_match('#^(https?://|/|\#|tel:|mailto:)#i', (string) $out[$u])) {
+                $out[$u] = '';
+            }
         }
         if ($key === 'whatsapp' && ! empty($out['number'])) {
             $out['number'] = preg_replace('/\D+/', '', $out['number']);

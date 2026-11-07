@@ -20,7 +20,8 @@ class PageSchema
 
     /** Définition des blocs : libellé, description (pour l'IA) et champs. */
     public const BLOCKS = [
-        'text'         => ['label' => 'Texte & image', 'desc' => 'Titre, paragraphes (séparés par une ligne vide) et image optionnelle à gauche ou à droite.', 'fields' => ['title', 'body', 'image', 'image_side']],
+        'text'         => ['label' => 'Texte & image', 'desc' => 'Titre, paragraphes (séparés par une ligne vide) et image optionnelle à gauche ou à droite ; image_ratio = landscape (4:3, défaut) | portrait (3:4) | square | full (image entière, sans recadrage, idéal pour un menu ou une affiche).', 'fields' => ['title', 'body', 'image', 'image_side', 'image_ratio']],
+        'document'     => ['label' => 'Document / menu (PDF ou image)', 'desc' => 'Un document à consulter : carte du restaurant, menu, brochure, tarifs, affiche. file = URL d\'un PDF ou d\'une image (affichée en entier, jamais recadrée) ; title, text, button (libellé du bouton d\'ouverture).', 'fields' => ['title', 'text', 'file', 'button']],
         'features'     => ['label' => 'Points forts / prestations', 'desc' => 'Titre, intro et 3 à 6 cartes {icon (Font Awesome), title, desc}.', 'fields' => ['title', 'intro', 'items']],
         'steps'        => ['label' => 'Étapes', 'desc' => 'Titre et 3 à 5 étapes numérotées {title, desc}.', 'fields' => ['title', 'items']],
         'gallery'      => ['label' => 'Galerie photos', 'desc' => 'Titre et liste d\'URL d\'images (utilise les photos du site si besoin).', 'fields' => ['title', 'images']],
@@ -108,7 +109,13 @@ class PageSchema
 
         switch ($type) {
             case 'text':
-                $out += ['body' => $s('body', 4000), 'image' => self::url($b['image'] ?? null), 'image_side' => ($b['image_side'] ?? 'right') === 'left' ? 'left' : 'right'];
+                $out += ['body' => $s('body', 4000), 'image' => self::url($b['image'] ?? null), 'image_side' => ($b['image_side'] ?? 'right') === 'left' ? 'left' : 'right',
+                    'image_ratio' => in_array($b['image_ratio'] ?? '', ['landscape', 'portrait', 'square', 'full'], true) ? $b['image_ratio'] : 'landscape'];
+                break;
+            case 'document':
+                $file = self::url($b['file'] ?? null);
+                $out += ['text' => $s('text', 600), 'file' => $file, 'button' => $s('button', 40) ?: 'Ouvrir le document',
+                    'kind' => $file && preg_match('/\.pdf(\?|$)/i', $file) ? 'pdf' : 'image'];
                 break;
             case 'features':
                 $out += ['intro' => $s('intro', 400), 'items' => array_map(fn ($i) => ['icon' => self::icon($i['icon'] ?? ''), 'title' => Str::limit(trim((string) ($i['title'] ?? '')), 80, ''), 'desc' => Str::limit(trim((string) ($i['desc'] ?? '')), 300, '')], $items)];
@@ -171,6 +178,7 @@ class PageSchema
             'cta'          => ['title' => 'Parlons de votre projet', 'text' => 'Un premier échange gratuit, sans engagement.', 'button' => ''],
             'contact'      => ['title' => 'Nous trouver', 'text' => ''],
             'video'        => ['title' => 'En vidéo', 'url' => null],
+            'document'     => ['title' => 'Notre carte', 'text' => '', 'file' => null, 'button' => 'Voir la carte en PDF'],
             'module'       => ['title' => '', 'key' => 'booking'],
         ];
 

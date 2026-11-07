@@ -139,6 +139,39 @@ class SiteEditorController extends Controller
         return response()->json(['url' => route('media.show', [$site->slug, $name])]);
     }
 
+    /** Document à joindre au site : PDF (carte, menu, brochure, tarifs) ou image grand format (menu A4, affiche). */
+    public function file(Request $request, string $slug)
+    {
+        $site = $this->ownedSite($request, $slug);
+        $request->validate(['file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:15360']]);
+        $file = $request->file('file');
+        $ext = strtolower($file->extension() ?: $file->getClientOriginalExtension() ?: 'pdf');
+        $name = Str::lower(Str::random(12)).'.'.($ext === 'jpeg' ? 'jpg' : $ext);
+        Storage::disk('local')->putFileAs("uploads/{$site->slug}", $file, $name);
+
+        return response()->json(['url' => route('media.show', [$site->slug, $name]), 'kind' => $ext === 'pdf' ? 'pdf' : 'image',
+            'name' => Str::limit($file->getClientOriginalName(), 80, '')]);
+    }
+
+    /** Affichage d'une image : « entière » (sans recadrage, ex. menu A4) ou « recadrée » pour remplir son cadre. */
+    public function imageFit(Request $request, string $slug, SiteRenderer $renderer)
+    {
+        $site = $this->ownedSite($request, $slug);
+        $data = $request->validate(['url' => ['required', 'string', 'max:600'], 'fit' => ['required', 'in:contain,cover']]);
+        $d = $site->site_data ?? [];
+        $fit = (array) ($d['image_fit'] ?? []);
+        if ($data['fit'] === 'contain') {
+            $fit[$data['url']] = 'contain';
+        } else {
+            unset($fit[$data['url']]);
+        }
+        $d['image_fit'] = array_slice($fit, -200, null, true);
+        $site->update(['site_data' => $d]);
+        $pub = ! empty($d['content']) ? $renderer->publish($site) : ['queued' => false];
+
+        return response()->json(['ok' => true, 'image_fit' => $d['image_fit'], 'version' => now()->timestamp, 'queued' => $pub['queued']]);
+    }
+
     /** En-tête : logo (import, retrait, logo IA choisi), fond, taille, inversion, nom affiché. */
     public function brand(Request $request, string $slug, SiteRenderer $renderer)
     {
@@ -463,8 +496,15 @@ class SiteEditorController extends Controller
     }
 
     /** Champs de réglage modifiables depuis le Studio, par module (le reste se règle dans l'espace Modules). */
-    private const MODULE_SETTINGS = [
+    public const MODULE_SETTINGS = [
         'bot' => ['name' => 60, 'welcome' => 200, 'tone' => 30, 'practical' => 3000, 'faq' => 4000, 'instructions' => 2000, 'lead_capture' => 'bool', 'position' => 10],
+        'popup' => ['title' => 120, 'text' => 600, 'image' => 600, 'button_label' => 40, 'button_url' => 400, 'delay' => 3, 'frequency' => 10, 'start' => 10, 'end' => 10],
+        'announce' => ['text' => 200, 'link' => 400, 'link_label' => 40, 'style' => 10],
+    ];
+
+    public const MODULE_DEFAULTS = [
+        'popup' => ['title' => '', 'text' => '', 'image' => '', 'button_label' => '', 'button_url' => '', 'delay' => '3', 'frequency' => 'session', 'start' => '', 'end' => ''],
+        'announce' => ['text' => '', 'link' => '', 'link_label' => '', 'style' => 'accent'],
     ];
 
     /** Active/désactive un module (ex : réservation) et enregistre ses réglages rapides. */
@@ -482,6 +522,10 @@ class SiteEditorController extends Controller
                 $settings[$k] = (bool) $v;
             } elseif (is_int($rule)) {
                 $settings[$k] = mb_substr(strip_tags((string) $v), 0, $rule);
+                // Liens et images : uniquement http(s), relatifs, tel:, mailto: ou ancres
+                if (in_array($k, ['image', 'button_url', 'link'], true) && $settings[$k] !== '' && ! preg_match('#^(https?://|/|\#|tel:|mailto:)#i', $settings[$k])) {
+                    $settings[$k] = '';
+                }
             }
         }
         // Booléen simple tant qu'aucun réglage n'est stocké ; objet { enabled, … } sinon
@@ -496,7 +540,9 @@ class SiteEditorController extends Controller
     /** Réglages des modules exposés au Studio, complétés par leurs défauts. */
     private function moduleConfig(Site $site): array
     {
-        return ['bot' => array_replace(\App\Services\Modules\BotAnswer::defaults(), $site->module('bot'))];
+        return ['bot' => array_replace(\App\Services\Modules\BotAnswer::defaults(), $site->module('bot')),
+            'popup' => array_replace(self::MODULE_DEFAULTS['popup'], array_intersect_key($site->module('popup'), self::MODULE_DEFAULTS['popup'])),
+            'announce' => array_replace(self::MODULE_DEFAULTS['announce'], array_intersect_key($site->module('announce'), self::MODULE_DEFAULTS['announce']))];
     }
 
     /** Régénère intégralement le site (repart de la fiche Google). */
@@ -585,6 +631,7 @@ class SiteEditorController extends Controller
             'business' => Arr::only($b, ['name', 'phone', 'address', 'city', 'email', 'opening_hours', 'rating', 'reviews_count']),
             'photos'   => array_values(array_filter($b['photos'] ?? [])),
             'images'   => $d['images'] ?? [],
+            'image_fit' => (object) ($d['image_fit'] ?? []),
             'booking'  => $d['booking'] ?? [],
             'form'         => $d['form'] ?? (config("forms.$sector") ?? config('forms.default')),
             'form_default' => config("forms.$sector") ?? config('forms.default'),
