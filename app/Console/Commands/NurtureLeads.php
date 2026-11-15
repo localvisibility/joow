@@ -119,7 +119,7 @@ class NurtureLeads extends Command
                         'preheader' => $preheader,
                         'title' => $title,
                         'image' => in_array($step, ['j6', 'j10'], true) ? ($site->site_data['images']['hero'] ?? null) : null,
-                        'intro' => 'Bonjour '.\Illuminate\Support\Str::before($user->name, ' ').",\n\n".$intro,
+                        'intro' => Accounts::greeting($user)."\n\n".$intro,
                         'bullets' => $bullets,
                         'rows'  => [['Votre site', 'https://'.$site->slug.'.joow.fr']],
                         'cta'   => ['label' => $button, 'url' => $accounts->magicLink($user, $to, 7)],
@@ -144,12 +144,12 @@ class NurtureLeads extends Command
         $pro = $o::euros(round(39 * (100 - $o::PERCENT) / 100, 2));
         $lib = $o::euros(round(349 * (100 - $o::PERCENT) / 100, 2));
         $end = $until->copy()->timezone('Europe/Paris')->locale('fr')->isoFormat('dddd D MMMM [à] H[h]mm');
-        $first = \Illuminate\Support\Str::before($user->name, ' ');
+        $hello = Accounts::greeting($user);
         $accounts->send($user, $reminder ? "Plus que 24 h : -$pct % pour mettre {$site->name} en ligne" : "-$pct % pour mettre {$site->name} en ligne (72 h seulement)", [
             'preheader' => $reminder ? "Votre réduction se termine $end." : "Une offre de bienvenue, valable jusqu'à $end.",
             'title' => $reminder ? 'Votre réduction se termine demain' : "-$pct % pour mettre votre site en ligne",
             'image' => $site->site_data['images']['hero'] ?? null,
-            'intro' => "Bonjour $first,\n\n".($reminder
+            'intro' => "$hello\n\n".($reminder
                 ? "Petit rappel : votre réduction de $pct % pour mettre votre site en ligne se termine $end. Elle s'applique toute seule au paiement, rien à saisir."
                 : "Votre site est prêt depuis quelques jours. Pour vous aider à franchir le pas, on vous offre $pct % de réduction pour le mettre en ligne, valable 72 heures, jusqu'à $end.\n\nLa réduction s'applique automatiquement au paiement : aucun code à saisir."),
             'bullets' => [

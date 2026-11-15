@@ -74,7 +74,7 @@ class Accounts
         }
         $studio = $this->magicLink($user, route('sites.editor', $site->slug, absolute: false), days: 7);
         $b = $site->site_data['business'] ?? [];
-        $first = Str::before($user->name, ' ');
+        $hello = self::greeting($user);
         $rows = array_values(array_filter([
             ['Votre site', 'https://'.$site->slug.'.joow.fr'],
             ! empty($b['rating']) ? ['Avis Google repris', $b['rating'].'/5 · '.($b['reviews_count'] ?? 0).' avis'] : null,
@@ -83,7 +83,7 @@ class Accounts
 
         $this->send($user, $site->name.' : votre site est prêt 🎉', [
             'preheader' => 'Ouvrez votre Studio en un clic et faites-en votre site.',
-            'title' => 'Votre site est prêt, '.$first,
+            'title' => 'Votre site est prêt'.($hello === 'Bonjour,' ? '' : ', '.rtrim(substr($hello, 8), ',')),
             'image' => $site->site_data['images']['hero'] ?? null,
             'intro' => "Il a été construit à partir de vos informations réelles : vos prestations, vos photos, vos avis. Il est déjà à vous, et tout se modifie directement sur la page, sans aucune compétence technique.",
             'bullets' => [
@@ -150,6 +150,35 @@ class Accounts
     }
 
     /** Horodatage dans site_data.emails (une seule fois par type d'email et par site). */
+    /**
+     * Formule d'appel : « Bonjour Marie, » seulement si le nom ressemble à un vrai prénom.
+     * Les comptes créés à partir d'un e-mail (contact@…, info@…) ou d'un nom d'établissement donnent « Bonjour, ».
+     */
+    public static function greeting(?User $user): string
+    {
+        $first = self::firstName($user?->name, $user?->email);
+
+        return $first ? "Bonjour $first," : 'Bonjour,';
+    }
+
+    /** Prénom plausible tiré d'un nom, ou null (nom générique, issu de l'e-mail, ou nom d'établissement). */
+    public static function firstName(?string $name, ?string $email = null): ?string
+    {
+        $first = trim((string) Str::before(trim((string) $name), ' '));
+        $generic = ['contact', 'contacts', 'info', 'infos', 'information', 'hello', 'bonjour', 'salut', 'admin', 'administration', 'accueil', 'reception', 'réception',
+            'reservation', 'reservations', 'réservation', 'réservations', 'resa', 'commande', 'commandes', 'compta', 'comptabilite', 'direction', 'gerant', 'gérant', 'gerance',
+            'office', 'mail', 'email', 'team', 'equipe', 'équipe', 'support', 'sales', 'vente', 'ventes', 'service', 'services', 'noreply', 'no-reply', 'webmaster', 'secretariat',
+            'secrétariat', 'devis', 'rdv', 'boutique', 'shop', 'magasin', 'restaurant', 'hotel', 'hôtel', 'gite', 'gîte', 'cabinet', 'agence', 'atelier', 'garage', 'boulangerie',
+            'le', 'la', 'les', 'l', 'au', 'aux', 'chez', 'sarl', 'sas', 'sasu', 'eurl', 'ets', 'sci', 'test', 'user', 'client'];
+        $ok = $first !== '' && mb_strlen($first) >= 2 && mb_strlen($first) <= 20
+            && preg_match('/^[\p{L}][\p{L}\'’-]*$/u', $first)
+            && ! in_array(mb_strtolower($first), $generic, true)
+            // Nom fabriqué à partir de l'adresse e-mail (contact@…, jean@…) : on ne s'en sert pas
+            && ! ($email && mb_strtolower($first) === mb_strtolower(Str::before($email, '@')));
+
+        return $ok ? mb_convert_case(mb_strtolower($first), MB_CASE_TITLE) : null;
+    }
+
     public function mark(Site $site, string $key, array $extra = []): void
     {
         $d = $site->site_data ?? [];

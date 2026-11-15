@@ -440,7 +440,7 @@ class AdminController extends Controller
         abort_if($user->marketing_optout_at, 422, 'Cette personne s\'est désinscrite des emails Joow.');
 
         $name = trim((string) ($site->owner_name ?: $user->name));
-        $vars = ['{prenom}' => $name ? Str::before($name, ' ') : '', '{site}' => (string) $site->name, '{ville}' => (string) $site->city];
+        $vars = ['{prenom}' => (string) \App\Services\Accounts::firstName($name, $user->email), '{site}' => (string) $site->name, '{ville}' => (string) $site->city];
         $fill = fn ($t) => trim(preg_replace('/ +([,.!?])/', '$1', strtr($t, $vars)));
         $cta = match ($data['link'] ?? 'none') {
             'studio' => ['label' => 'Ouvrir mon site dans le Studio', 'url' => $accounts->magicLink($user, '/sites/'.$site->slug.'/editeur', 14)],
