@@ -162,14 +162,14 @@ class StayPlanner
     {
         $booked = RoomBooking::where('room_id', $room->id)->whereIn('status', ['pending', 'confirmed'])
             ->when($ignoreBooking, fn ($q) => $q->where('id', '!=', $ignoreBooking))
-            ->where('check_in', '<', $checkOut)->where('check_out', '>', $checkIn)->exists();
+            ->whereDate('check_in', '<', $checkOut)->whereDate('check_out', '>', $checkIn)->exists();
         if ($booked) {
             return false;
         }
 
         return ! RoomBlock::where('site_slug', $room->site_slug)
             ->where(fn ($q) => $q->where('room_id', $room->id)->orWhereNull('room_id'))
-            ->where('start', '<', $checkOut)->where('end', '>', $checkIn)->exists();
+            ->whereDate('start', '<', $checkOut)->whereDate('end', '>', $checkIn)->exists();
     }
 
     /** Nuits occupées (date => true) d'une chambre entre deux dates. */

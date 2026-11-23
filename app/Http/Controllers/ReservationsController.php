@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Reservation;
+use App\Models\Room;
+use App\Models\RoomBlock;
 use App\Models\RoomBooking;
 use App\Models\Site;
 use App\Services\Modules\ReservationAvailability;
@@ -35,6 +37,10 @@ class ReservationsController extends Controller
             'tables' => $tables,
             'stays'  => $stays,
             'sites'  => $names->map(fn ($n, $s) => ['slug' => $s, 'name' => $n])->values(),
+            'rooms'  => Room::whereIn('site_slug', $slugs)->orderBy('sort_order')->get(['id', 'name', 'site_slug']),
+            // Dates fermées à venir (ajoutées à la main ou reprises de l'ancien calendrier) ; les flux iCal sont gérés par la plateforme d'origine
+            'blocks' => RoomBlock::whereIn('site_slug', $slugs)->where('end', '>', now()->toDateString())->orderBy('start')->take(500)->get()
+                ->map(fn ($b) => ['id' => $b->id, 'site' => $names[$b->site_slug] ?? $b->site_slug, 'room_id' => $b->room_id, 'start' => Carbon::parse($b->start)->toDateString(), 'end' => Carbon::parse($b->end)->toDateString(), 'summary' => $b->summary, 'source' => $b->source]),
             'kpi'    => [
                 'today'   => $tables->where('date', $today)->whereIn('status', ['confirmed', 'pending', 'seated'])->sum('covers'),
                 'pending' => $tables->where('status', 'pending')->count() + $stays->where('status', 'pending')->count(),
@@ -118,6 +124,9 @@ class ReservationsController extends Controller
         $site = Site::where('slug', $data['site_slug'])->first();
         $nights = Carbon::parse($data['check_in'])->diffInDays(Carbon::parse($data['check_out']));
         $room = ! empty($data['room_id']) ? \App\Models\Room::where('site_slug', $data['site_slug'])->find($data['room_id']) : null;
+        if (! $room && Room::where('site_slug', $data['site_slug'])->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['room_id' => 'Choisissez la chambre : ses dates seront fermées sur le site.']);
+        }
         if ($room && ($data['total'] ?? null) === null) {
             // Saisie au téléphone : prix calculé avec les tarifs de la chambre (règles de durée non imposées)
             $q = app(\App\Services\Modules\StayPlanner::class)->quote($room, $data['check_in'], $data['check_out'], (int) $data['guests'], enforce: false);
@@ -127,6 +136,35 @@ class ReservationsController extends Controller
             }
         }
         RoomBooking::create($data + ['site_id' => $site?->id, 'nights' => $nights, 'status' => 'confirmed', 'source' => 'manual']);
+
+        return back();
+    }
+
+    /** Fermer des dates (une chambre ou tout l'établissement) : plus aucune demande possible sur ces nuits. */
+    public function storeBlock(Request $request)
+    {
+        $data = $request->validate([
+            'site_slug' => ['required', 'string'], 'room_id' => ['nullable', 'uuid'],
+            'start' => ['required', 'date'], 'end' => ['required', 'date', 'after_or_equal:start'], 'summary' => ['nullable', 'string', 'max:120'],
+        ], ['end.after_or_equal' => 'La date de fin doit être après la date de début.']);
+        $this->authorizeSlug($request, $data['site_slug']);
+        if (! empty($data['room_id'])) {
+            abort_unless(Room::where('site_slug', $data['site_slug'])->whereKey($data['room_id'])->exists(), 422, 'Chambre inconnue.');
+        }
+        // Saisie « du … au … inclus » : la fin du blocage est le lendemain de la dernière nuit fermée
+        RoomBlock::create([
+            'site_slug' => $data['site_slug'], 'room_id' => ($data['room_id'] ?? null) ?: null, 'source' => 'manual',
+            'start' => $data['start'], 'end' => Carbon::parse($data['end'])->addDay()->toDateString(), 'summary' => ($data['summary'] ?? null) ?: 'Fermé',
+        ]);
+
+        return back();
+    }
+
+    public function destroyBlock(Request $request, RoomBlock $block)
+    {
+        $this->authorizeSlug($request, $block->site_slug);
+        abort_unless($block->source === 'manual', 422, 'Ces dates viennent d\'un calendrier synchronisé (Airbnb, Booking…) : libérez-les sur la plateforme d\'origine.');
+        $block->delete();
 
         return back();
     }
