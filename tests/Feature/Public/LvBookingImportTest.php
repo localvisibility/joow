@@ -36,7 +36,13 @@ class LvBookingImportTest extends TestCase
         $site = Site::create(['slug' => 'clos-du-petit-jesus-cassis', 'name' => 'Le Clos du petit Jésus', 'sector' => 'chambres', 'status' => 'published', 'source' => 'legacy',
             'custom_domain' => 'clos-du-petit-jesus-cassis.com', 'html_content' => $html, 'site_data' => []]);
 
+        // La page publiée contient le calendrier, la copie en base non (cas réel)
+        @mkdir(config('services.sites_path').'/clos-du-petit-jesus-cassis', 0777, true);
+        file_put_contents(config('services.sites_path').'/clos-du-petit-jesus-cassis/index.html', $html);
+        $site->forceFill(['html_content' => '<html><body>ancienne copie</body></html>'])->saveQuietly();
+
         $this->artisan('lv:booking', ['lv_slug' => 'clos-du-petit-jesus-cassis'])->assertSuccessful();
+        $this->assertStringContainsString('/widgets/booking.js', file_get_contents(config('services.sites_path').'/clos-du-petit-jesus-cassis/index.html'));
 
         $rooms = Room::where('site_id', $site->id)->orderBy('sort_order')->get();
         $this->assertSame(['La Terrasse', 'Le Lodge'], $rooms->pluck('name')->all());

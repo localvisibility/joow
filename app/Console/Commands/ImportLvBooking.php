@@ -107,7 +107,13 @@ class ImportLvBooking extends Command
         }
 
         // 4) Page : le calendrier de l'ancien serveur est remplacé par le module Joow
-        $html = (string) $site->html_content;
+        // La page réellement servie est le fichier publié ; la copie en base peut être plus ancienne (sans le calendrier)
+        $file = rtrim((string) config('services.sites_path', '/var/www/sites'), '/').'/'.$site->slug.'/index.html';
+        $disk = is_file($file) ? (string) @file_get_contents($file) : '';
+        $html = str_contains($disk, 'lv-calendar-widget') ? $disk : (string) $site->html_content;
+        if ($disk !== '' && $html === $disk) {
+            $this->line('  Page publiée : '.$file);
+        }
         if (! empty($site->site_data['content'])) {
             $this->line('  Site généré par Joow : le module Chambres s\'affiche directement, la page n\'est pas modifiée.');
         } elseif (! str_contains($html, 'lv-calendar-widget')) {
