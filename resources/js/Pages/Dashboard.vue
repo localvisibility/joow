@@ -1,20 +1,28 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const props = defineProps({
     stats: Object,
     sites: Array,
     isAdmin: { type: Boolean, default: false },
+    q: { type: String, default: '' },
+    total: { type: Number, default: 0 },
 });
 
-const q = ref('');
+const q = ref(props.q || '');
+// La recherche interroge tout le parc côté serveur (la liste n'affiche qu'une partie des sites)
+let searchTimer = null;
+watch(q, (v) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => router.get(route('dashboard'), v.trim() ? { q: v.trim() } : {}, { preserveState: true, preserveScroll: true, replace: true, only: ['sites', 'q', 'total'] }), 350);
+});
 const filtered = computed(() => {
     const term = q.value.trim().toLowerCase();
     if (!term) return props.sites;
     return props.sites.filter(s =>
-        [s.name, s.city, s.sector, s.owner_email].join(' ').toLowerCase().includes(term)
+        [s.name, s.city, s.sector, s.owner_email, s.slug, s.custom_domain].join(' ').toLowerCase().includes(term)
     );
 });
 
@@ -33,8 +41,8 @@ const retry = (s) => { retrying.value = s.slug; router.post(route('public.site.r
 const cards = computed(() => [
     { label: 'Sites', value: props.stats.sites, accent: 'text-white' },
     ...(props.isAdmin ? [{ label: 'Clients', value: props.stats.clients, accent: 'text-brand-400' }] : []),
-    { label: 'Payés', value: props.stats.paid, accent: 'text-emerald-300' },
-    { label: 'En ligne', value: props.stats.published, accent: 'text-violet-300' },
+    { label: 'En ligne', value: props.stats.online, accent: 'text-emerald-300' },
+    { label: 'Aperçus', value: props.stats.previews, accent: 'text-violet-300' },
 ]);
 
 const liveUrl = (s) => s.custom_domain
@@ -71,6 +79,7 @@ const liveUrl = (s) => s.custom_domain
         </div>
 
         <!-- Sites -->
+        <p v-if="total > sites.length" class="mt-6 text-sm text-slate-500">{{ sites.length }} sites affichés sur {{ total }} (les sites en ligne d'abord) : utilisez la recherche pour trouver les autres.</p>
         <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div v-for="s in filtered" :key="s.id"
                 class="glass glass-hover group rounded-2xl p-5">
