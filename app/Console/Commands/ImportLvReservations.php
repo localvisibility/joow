@@ -36,7 +36,7 @@ class ImportLvReservations extends Command
 
             return self::FAILURE;
         }
-        $rows = $this->read((string) $this->argument('path'));
+        $rows = self::read((string) $this->argument('path'));
         if (! $rows) {
             $this->error('Aucune demande lisible dans ce fichier ou ce dossier.');
 
@@ -140,7 +140,7 @@ class ImportLvReservations extends Command
     }
 
     /** Lit un fichier ou un dossier de JSON et renvoie la liste des demandes. */
-    private function read(string $path): array
+    public static function read(string $path): array
     {
         $files = is_dir($path) ? array_merge(glob(rtrim($path, '/').'/*.json') ?: [], glob(rtrim($path, '/').'/**/*.json') ?: []) : [$path];
         $out = [];

@@ -39,7 +39,7 @@ const tiles = computed(() => [
                 <div class="flex flex-wrap gap-2">
                     <select v-if="sites.length > 1" :value="current || ''" @change="go({ site: $event.target.value || undefined })" class="field w-56"><option value="">Tous mes sites</option><option v-for="s in sites" :key="s.slug" :value="s.slug">{{ s.name }}</option></select>
                     <div class="glass flex rounded-xl p-1 text-sm font-semibold">
-                        <button v-for="d in [7,30,90]" :key="d" @click="go({ days: d })" class="rounded-lg px-3 py-1.5" :class="days===d ? 'bg-white/10 text-white' : 'text-slate-400'">{{ d }} j</button>
+                        <button v-for="d in [7,30,90,365]" :key="d" @click="go({ days: d })" class="rounded-lg px-3 py-1.5" :class="days===d ? 'bg-white/10 text-white' : 'text-slate-400'">{{ d === 365 ? '1 an' : d + ' j' }}</button>
                     </div>
                 </div>
             </div>

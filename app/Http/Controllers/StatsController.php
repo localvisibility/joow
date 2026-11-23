@@ -24,7 +24,7 @@ class StatsController extends Controller
         $slugs = $slug && $sites->contains('slug', $slug) ? collect([$slug]) : $sites->pluck('slug');
 
         $days = (int) $request->query('days', 30);
-        $days = in_array($days, [7, 30, 90], true) ? $days : 30;
+        $days = in_array($days, [7, 30, 90, 365], true) ? $days : 30;
         $from = now()->subDays($days - 1)->startOfDay();
 
         $rows = SiteStat::whereIn('site_slug', $slugs)->where('day', '>=', $from->toDateString())->get()->groupBy(fn ($r) => $r->day->toDateString());
