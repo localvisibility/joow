@@ -32,6 +32,24 @@ const bf = reactive({ site_slug: props.sites[0]?.slug || '', room_id: '', start:
 const bfErrors = ref({});
 const submitBlock = () => router.post(route('reservations.block.store'), { ...bf, room_id: bf.room_id || null }, { preserveScroll: true, onError: (e) => { bfErrors.value = e; }, onSuccess: () => { add.value = null; bfErrors.value = {}; bf.summary = ''; tab.value = 'closed'; } });
 const reopen = (b) => { if (confirm('Rouvrir ces dates à la réservation ?')) router.delete(route('reservations.block.destroy', b.id), { preserveScroll: true }); };
+// Import Excel / CSV (export Bed-Booking, Airbnb, Booking, tableau personnel)
+const imp = reactive({ site_slug: props.sites[0]?.slug || '', room_id: '', file: null, busy: false, error: '', result: null, done: null });
+const impStates = { ok: ['À importer', 'bg-emerald-500/15 text-emerald-300'], reactivate: ['Réactivée', 'bg-emerald-500/15 text-emerald-300'], duplicate: ['Déjà présente', 'bg-white/10 text-slate-400'], past: ['Passée', 'bg-white/10 text-slate-500'], cancelled: ['Annulée', 'bg-white/10 text-slate-500'], no_room: ['Chambre ?', 'bg-amber-500/15 text-amber-300'], invalid: ['Illisible', 'bg-rose-500/15 text-rose-300'] };
+const impSend = async (dry) => {
+    if (!imp.file) return;
+    imp.busy = true; imp.error = '';
+    const fd = new FormData();
+    fd.append('site_slug', imp.site_slug); fd.append('file', imp.file); fd.append('dry', dry ? '1' : '0');
+    if (imp.room_id) fd.append('room_id', imp.room_id);
+    try {
+        const r = await fetch(route('reservations.import'), { method: 'POST', body: fd, headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '', Accept: 'application/json' }, credentials: 'same-origin' });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { imp.error = d.error || d.message || 'Import impossible.'; return; }
+        if (dry) imp.result = d; else { imp.done = d.imported; imp.result = null; router.reload({ preserveScroll: true }); }
+    } catch { imp.error = 'Connexion interrompue, réessayez.'; } finally { imp.busy = false; }
+};
+const impPick = (e) => { imp.file = e.target.files[0] || null; imp.result = null; imp.done = null; imp.error = ''; if (imp.file) impSend(true); };
+const openImport = () => { Object.assign(imp, { file: null, result: null, done: null, error: '' }); add.value = 'import'; };
 const lastNight = (end) => { const d = new Date(end + 'T00:00:00'); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); };
 const submitTable = () => router.post(route('reservations.table.store'), tf, { preserveScroll: true, onSuccess: () => { add.value = null; tf.name = ''; tf.phone = ''; } });
 const submitStay = () => router.post(route('reservations.stay.store'), { ...sf, room_id: sf.room_id || null, total: sf.total === '' ? null : Number(sf.total) }, { preserveScroll: true, onError: (e) => { sfErrors.value = e; }, onSuccess: () => { add.value = null; sfErrors.value = {}; sf.name = ''; sf.phone = ''; sf.email = ''; sf.notes = ''; sf.total = ''; tab.value = 'stays'; } });
@@ -48,6 +66,7 @@ const submitStay = () => router.post(route('reservations.stay.store'), { ...sf, 
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <button v-if="!hasRooms || tables.length" @click="add = 'table'" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">+ Table</button>
+                    <button v-if="hasRooms" @click="openImport" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">⬆ Importer (Excel)</button>
                     <button v-if="hasRooms" @click="add = 'block'" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">🔒 Fermer des dates</button>
                     <button @click="add = 'stay'" class="btn-brand text-sm">+ Ajouter une réservation</button>
                 </div>
@@ -123,8 +142,45 @@ const submitStay = () => router.post(route('reservations.stay.store'), { ...sf, 
         <!-- Ajout manuel -->
         <Transition name="fade">
             <div v-if="add" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur" @click="add=null">
-                <div class="glass w-full max-w-lg rounded-2xl bg-ink-800 p-6" @click.stop>
-                    <h3 class="font-display text-lg font-bold text-white">{{ add==='table' ? 'Nouvelle réservation de table' : add==='block' ? 'Fermer des dates' : 'Ajouter une réservation' }}</h3>
+                <div class="glass w-full rounded-2xl bg-ink-800 p-6" :class="add==='import' ? 'max-w-3xl' : 'max-w-lg'" @click.stop>
+                    <template v-if="add==='import'">
+                        <h3 class="font-display text-lg font-bold text-white">Importer des réservations</h3>
+                        <p class="mt-1 text-sm text-slate-400">Fichier Excel (.xlsx) ou CSV : export Bed-Booking, Airbnb, Booking, ou votre propre tableau. Il faut au minimum une colonne <b class="text-slate-200">Arrivée</b> et une colonne <b class="text-slate-200">Départ</b> (ou <b class="text-slate-200">Nuits</b>) ; <b class="text-slate-200">Nom</b>, <b class="text-slate-200">Chambre</b>, téléphone, e-mail, montant sont repris s'ils existent. Les réservations importées sont confirmées et ferment leurs dates sur le site.</p>
+                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                            <select v-if="sites.length>1" v-model="imp.site_slug" class="field sm:col-span-2"><option v-for="s in sites" :key="s.slug" :value="s.slug">{{ s.name }}</option></select>
+                            <input type="file" accept=".xlsx,.csv,.txt" @change="impPick" class="field" />
+                            <select v-model="imp.room_id" @change="imp.file && impSend(true)" class="field"><option value="">Chambre si la colonne est absente…</option><option v-for="r in roomsOf(imp.site_slug)" :key="r.id" :value="r.id">{{ r.name }}</option></select>
+                        </div>
+                        <p v-if="imp.busy" class="mt-4 text-sm text-slate-400">Analyse du fichier…</p>
+                        <p v-if="imp.error" class="mt-4 rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{{ imp.error }}</p>
+                        <p v-if="imp.done !== null" class="mt-4 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">✓ {{ imp.done }} réservation{{ imp.done>1?'s':'' }} importée{{ imp.done>1?'s':'' }} : leurs dates sont fermées sur votre site.</p>
+                        <div v-if="imp.result" class="mt-4">
+                            <div class="flex flex-wrap gap-2 text-xs font-semibold">
+                                <span class="chip bg-emerald-500/15 text-emerald-300">{{ imp.result.summary.ok }} à importer</span>
+                                <span v-if="imp.result.summary.duplicate" class="chip bg-white/10 text-slate-400">{{ imp.result.summary.duplicate }} déjà présente(s)</span>
+                                <span v-if="imp.result.summary.past" class="chip bg-white/10 text-slate-500">{{ imp.result.summary.past }} passée(s), ignorée(s)</span>
+                                <span v-if="imp.result.summary.cancelled" class="chip bg-white/10 text-slate-500">{{ imp.result.summary.cancelled }} annulée(s), ignorée(s)</span>
+                                <span v-if="imp.result.summary.no_room" class="chip bg-amber-500/15 text-amber-300">{{ imp.result.summary.no_room }} sans chambre : choisissez-la ci-dessus</span>
+                                <span v-if="imp.result.summary.invalid" class="chip bg-rose-500/15 text-rose-300">{{ imp.result.summary.invalid }} illisible(s)</span>
+                            </div>
+                            <div class="mt-3 max-h-72 overflow-auto rounded-xl border border-white/10">
+                                <table class="w-full text-left text-xs"><tbody>
+                                    <tr v-for="i in imp.result.items" :key="i.line" class="border-b border-white/5">
+                                        <td class="px-3 py-2 text-slate-500">l.{{ i.line }}</td>
+                                        <td class="px-3 py-2 text-white">{{ i.check_in ? fmt(i.check_in) : '?' }} → {{ i.check_out ? fmt(i.check_out) : '?' }}</td>
+                                        <td class="px-3 py-2 text-slate-300">{{ i.room || i.raw_room || '—' }}</td>
+                                        <td class="px-3 py-2 text-slate-300">{{ i.name }}</td>
+                                        <td class="px-3 py-2"><span class="chip" :class="impStates[i.state][1]">{{ impStates[i.state][0] }}</span></td>
+                                    </tr>
+                                </tbody></table>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex justify-end gap-2">
+                            <button type="button" @click="add=null" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">Fermer</button>
+                            <button v-if="imp.result && imp.result.summary.ok" @click="impSend(false)" :disabled="imp.busy" class="btn-brand text-sm">Importer {{ imp.result.summary.ok }} réservation{{ imp.result.summary.ok>1?'s':'' }}</button>
+                        </div>
+                    </template>
+                    <h3 v-if="add!=='import'" class="font-display text-lg font-bold text-white">{{ add==='table' ? 'Nouvelle réservation de table' : add==='block' ? 'Fermer des dates' : 'Ajouter une réservation' }}</h3>
                     <p v-if="add==='stay'" class="mt-1 text-sm text-slate-400">Réservation prise en direct (téléphone, e-mail, sur place…). Elle est confirmée et ses dates sont fermées sur votre site.</p>
                     <p v-if="add==='block'" class="mt-1 text-sm text-slate-400">Aucune demande ne sera possible sur ces nuits (dernière nuit incluse).</p>
                     <form v-if="add==='block'" @submit.prevent="submitBlock" class="mt-4 grid gap-3 sm:grid-cols-2">
@@ -136,7 +192,7 @@ const submitStay = () => router.post(route('reservations.stay.store'), { ...sf, 
                         <p v-if="bfErrors.end || bfErrors.start" class="text-sm text-rose-400 sm:col-span-2">{{ bfErrors.end || bfErrors.start }}</p>
                         <div class="flex justify-end gap-2 sm:col-span-2"><button type="button" @click="add=null" class="rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300">Annuler</button><button class="btn-brand text-sm">Fermer ces dates</button></div>
                     </form>
-                    <form v-if="add==='table'" @submit.prevent="submitTable" class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <form v-else-if="add==='table'" @submit.prevent="submitTable" class="mt-4 grid gap-3 sm:grid-cols-2">
                         <select v-if="sites.length>1" v-model="tf.site_slug" class="field sm:col-span-2"><option v-for="s in sites" :key="s.slug" :value="s.slug">{{ s.name }}</option></select>
                         <input type="date" v-model="tf.date" class="field" required /><input type="time" v-model="tf.time" class="field" required />
                         <input v-model="tf.name" class="field" placeholder="Nom" required /><input type="number" v-model="tf.covers" class="field" min="1" placeholder="Couverts" />

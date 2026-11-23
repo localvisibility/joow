@@ -130,6 +130,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/reservations/table/{reservation}', [\App\Http\Controllers\ReservationsController::class, 'updateTable'])->name('reservations.table.update');
     Route::post('/reservations/sejour', [\App\Http\Controllers\ReservationsController::class, 'storeStay'])->name('reservations.stay.store');
     Route::patch('/reservations/sejour/{booking}', [\App\Http\Controllers\ReservationsController::class, 'updateStay'])->name('reservations.stay.update');
+    Route::post('/reservations/import', [\App\Http\Controllers\ReservationsController::class, 'import'])->middleware('throttle:30,1')->name('reservations.import');
     Route::post('/reservations/fermeture', [\App\Http\Controllers\ReservationsController::class, 'storeBlock'])->name('reservations.block.store');
     Route::delete('/reservations/fermeture/{block}', [\App\Http\Controllers\ReservationsController::class, 'destroyBlock'])->name('reservations.block.destroy');
 

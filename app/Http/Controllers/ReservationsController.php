@@ -140,6 +140,31 @@ class ReservationsController extends Controller
         return back();
     }
 
+    /** Import Excel / CSV : analyse (dry) puis enregistrement des réservations confirmées. */
+    public function import(Request $request, \App\Services\Modules\StayImport $importer)
+    {
+        $data = $request->validate([
+            'site_slug' => ['required', 'string'], 'file' => ['required', 'file', 'max:8192'],
+            'room_id' => ['nullable', 'uuid'], 'dry' => ['nullable', 'boolean'],
+        ]);
+        if (! in_array(strtolower($request->file('file')->getClientOriginalExtension()), ['xlsx', 'csv', 'txt'], true)) {
+            return response()->json(['error' => 'Format accepté : Excel (.xlsx) ou CSV. Pour un ancien fichier .xls, ouvrez-le et enregistrez-le en .xlsx.'], 422);
+        }
+        $this->authorizeSlug($request, $data['site_slug']);
+        $site = Site::where('slug', $data['site_slug'])->firstOrFail();
+        try {
+            $rows = $importer->read($request->file('file')->getRealPath(), $request->file('file')->getClientOriginalName());
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e instanceof \RuntimeException ? $e->getMessage() : 'Fichier illisible : enregistrez-le en Excel (.xlsx) ou en CSV.'], 422);
+        }
+        $analysis = $importer->analyse($site, $rows, $data['room_id'] ?? null);
+        if ($request->boolean('dry')) {
+            return response()->json($analysis);
+        }
+
+        return response()->json(['imported' => $importer->import($site, $analysis)] + $analysis);
+    }
+
     /** Fermer des dates (une chambre ou tout l'établissement) : plus aucune demande possible sur ces nuits. */
     public function storeBlock(Request $request)
     {
