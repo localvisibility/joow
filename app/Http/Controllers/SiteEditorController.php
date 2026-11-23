@@ -663,6 +663,79 @@ class SiteEditorController extends Controller
         ];
     }
 
+    // ───────────── Page importée : édition en place (design conservé) ─────────────
+
+    private function legacySite(Request $request, string $slug): Site
+    {
+        $site = $this->ownedSite($request, $slug);
+        abort_unless(SiteRenderer::legacyHtml($site) !== null, 422, 'Ce site se modifie avec le Studio classique.');
+
+        return $site;
+    }
+
+    /** État de l'édition : titre et description Google, versions annulables. */
+    public function legacyState(Request $request, string $slug, \App\Services\LegacyEditor $ed)
+    {
+        $site = $this->legacySite($request, $slug);
+
+        return response()->json(['meta' => $ed->meta($ed->current($site)), 'backups' => $ed->backups($site)]);
+    }
+
+    /** Modifie un texte (k), une photo (j) ou le titre / la description Google de la page importée. */
+    public function legacyEdit(Request $request, string $slug, \App\Services\LegacyEditor $ed)
+    {
+        $site = $this->legacySite($request, $slug);
+        $d = $request->validate([
+            'type' => ['required', 'in:text,image,meta'],
+            'k' => ['nullable', 'integer', 'min:0'], 'value' => ['nullable', 'string', 'max:5000'],
+            'j' => ['nullable', 'integer', 'min:0'], 'url' => ['nullable', 'string', 'max:800'],
+            'title' => ['nullable', 'string', 'max:120'], 'description' => ['nullable', 'string', 'max:300'],
+        ]);
+        $html = $ed->current($site);
+        $new = match ($d['type']) {
+            'text' => $ed->setText($html, (int) ($d['k'] ?? -1), (string) ($d['value'] ?? '')),
+            'image' => $ed->setImage($html, (int) ($d['j'] ?? -1), (string) ($d['url'] ?? '')),
+            'meta' => $ed->setMeta($html, $d['title'] ?? null, $d['description'] ?? null),
+        };
+        abort_if($new === null, 422, 'Cet élément n\'a pas pu être modifié : rechargez l\'aperçu et réessayez.');
+        if ($new !== $html) {
+            $ed->save($site, $new);
+        }
+
+        return response()->json(['ok' => true, 'backups' => $ed->backups($site), 'meta' => $ed->meta($new), 'version' => now()->timestamp]);
+    }
+
+    public function legacyUndo(Request $request, string $slug, \App\Services\LegacyEditor $ed)
+    {
+        $site = $this->legacySite($request, $slug);
+        abort_unless($ed->undo($site), 422, 'Aucune modification à annuler.');
+
+        return response()->json(['ok' => true, 'backups' => $ed->backups($site), 'meta' => $ed->meta($ed->current($site)), 'version' => now()->timestamp]);
+    }
+
+    /** Assistant IA sur une page importée : réécrit les textes demandés (1 crédit si quelque chose change). */
+    public function legacyAi(Request $request, string $slug, \App\Services\LegacyEditor $ed)
+    {
+        $site = $this->legacySite($request, $slug);
+        $data = $request->validate(['message' => ['required', 'string', 'min:2', 'max:1200']]);
+        @set_time_limit(150);
+        $credits = app(\App\Services\AiCredits::class);
+        $credits->refresh($site);
+        $admin = $request->user()->isAdmin();
+        if (! $admin && $credits->balance($site) <= 0) {
+            return response()->json(['reply' => 'Vous n\'avez plus de crédits IA. Les modifications manuelles (clic sur un texte ou une photo) restent illimitées.'], 402);
+        }
+        $out = $ed->ai($site, $ed->current($site), $data['message']);
+        if ($out['applied']) {
+            $ed->save($site, $out['html']);
+            if (! $admin) {
+                $credits->charge($site->fresh(), 1, ['message' => Str::limit($data['message'], 200), 'applied' => [$out['applied'].' texte(s) modifié(s)']]);
+            }
+        }
+
+        return response()->json(['reply' => $out['reply'], 'applied' => $out['applied'], 'backups' => $ed->backups($site), 'meta' => $ed->meta($ed->current($site)), 'version' => now()->timestamp]);
+    }
+
     /** Site importé (page figée) : le Studio ne doit rien modifier ni republier. */
     private function assertEditable(Site $site): void
     {

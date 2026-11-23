@@ -49,6 +49,23 @@ const setPath = (o, p, v) => {
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const post = (m) => frame.value?.contentWindow?.postMessage({ joow: 1, ...m }, '*');
 const reload = (v) => { version.value = v || Date.now(); };
+
+/* ───────────── page importée (design conservé) : textes, photos, Google, IA ───────────── */
+const lv = ref({ meta: { title: '', description: '' }, backups: 0, msgs: [], input: '', sending: false });
+const lvErr = (e) => alert(e?.message || e?.reply || 'Modification impossible, réessayez.');
+const lvLoad = async () => { try { const r = await fetch(route('sites.editor.legacy.state', slug), { headers: headers() }); const d = await r.json(); lv.value.meta = d.meta || lv.value.meta; lv.value.backups = d.backups || 0; } catch {} };
+const lvDone = (d, reloadFrame = false) => { lv.value.backups = d.backups ?? lv.value.backups; if (d.meta) lv.value.meta = d.meta; status.value = 'saved'; if (reloadFrame) reload(d.version); };
+const lvSaveText = async (k, value) => { status.value = 'saving'; try { lvDone(await postJson(route('sites.editor.legacy', slug), { type: 'text', k, value })); } catch (e) { status.value = 'error'; lvErr(e); reload(); } };
+const lvSaveImage = async (j, url) => { status.value = 'saving'; try { lvDone(await postJson(route('sites.editor.legacy', slug), { type: 'image', j, url }), true); } catch (e) { status.value = 'error'; lvErr(e); } };
+const lvSaveMeta = async () => { status.value = 'saving'; try { lvDone(await postJson(route('sites.editor.legacy', slug), { type: 'meta', title: lv.value.meta.title, description: lv.value.meta.description })); } catch (e) { status.value = 'error'; lvErr(e); } };
+const lvUndo = async () => { status.value = 'saving'; try { lvDone(await postJson(route('sites.editor.legacy.undo', slug), {}), true); } catch (e) { status.value = 'error'; lvErr(e); } };
+const lvAsk = async (text) => {
+    const msg = (text ?? lv.value.input).trim(); if (!msg || lv.value.sending) return;
+    lv.value.input = ''; lv.value.msgs.push({ role: 'user', text: msg }); lv.value.sending = true;
+    try { const d = await postJson(route('sites.editor.legacy.ai', slug), { message: msg }); lv.value.msgs.push({ role: 'ai', text: d.reply, applied: d.applied }); lvDone(d, d.applied > 0); }
+    catch (e) { lv.value.msgs.push({ role: 'ai', text: e?.reply || e?.message || 'Je n\'ai pas pu traiter la demande.' }); }
+    finally { lv.value.sending = false; }
+};
 const previewUrl = computed(() => `${route('sites.editor.preview', slug)}?v=${version.value}${curPage.value ? '&page=' + encodeURIComponent(curPage.value) : ''}`);
 const liveUrl = computed(() => `${props.site.live_url}${curPage.value ? '/' + curPage.value + '/' : ''}?v=${version.value}`);
 
@@ -95,6 +112,7 @@ const onMessage = (e) => {
     if (m.type === 'ready') post({ type: 'setAccent', value: st.value?.accent });
     if (m.type === 'edit') edit(m.path, m.value, { fromFrame: true });
     if (m.type === 'image') openPicker(m.path, m.current);
+    if (m.type === 'lv-text') lvSaveText(m.k, m.value);
     if (m.type === 'page') { curPage.value = m.slug || ''; }
     if (m.type === 'section') {
         if (m.id.startsWith('block-')) { openBlock.value = Number(m.id.slice(6)); tab.value = 'contenu'; }
@@ -131,7 +149,7 @@ const load = async () => {
 };
 const freeDomain = ref(null);
 const loadDomain = async () => { try { const r = await fetch(`/api/site/${props.site.slug}/domain`, { headers: { Accept: 'application/json' } }); const d = await r.json(); freeDomain.value = d.available ? d.domain : null; } catch {} };
-onMounted(() => { load(); loadDomain(); window.addEventListener('message', onMessage); window.addEventListener('keydown', onKey); });
+onMounted(() => { load(); loadDomain(); if (!props.site.editable) lvLoad(); window.addEventListener('message', onMessage); window.addEventListener('keydown', onKey); });
 onUnmounted(() => { window.removeEventListener('message', onMessage); window.removeEventListener('keydown', onKey); });
 watch(curPage, () => { openBlock.value = -1; reload(); });
 
@@ -267,6 +285,7 @@ const setFit = async (on) => {
 const applyImage = (url) => {
     const p = picker.value.path;
     if (p.startsWith('module.')) { const [, key, field] = p.split('.'); setModCfg(key, field, url); picker.value.open = false; return; }
+    if (p.startsWith('lvi.')) { lvSaveImage(Number(p.slice(4)), url); picker.value.open = false; return; }
     if (p.startsWith('images.gallery.')) {
         const i = Number(p.split('.').pop()); const g = [...(st.value.images?.gallery || galleryDefault())]; g[i] = url;
         edit('images.gallery', g, { reload: true });
@@ -536,26 +555,65 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
             <span v-if="freeDomain" class="mr-2 text-emerald-300">✓ {{ freeDomain }} est disponible ·</span><button @click="modal='publish'" class="font-semibold underline decoration-brand-400/60 underline-offset-2 hover:text-white">Mettre en ligne quand il est parfait →</button>
         </div>
 
-        <div v-if="!site.editable" class="m-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <p class="font-semibold text-white">Site importé : il s'affiche tel quel</p>
-            <p class="mt-1 max-w-3xl text-sm text-slate-400">Ce site vient de votre ancien prestataire. Son design et ses textes sont conservés à l'identique (aperçu ci-dessous), mais ils ne se modifient pas dans le Studio. Ses réservations, ses chambres, ses modules et ses statistiques se gèrent dans votre espace.</p>
-            <div class="mt-4 flex flex-wrap gap-2">
-                <Link :href="route('reservations.index')" class="btn-brand text-sm">Réservations et calendrier</Link>
-                <Link :href="route('modules.index', { site: slug })" class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5">Chambres, tarifs et modules</Link>
-                <Link :href="route('stats.index', { site: slug })" class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5">Statistiques</Link>
-            </div>
-            <details v-if="hasPlace" class="mt-4 text-sm text-slate-400">
-                <summary class="cursor-pointer text-slate-300">Le recréer en site Joow modifiable…</summary>
-                <p class="mt-2 max-w-3xl">L'IA recrée un nouveau site à partir de la fiche Google, modifiable dans le Studio. <b class="text-amber-200">Le design et les textes actuels seront remplacés</b> dès la publication : à ne faire qu'avec l'accord du client.</p>
-                <button @click="confirmRegenerate" class="mt-3 rounded-xl border border-amber-400/40 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/10">Recréer le site avec l'IA</button>
+        <div v-if="!site.editable" class="mx-4 mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm">
+            <p class="text-slate-300"><b class="text-white">Site importé, design conservé.</b> Cliquez sur un texte pour le modifier, ou sur une photo pour la changer. Chaque modification est en ligne immédiatement.</p>
+            <details v-if="hasPlace" class="text-slate-400">
+                <summary class="cursor-pointer text-xs text-slate-500">Recréer en site Joow…</summary>
+                <p class="mt-2 max-w-2xl text-xs">L'IA recrée un nouveau site depuis la fiche Google, avec toutes les fonctions du Studio. <b class="text-amber-200">Le design et les textes actuels seront remplacés.</b></p>
+                <button @click="confirmRegenerate" class="mt-2 rounded-lg border border-amber-400/40 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/10">Recréer le site avec l'IA</button>
             </details>
         </div>
 
         <!-- ═══ CORPS ═══ -->
-        <div class="relative grid min-h-0 flex-1 grid-cols-1" :class="site.editable ? 'lg:grid-cols-[420px,1fr]' : ''">
+        <div class="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[420px,1fr]">
             <!-- ─── PANNEAU (colonne sur desktop, feuille coulissante sur mobile) ─── -->
             <div v-if="sheet" class="absolute inset-0 z-30 bg-black/50 backdrop-blur-[2px] lg:hidden" @click="sheet=false"></div>
-            <aside v-if="site.editable" class="studio-aside flex min-h-0 flex-col border-r border-white/[0.06] bg-ink-900/95 lg:bg-ink-900/40" :class="sheet ? 'is-open' : ''">
+            <aside v-if="!site.editable" class="studio-aside flex min-h-0 flex-col overflow-y-auto border-r border-white/[0.06] bg-ink-900/95 p-5 lg:bg-ink-900/40" :class="sheet ? 'is-open' : ''">
+                <div class="space-y-5">
+                    <div class="rounded-xl border border-white/[0.08] p-4">
+                        <p class="font-display font-bold text-white">Modifier la page</p>
+                        <ul class="mt-2 space-y-1.5 text-sm text-slate-400">
+                            <li>✏️ <b class="text-slate-200">Texte</b> : cliquez dessus, tapez, puis Entrée (Échap pour annuler).</li>
+                            <li>📷 <b class="text-slate-200">Photo</b> : cliquez sur « Changer la photo ».</li>
+                            <li>🎨 Le design, les couleurs et la mise en page restent identiques.</li>
+                        </ul>
+                        <button @click="lvUndo" :disabled="!lv.backups" class="mt-3 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-40">↶ Annuler la dernière modification<span v-if="lv.backups"> ({{ lv.backups }} version{{ lv.backups > 1 ? 's' : '' }} gardée{{ lv.backups > 1 ? 's' : '' }})</span></button>
+                    </div>
+
+                    <div class="rounded-xl border border-white/[0.08] p-4">
+                        <p class="font-display font-bold text-white">✨ Demander à l'IA</p>
+                        <p class="mt-1 text-xs text-slate-500">Elle réécrit les textes de la page à votre demande, sans toucher au design. 1 crédit par modification.</p>
+                        <div class="mt-3 max-h-64 space-y-2 overflow-y-auto">
+                            <p v-for="(m, i) in lv.msgs" :key="i" class="rounded-xl px-3 py-2 text-sm" :class="m.role === 'user' ? 'ml-6 bg-brand-500/15 text-white' : 'mr-6 bg-white/[0.05] text-slate-200'">{{ m.text }}</p>
+                            <p v-if="lv.sending" class="mr-6 rounded-xl bg-white/[0.05] px-3 py-2 text-sm text-slate-400">L'IA réécrit les textes…</p>
+                        </div>
+                        <div class="mt-2 flex flex-wrap gap-1.5" v-if="!lv.msgs.length">
+                            <button v-for="sg in ['Rends la présentation plus chaleureuse', 'Corrige les fautes d\'orthographe de la page', 'Mets en avant la piscine et le parking dans le texte d\'accueil']" :key="sg" @click="lvAsk(sg)" class="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-slate-300 hover:border-brand-400/60 hover:text-white">{{ sg }}</button>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            <textarea v-model="lv.input" rows="2" @keydown.enter.exact.prevent="lvAsk()" class="field flex-1 resize-none text-sm" placeholder="Ex : réécris la description de la chambre La Terrasse"></textarea>
+                            <button @click="lvAsk()" :disabled="lv.sending || !lv.input.trim()" class="btn-brand !px-3">➤</button>
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl border border-white/[0.08] p-4">
+                        <p class="font-display font-bold text-white">Google</p>
+                        <label class="lbl mt-2">Titre dans Google <span class="float-right text-[11px] text-slate-500">{{ lv.meta.title.length }} / 60</span><input class="fld" v-model="lv.meta.title" maxlength="120" /></label>
+                        <label class="lbl mt-2">Description <span class="float-right text-[11px] text-slate-500">{{ lv.meta.description.length }} / 155</span><textarea class="fld" rows="3" v-model="lv.meta.description" maxlength="300"></textarea></label>
+                        <button @click="lvSaveMeta" class="mt-3 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">Enregistrer</button>
+                    </div>
+
+                    <div class="rounded-xl border border-white/[0.08] p-4 text-sm">
+                        <p class="font-display font-bold text-white">Gérer le site</p>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <Link :href="route('reservations.index')" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">Réservations et calendrier</Link>
+                            <Link :href="route('modules.index', { site: slug })" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">Chambres, tarifs, modules</Link>
+                            <Link :href="route('stats.index', { site: slug })" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10">Statistiques</Link>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+            <aside v-else class="studio-aside flex min-h-0 flex-col border-r border-white/[0.06] bg-ink-900/95 lg:bg-ink-900/40" :class="sheet ? 'is-open' : ''">
                 <div class="flex items-center justify-between px-4 pt-2 lg:hidden" @click="sheet=false">
                     <span class="mx-auto block h-1.5 w-12 rounded-full bg-white/20"></span>
                 </div>
@@ -1210,7 +1268,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
             <div v-if="picker.open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur" @click="picker.open=false">
                 <div class="glass max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-ink-800 p-5 sm:p-6" @click.stop>
                     <div class="mb-4 flex items-center justify-between"><h3 class="font-display text-lg font-bold text-white">{{ isDocPath ? 'Choisir un document (PDF ou image)' : 'Choisir une image' }}</h3><button @click="picker.open=false" class="text-slate-400 hover:text-white">✕</button></div>
-                    <div v-if="picker.current && !isDocPath && !picker.path.startsWith('module.')" class="mb-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                    <div v-if="picker.current && !isDocPath && !picker.path.startsWith('module.') && !picker.path.startsWith('lvi.')" class="mb-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
                         <img :src="picker.current" class="h-14 w-20 rounded-lg bg-black/40" :class="fitOn ? 'object-contain' : 'object-cover'" />
                         <div class="min-w-0 flex-1"><p class="text-sm font-semibold text-white">Image actuelle</p><p class="text-[11px] text-slate-500">Menu, affiche, logo : affichez-la en entier plutôt que recadrée.</p></div>
                         <div class="flex shrink-0 rounded-lg bg-white/[0.05] p-0.5 text-xs font-semibold">

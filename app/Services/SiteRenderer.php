@@ -52,7 +52,15 @@ class SiteRenderer
     public function html(Site $site, bool $editMode = false, ?string $pageSlug = null): string
     {
         if ($pageSlug === null && ($legacy = self::legacyHtml($site)) !== null) {
-            return $legacy;
+            // Page importée : affichée telle quelle ; dans le Studio, textes et photos deviennent modifiables en place
+            if (! $editMode) {
+                return $legacy;
+            }
+            // Dans le Studio (app.joow.fr), les fichiers du site (/lv-assets/…) se chargent depuis son propre domaine
+            $base = $site->custom_domain ? 'https://'.$site->custom_domain.'/' : 'https://'.$site->slug.'.joow.fr/';
+            $html = app(LegacyEditor::class)->instrument($legacy, LegacyEditor::runtime());
+
+            return preg_replace('#<head(\s[^>]*)?>#i', '$0<base href="'.e($base).'">', $html, 1) ?? $html;
         }
         $data = $site->site_data ?? [];
         $sector = $site->sector ?: 'service';
