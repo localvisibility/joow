@@ -109,7 +109,8 @@ return [
     // Ancien compte Stripe de Local Visibility (formules historiques) : clé restreinte en LECTURE
     // (Customers, Subscriptions, Invoices) + Billing portal en écriture pour « Gérer ma carte ».
     'stripe_lv' => [
-        'secret' => env('STRIPE_LV_SECRET'),
+        // Vide : même compte Stripe que Joow (cas de Local Visibility) → la clé de Joow est utilisée
+        'secret' => env('STRIPE_LV_SECRET') ?: env('STRIPE_SECRET'),
     ],
 
 ];
