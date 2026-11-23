@@ -39,4 +39,29 @@ class LvReservationsImportTest extends TestCase
         $this->artisan('lv:reservations', ['path' => $file, 'lv_slug' => 'clos', '--since' => '2026-10-18'])->assertSuccessful();
         $this->assertSame(1, RoomBooking::where('site_slug', 'clos')->count()); // pas de doublon
     }
+
+    public function test_history_mode_archives_past_stays_without_blocking_or_notifying(): void
+    {
+        Mail::fake();
+        Http::fake(['local-visibility.com/*' => Http::response([], 500)]);
+        $site = Site::create(['slug' => 'clos', 'name' => 'Le Clos', 'sector' => 'hebergement', 'status' => 'paid', 'source' => 'legacy', 'owner_email' => 'proprio@yahoo.fr', 'site_data' => []]);
+        $room = Room::create(['site_id' => $site->id, 'site_slug' => 'clos', 'name' => 'La Terrasse', 'sort_order' => 0, 'active' => true]);
+        $file = sys_get_temp_dir().'/lv-hist-'.uniqid().'.json';
+        file_put_contents($file, json_encode([
+            ['slug' => 'clos', 'checkin' => '2026-03-01', 'checkout' => '2026-03-04', 'guest_name' => 'Paul', 'status' => 'confirmed', 'created_at' => '2026-01-14 08:00:00'],
+            ['slug' => 'clos', 'checkin' => now()->addMonths(2)->toDateString(), 'checkout' => now()->addMonths(2)->addDays(2)->toDateString(), 'guest_name' => 'Léa', 'created_at' => '2026-02-01'],
+            ['slug' => 'clos', 'checkin' => '2026-04-01', 'checkout' => '2026-04-02', 'guest_name' => 'Zoé', 'status' => 'cancelled', 'created_at' => '2026-02-03'],
+        ]));
+
+        $this->artisan('lv:reservations', ['path' => $file, 'lv_slug' => 'clos', '--history' => true, '--notify' => true])->assertSuccessful();
+        $st = RoomBooking::pluck('status', 'name');
+        $this->assertSame(['Léa' => 'archived', 'Paul' => 'archived', 'Zoé' => 'cancelled'], collect($st)->sortKeys()->all());
+        $this->assertSame('2026-01-14', RoomBooking::where('name', 'Paul')->first()->created_at->toDateString());
+        Mail::assertNothingSent();
+        $lea = RoomBooking::where('name', 'Léa')->first();
+        $this->assertTrue(app(\App\Services\Modules\StayPlanner::class)->free($room, $lea->check_in->toDateString(), $lea->check_out->toDateString()));
+
+        $this->artisan('lv:reservations', ['path' => $file, 'lv_slug' => 'clos', '--history' => true])->assertSuccessful();
+        $this->assertSame(3, RoomBooking::count());
+    }
 }

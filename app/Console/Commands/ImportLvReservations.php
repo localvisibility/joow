@@ -23,7 +23,8 @@ class ImportLvReservations extends Command
 {
     protected $signature = 'lv:reservations {path : fichier ou dossier JSON copié depuis OVH} {lv_slug : identifiant Local Visibility du site}
         {--site= : slug du site dans Joow (par défaut : le même)} {--since= : ne garder que les demandes reçues depuis cette date (AAAA-MM-JJ)}
-        {--notify : envoyer au propriétaire le récapitulatif des demandes récupérées} {--dry-run}';
+        {--notify : envoyer au propriétaire le récapitulatif des demandes récupérées}
+        {--history : importer tout l\'historique comme archive (statut « Historique » : ne bloque pas le calendrier, rien à traiter)} {--dry-run}';
 
     protected $description = 'Récupère les demandes de réservation de l\'ancien calendrier Local Visibility';
 
@@ -59,6 +60,7 @@ class ImportLvReservations extends Command
 
         $since = $this->option('since') ? Carbon::parse($this->option('since'))->startOfDay() : null;
         $dry = (bool) $this->option('dry-run');
+        $history = (bool) $this->option('history');
         $imported = [];
         $skipped = 0;
         foreach ($rows as $r) {
@@ -96,17 +98,23 @@ class ImportLvReservations extends Command
 
                 continue;
             }
+            $orig = strtolower((string) ($get(['status', 'state', 'statut']) ?? ''));
+            $status = ! $history ? 'pending' : (preg_match('/cancel|annul|refus|reject|declin/', $orig) ? 'cancelled' : 'archived');
             $row = [
                 'site_id' => $site->id, 'site_slug' => $site->slug, 'room_id' => $room?->id,
                 'check_in' => $in, 'check_out' => $out, 'guests' => max(1, (int) ($get(['guests', 'nb_guests', 'persons']) ?? 2)),
                 'nights' => Carbon::parse($in)->diffInDays(Carbon::parse($out)),
                 'name' => mb_substr((string) $name, 0, 120), 'phone' => mb_substr((string) ($get(['guest_phone', 'phone', 'telephone']) ?? ''), 0, 40), 'email' => $email ? mb_substr((string) $email, 0, 160) : null,
-                'notes' => trim('Demande reçue sur l\'ancien calendrier'.($created ? ' le '.$created->format('d/m/Y à H\hi') : '').'. '.(string) ($get(['guest_message', 'message', 'notes']) ?? '')),
-                'status' => 'pending', 'source' => 'ancien-calendrier',
+                'notes' => trim('Demande reçue sur l\'ancien calendrier'.($created ? ' le '.$created->format('d/m/Y à H\hi') : '').($history && $orig ? " (statut : $orig)" : '').'. '.(string) ($get(['guest_message', 'message', 'notes']) ?? '')),
+                'status' => $status, 'source' => 'ancien-calendrier',
             ];
             $imported[] = $row + ['room_name' => $room?->name, 'received' => $created];
             if (! $dry) {
-                RoomBooking::create($row);
+                $bk = RoomBooking::create($row);
+                if ($history && $created) {
+                    // Date réelle de la demande : les statistiques restent justes
+                    $bk->forceFill(['created_at' => $created, 'updated_at' => $created])->saveQuietly();
+                }
             }
         }
 
@@ -115,7 +123,7 @@ class ImportLvReservations extends Command
             $this->line('  '.($b['received'] ? $b['received']->format('d/m') : '--/--')." · {$b['name']} · du ".Carbon::parse($b['check_in'])->format('d/m/Y').' au '.Carbon::parse($b['check_out'])->format('d/m/Y')." ({$b['nights']} nuit(s))".($b['room_name'] ? " · {$b['room_name']}" : '').' · '.($b['email'] ?: $b['phone']));
         }
 
-        if ($imported && $this->option('notify') && ! $dry) {
+        if ($imported && $this->option('notify') && ! $dry && ! $history) {
             $to = $site->owner_email ?: ($site->module('rooms')['notify_email'] ?? null);
             if ($to) {
                 [$user] = $accounts->ensure($to, [$site->slug], 'lv-migration');

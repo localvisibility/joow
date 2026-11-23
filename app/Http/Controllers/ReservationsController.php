@@ -26,7 +26,7 @@ class ReservationsController extends Controller
         $tables = Reservation::whereIn('site_slug', $slugs)->orderByDesc('date')->orderByDesc('time')->take(300)->get()
             ->map(fn ($r) => ['id' => $r->id, 'site' => $names[$r->site_slug] ?? $r->site_slug, 'date' => $r->date->toDateString(), 'time' => substr((string) $r->time, 0, 5), 'covers' => $r->covers, 'name' => $r->name, 'phone' => $r->phone, 'email' => $r->email, 'notes' => $r->notes, 'status' => $r->status, 'source' => $r->source, 'created_at' => $r->created_at]);
 
-        $stays = RoomBooking::with('room')->whereIn('site_slug', $slugs)->orderByDesc('check_in')->take(300)->get()
+        $stays = RoomBooking::with('room')->whereIn('site_slug', $slugs)->orderByDesc('check_in')->take(1000)->get()
             ->map(fn ($b) => ['id' => $b->id, 'site' => $names[$b->site_slug] ?? $b->site_slug, 'room' => $b->room?->name, 'check_in' => $b->check_in->toDateString(), 'check_out' => $b->check_out->toDateString(), 'nights' => $b->nights, 'guests' => $b->guests, 'total' => $b->total, 'name' => $b->name, 'phone' => $b->phone, 'email' => $b->email, 'notes' => $b->notes, 'status' => $b->status, 'source' => $b->source, 'created_at' => $b->created_at]);
 
         $today = now()->toDateString();

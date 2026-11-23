@@ -10,12 +10,12 @@ const filter = ref('upcoming');
 const today = new Date().toISOString().slice(0, 10);
 
 const tables = computed(() => props.tables.filter((r) => filter.value === 'all' ? true : filter.value === 'pending' ? r.status === 'pending' : r.date >= today && r.status !== 'cancelled'));
-const stays = computed(() => props.stays.filter((b) => filter.value === 'all' ? true : filter.value === 'pending' ? b.status === 'pending' : b.check_out >= today && b.status !== 'cancelled'));
+const stays = computed(() => props.stays.filter((b) => filter.value === 'all' ? true : filter.value === 'pending' ? b.status === 'pending' : b.check_out >= today && !['cancelled', 'archived'].includes(b.status)));
 
 const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 const money = (n) => n == null ? '—' : new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
-const statusStyle = (s) => ({ pending: 'bg-amber-500/15 text-amber-300', confirmed: 'bg-emerald-500/15 text-emerald-300', seated: 'bg-brand-500/15 text-brand-400', cancelled: 'bg-white/10 text-slate-500', noshow: 'bg-rose-500/15 text-rose-300' }[s] || 'bg-white/10 text-slate-400');
-const statusLabel = (s) => ({ pending: 'En attente', confirmed: 'Confirmée', seated: 'Installés', cancelled: 'Annulée', noshow: 'No-show' }[s] || s);
+const statusStyle = (s) => ({ pending: 'bg-amber-500/15 text-amber-300', confirmed: 'bg-emerald-500/15 text-emerald-300', seated: 'bg-brand-500/15 text-brand-400', cancelled: 'bg-white/10 text-slate-500', archived: 'bg-white/5 text-slate-400', noshow: 'bg-rose-500/15 text-rose-300' }[s] || 'bg-white/10 text-slate-400');
+const statusLabel = (s) => ({ pending: 'En attente', confirmed: 'Confirmée', seated: 'Installés', cancelled: 'Annulée', archived: 'Historique', noshow: 'No-show' }[s] || s);
 
 const setTable = (r, status) => router.patch(route('reservations.table.update', r.id), { status }, { preserveScroll: true });
 const setStay = (b, status) => router.patch(route('reservations.stay.update', b.id), { status }, { preserveScroll: true });
@@ -91,7 +91,7 @@ const submitStay = () => router.post(route('reservations.stay.store'), { ...sf, 
                 <div class="text-right"><p class="font-display font-bold text-white">{{ money(b.total) }}</p><span class="chip" :class="statusStyle(b.status)">{{ statusLabel(b.status) }}</span></div>
                 <div class="flex gap-1.5 text-xs font-semibold">
                     <button v-if="b.status==='pending'" @click="setStay(b,'confirmed')" class="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-emerald-300">Confirmer</button>
-                    <button v-if="b.status!=='cancelled'" @click="setStay(b,'cancelled')" class="rounded-lg border border-white/10 px-3 py-1.5 text-slate-400 hover:text-rose-300">Annuler</button>
+                    <button v-if="!['cancelled','archived'].includes(b.status)" @click="setStay(b,'cancelled')" class="rounded-lg border border-white/10 px-3 py-1.5 text-slate-400 hover:text-rose-300">Annuler</button>
                 </div>
             </div>
             <div v-if="!stays.length" class="glass rounded-2xl p-10 text-center text-slate-400">Aucun séjour. Activez le module <strong class="text-white">Chambres & Calendrier</strong> pour recevoir des demandes de séjour.</div>
