@@ -51,9 +51,11 @@ class LvReservationsImportTest extends TestCase
             ['slug' => 'clos', 'checkin' => '2026-03-01', 'checkout' => '2026-03-04', 'guest_name' => 'Paul', 'status' => 'confirmed', 'created_at' => '2026-01-14 08:00:00'],
             ['slug' => 'clos', 'checkin' => now()->addMonths(2)->toDateString(), 'checkout' => now()->addMonths(2)->addDays(2)->toDateString(), 'guest_name' => 'Léa', 'created_at' => '2026-02-01'],
             ['slug' => 'clos', 'checkin' => '2026-04-01', 'checkout' => '2026-04-02', 'guest_name' => 'Zoé', 'status' => 'cancelled', 'created_at' => '2026-02-03'],
+            ['slug' => 'clos', 'checkin' => '2026-04-05', 'checkout' => '2026-04-06', 'guest_name' => 'Test', 'guest_email' => 'Proprio@yahoo.fr', 'created_at' => '2026-02-04'],
+            ['slug' => 'clos', 'checkin' => '2026-04-07', 'checkout' => '2026-04-08', 'guest_name' => 'Test 2', 'guest_email' => 'moi@gmail.com', 'created_at' => '2026-02-05'],
         ]));
 
-        $this->artisan('lv:reservations', ['path' => $file, 'lv_slug' => 'clos', '--history' => true, '--notify' => true])->assertSuccessful();
+        $this->artisan('lv:reservations', ['path' => $file, 'lv_slug' => 'clos', '--history' => true, '--notify' => true, '--exclude' => 'moi@gmail.com'])->assertSuccessful();
         $st = RoomBooking::pluck('status', 'name');
         $this->assertSame(['Léa' => 'archived', 'Paul' => 'archived', 'Zoé' => 'cancelled'], collect($st)->sortKeys()->all());
         $this->assertSame('2026-01-14', RoomBooking::where('name', 'Paul')->first()->created_at->toDateString());
@@ -61,7 +63,7 @@ class LvReservationsImportTest extends TestCase
         $lea = RoomBooking::where('name', 'Léa')->first();
         $this->assertTrue(app(\App\Services\Modules\StayPlanner::class)->free($room, $lea->check_in->toDateString(), $lea->check_out->toDateString()));
 
-        $this->artisan('lv:reservations', ['path' => $file, 'lv_slug' => 'clos', '--history' => true])->assertSuccessful();
+        $this->artisan('lv:reservations', ['path' => $file, 'lv_slug' => 'clos', '--history' => true, '--exclude' => 'moi@gmail.com'])->assertSuccessful();
         $this->assertSame(3, RoomBooking::count());
     }
 }

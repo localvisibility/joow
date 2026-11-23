@@ -24,6 +24,7 @@ class ImportLvReservations extends Command
     protected $signature = 'lv:reservations {path : fichier ou dossier JSON copié depuis OVH} {lv_slug : identifiant Local Visibility du site}
         {--site= : slug du site dans Joow (par défaut : le même)} {--since= : ne garder que les demandes reçues depuis cette date (AAAA-MM-JJ)}
         {--notify : envoyer au propriétaire le récapitulatif des demandes récupérées}
+        {--exclude= : e-mails à écarter (tests du propriétaire), séparés par des virgules ; ses propres adresses le sont toujours}
         {--history : importer tout l\'historique comme archive (statut « Historique » : ne bloque pas le calendrier, rien à traiter)} {--dry-run}';
 
     protected $description = 'Récupère les demandes de réservation de l\'ancien calendrier Local Visibility';
@@ -61,6 +62,7 @@ class ImportLvReservations extends Command
         $since = $this->option('since') ? Carbon::parse($this->option('since'))->startOfDay() : null;
         $dry = (bool) $this->option('dry-run');
         $history = (bool) $this->option('history');
+        $exclude = self::excluded($site, $this->option('exclude'));
         $imported = [];
         $skipped = 0;
         foreach ($rows as $r) {
@@ -90,6 +92,11 @@ class ImportLvReservations extends Command
                 continue;
             }
             $email = $get(['guest_email', 'email']);
+            if ($email && in_array(strtolower(trim((string) $email)), $exclude, true)) {
+                $skipped++; // demande de test du propriétaire
+
+                continue;
+            }
             $room = $unitMap[(string) $get(['unit_id', 'unit', 'room_id'])] ?? null;
             // Déjà importée ? (mêmes dates, même voyageur)
             $exists = RoomBooking::where('site_slug', $site->slug)->whereDate('check_in', $in)->whereDate('check_out', $out)->where('name', $name)->exists();
@@ -145,6 +152,14 @@ class ImportLvReservations extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /** Adresses dont les demandes sont des tests : celles du propriétaire + celles passées en option. */
+    public static function excluded(Site $site, ?string $extra): array
+    {
+        return collect(explode(',', (string) $extra))
+            ->push($site->owner_email, $site->module('rooms')['notify_email'] ?? null, $site->site_data['business']['email'] ?? null)
+            ->map(fn ($e) => strtolower(trim((string) $e)))->filter()->unique()->values()->all();
     }
 
     /** Lit un fichier ou un dossier de JSON et renvoie la liste des demandes. */

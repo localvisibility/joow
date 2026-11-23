@@ -16,7 +16,7 @@ use Illuminate\Support\Carbon;
 class ImportLvStats extends Command
 {
     protected $signature = 'lv:stats {lv_slug : identifiant Local Visibility du site} {--site= : slug du site dans Joow (par défaut : le même)}
-        {--bookings= : fichier ou dossier JSON des demandes de l\'ancien calendrier} {--ga= : export CSV de Google Analytics (Date + Vues)} {--dry-run}';
+        {--bookings= : fichier ou dossier JSON des demandes de l\'ancien calendrier} {--exclude= : e-mails à écarter (tests), séparés par des virgules} {--ga= : export CSV de Google Analytics (Date + Vues)} {--dry-run}';
 
     protected $description = 'Importe l\'historique des visites (Google Analytics) et des demandes d\'un ancien site Local Visibility';
 
@@ -38,9 +38,13 @@ class ImportLvStats extends Command
 
         if ($path = $this->option('bookings')) {
             $perDay = [];
+            $exclude = ImportLvReservations::excluded($site, $this->option('exclude'));
             foreach (ImportLvReservations::read((string) $path) as $r) {
                 if (($s = $r['slug'] ?? $r['site_slug'] ?? null) && $s !== $lv) {
                     continue;
+                }
+                if (in_array(strtolower(trim((string) ($r['guest_email'] ?? $r['email'] ?? ''))), $exclude, true)) {
+                    continue; // demande de test du propriétaire
                 }
                 $c = $r['created_at'] ?? $r['createdAt'] ?? $r['submitted_at'] ?? $r['timestamp'] ?? $r['date'] ?? null;
                 try {
