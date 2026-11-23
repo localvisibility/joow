@@ -86,4 +86,17 @@ class LegacyEditorTest extends TestCase
         $this->assertStringContainsString('<h1 class="t">Chambres d\'hôtes de charme à Cassis</h1>', file_get_contents("$dir/clos/index.html"));
         $this->assertSame(2, $site->fresh()->ai_credits_monthly);
     }
+
+    public function test_imported_site_on_historic_plan_is_shown_online_not_sent_to_a_subscription(): void
+    {
+        $dir = sys_get_temp_dir().'/joow-led-'.uniqid();
+        config(['services.sites_path' => $dir]);
+        @mkdir("$dir/clos", 0777, true);
+        file_put_contents("$dir/clos/index.html", $this->html);
+        $user = User::factory()->create(['email' => 'proprio@yahoo.fr']);
+        Site::create(['slug' => 'clos', 'name' => 'Le Clos', 'sector' => 'chambres', 'status' => 'preview', 'hosting_plan' => 'historique', 'source' => 'legacy', 'owner_email' => 'proprio@yahoo.fr', 'site_data' => []]);
+
+        $this->actingAs($user)->get(route('sites.editor', 'clos'))->assertOk()
+            ->assertInertia(fn ($p) => $p->where('site.imported', true)->where('site.paid', true));
+    }
 }

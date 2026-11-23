@@ -12,7 +12,7 @@ const today = new Date().toISOString().slice(0, 10);
 const tables = computed(() => props.tables.filter((r) => filter.value === 'all' ? true : filter.value === 'pending' ? r.status === 'pending' : r.date >= today && r.status !== 'cancelled'));
 const stays = computed(() => props.stays.filter((b) => filter.value === 'all' ? true : filter.value === 'pending' ? b.status === 'pending' : b.check_out >= today && b.status !== 'cancelled'));
 
-const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' });
+const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 const money = (n) => n == null ? '—' : new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
 const statusStyle = (s) => ({ pending: 'bg-amber-500/15 text-amber-300', confirmed: 'bg-emerald-500/15 text-emerald-300', seated: 'bg-brand-500/15 text-brand-400', cancelled: 'bg-white/10 text-slate-500', noshow: 'bg-rose-500/15 text-rose-300' }[s] || 'bg-white/10 text-slate-400');
 const statusLabel = (s) => ({ pending: 'En attente', confirmed: 'Confirmée', seated: 'Installés', cancelled: 'Annulée', noshow: 'No-show' }[s] || s);
@@ -82,7 +82,7 @@ const submitStay = () => router.post(route('reservations.stay.store'), { ...sf, 
         <!-- Séjours -->
         <div v-else class="mt-4 space-y-2">
             <div v-for="b in stays" :key="b.id" class="glass flex flex-wrap items-center gap-4 rounded-2xl p-4">
-                <div class="w-40 shrink-0"><p class="font-display font-bold text-white">{{ fmt(b.check_in) }} → {{ fmt(b.check_out) }}</p><p class="text-xs text-slate-400">{{ b.nights }} nuit{{ b.nights>1?'s':'' }} · {{ b.guests }} pers.</p></div>
+                <div class="w-56 shrink-0"><p class="font-display font-bold text-white">{{ fmt(b.check_in) }} → {{ fmt(b.check_out) }}</p><p class="text-xs text-slate-400">{{ b.nights }} nuit{{ b.nights>1?'s':'' }} · {{ b.guests }} pers.</p></div>
                 <div class="min-w-0 flex-1">
                     <p class="font-semibold text-white">{{ b.name }} <span v-if="b.room" class="text-slate-400">· {{ b.room }}</span></p>
                     <p class="text-xs text-slate-400">{{ b.phone }}<span v-if="b.email"> · {{ b.email }}</span><span v-if="sites.length>1"> · {{ b.site }}</span><span v-if="b.source!=='website'"> · {{ b.source }}</span></p>
