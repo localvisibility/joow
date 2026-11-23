@@ -343,6 +343,12 @@ const saveStyle = async (payload, rl = true) => {
 const setAccent = (c) => { if (!/^#[0-9a-fA-F]{6}$/.test(c)) return; st.value.accent = c; post({ type: 'setAccent', value: c }); saveStyle({ accent: c }, false); };
 const setFont = (f) => { st.value.font = f; saveStyle({ font: f }); };
 const setTheme = (t) => { st.value.theme = t; saveStyle({ theme: t }); };
+const SKINS = [['joow', 'Joow', 'Moderne, dynamique', 'linear-gradient(135deg,#4f46e5,#7c3aed)'], ['charme', 'Modèle 1 · Charme', 'Élégant, apaisé : gîtes et chambres d\'hôtes de charme', '#7d8c6a'], ['nature', 'Modèle 2 · Nature', 'Chaleureux, authentique : gîtes, chalets, campagne', '#b0613a']];
+const setSkin = async (k) => {
+    status.value = 'saving';
+    try { const d = await postJson(route('sites.editor.style', slug), { skin: k }); Object.assign(st.value, { skin: d.skin, font: d.font, accent: d.accent || st.value.accent, theme: d.theme || st.value.theme, hero_style: d.hero_style || st.value.hero_style }); status.value = d.queued ? 'queued' : 'saved'; reload(d.version); }
+    catch { status.value = 'error'; }
+};
 const setHeroStyle = (h) => { st.value.hero_style = h; saveStyle({ hero_style: h }); };
 const QUICK_MODULES = [['booking', 'Formulaire de demande'], ['popup', 'Popup (offre, événement, annonce)'], ['announce', 'Bandeau d\'annonce en haut du site'], ['whatsapp', 'Bulle WhatsApp'], ['bot', 'Assistant IA 24h/24'], ['reviews', 'Avis Google'], ['legal', 'Mentions légales RGPD']];
 // Un module peut être un booléen (historique) ou un objet { enabled, …réglages }
@@ -1022,6 +1028,16 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                         <div class="mt-3 flex items-center gap-2">
                             <input type="color" :value="st.accent" @input="setAccent($event.target.value)" class="h-9 w-12 cursor-pointer rounded-lg border border-white/10 bg-transparent" />
                             <input class="fld flex-1 font-mono" :value="st.accent" @change="setAccent($event.target.value)" placeholder="#4f46e5" />
+                        </div>
+                    </div>
+                    <div v-if="st.skins_allowed">
+                        <p class="font-display font-bold text-white">Modèle du site</p>
+                        <p class="mt-1 text-xs text-slate-500">Spécial gîtes et hébergements : change tout le style d'un coup (polices, couleurs, boutons, cartes). Vos textes et photos ne bougent pas, et vous pouvez ensuite ajuster chaque réglage.</p>
+                        <div class="mt-3 grid gap-2">
+                            <button v-for="m in SKINS" :key="m[0]" @click="setSkin(m[0])" class="flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition" :class="(st.skin || 'joow')===m[0] ? 'border-brand-400 bg-brand-500/10' : 'border-white/10 hover:border-white/25'">
+                                <span class="h-9 w-9 shrink-0 rounded-lg" :style="{ background: m[3] }"></span>
+                                <span><span class="block text-sm font-semibold text-white">{{ m[1] }}</span><span class="block text-[11px] text-slate-500">{{ m[2] }}</span></span>
+                            </button>
                         </div>
                     </div>
                     <div>

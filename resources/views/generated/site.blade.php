@@ -13,6 +13,7 @@
     // ── Système de design sectoriel ──
     $design    = $design ?? [];
     $theme     = ($design['theme'] ?? 'light') === 'dark' ? 'dark' : 'light';
+    $skin      = in_array($design['skin'] ?? '', ['charme', 'nature'], true) ? $design['skin'] : null;
     $heroStyle = in_array($design['hero'] ?? '', ['editorial', 'split', 'center', 'bright', 'poster'], true) ? $design['hero'] : 'editorial';
     $stock     = array_values(array_filter($design['stock'] ?? []));
     // ── Photos : celles de la fiche Google (déjà triées paysage/HD), complétées par la banque sectorielle ──
@@ -139,7 +140,7 @@
     }
 @endphp
 <!DOCTYPE html>
-<html lang="fr" class="scroll-smooth theme-{{ $theme }}{{ $editMode ? ' joow-edit' : '' }}">
+<html lang="fr" class="scroll-smooth theme-{{ $theme }}{{ $skin ? ' skin-'.$skin : '' }}{{ $editMode ? ' joow-edit' : '' }}">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 @if($page)
@@ -172,7 +173,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family={{ $fontParam }}&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family={{ $fontParam }}{{ $skin === 'charme' ? '&family=Inter:wght@300;400;500;600' : '' }}{{ $skin === 'nature' ? '&family=Karla:wght@400;500;600;700' : '' }}&display=swap" rel="stylesheet">
 <style>
 :root{
   --c:{{ $color }};
@@ -402,6 +403,40 @@ footer .accent,footer a.accent{color:color-mix(in srgb,var(--c) 45%,#fff)!import
 .theme-light #nav.solid #links a:not(.bg-grad):hover{color:var(--c,#334155) !important;opacity:1}
 .theme-dark #nav.solid #links a:not(.bg-grad){color:#f1f5f9 !important}
 .theme-dark #nav.solid #links a:not(.bg-grad):hover{color:#fff !important;opacity:1}
+/* ── Modèle 1 « Charme » : élégant et apaisé (chambres d'hôtes, gîtes de charme) ── */
+html.skin-charme{--grad:var(--c)}
+.skin-charme body{background:#faf8f4;color:#475569}
+.skin-charme *:not([class*="fa-"]){font-family:'Inter',system-ui,sans-serif}
+.skin-charme .font-display,.skin-charme .font-display *:not([class*="fa-"]){font-family:'{{ $displayFont }}',Georgia,serif}
+.skin-charme .font-display{font-weight:500 !important;letter-spacing:0}
+.skin-charme h1.font-display,.skin-charme h2.font-display,.skin-charme h3.font-display{font-weight:500 !important}
+.skin-charme .bg-slate-50{background-color:#f3efe8 !important}
+.skin-charme .tracking-\[0\.3em\],.skin-charme .tracking-\[0\.25em\]{letter-spacing:.38em !important;font-weight:500 !important;font-size:.72rem !important}
+.skin-charme .bg-grad{background:var(--c) !important;box-shadow:none !important}
+.skin-charme a.bg-grad,.skin-charme button.bg-grad,.skin-charme a.btn,.skin-charme #links a.bg-grad{border-radius:9999px !important;letter-spacing:.02em;font-weight:500 !important}
+.skin-charme .svc,.skin-charme .rev{border:0 !important;background:#fff;box-shadow:0 18px 45px -28px rgba(30,41,59,.35) !important;border-radius:1.5rem !important}
+.skin-charme .svc-ic,.skin-charme .step-n{box-shadow:none !important}
+.skin-charme img.rounded-3xl,.skin-charme img.rounded-\[2rem\]{border-radius:1.75rem !important}
+.skin-charme .text-slate-900{color:#1f2a24 !important}
+.skin-charme #nav.solid{background:rgba(250,248,244,.92) !important;backdrop-filter:blur(14px)}
+.theme-dark.skin-charme body{background:#101412;color:#cbd5e1}.theme-dark.skin-charme .bg-slate-50{background-color:#151a17 !important}.theme-dark.skin-charme .svc,.theme-dark.skin-charme .rev{background:#171c19}
+/* ── Modèle 2 « Nature » : chaleureux et authentique (gîtes, chalets, campagne) ── */
+html.skin-nature{--grad:var(--c)}
+.skin-nature body{background:#f6f1ea;color:#57534e}
+.skin-nature *:not([class*="fa-"]){font-family:'Karla',system-ui,sans-serif}
+.skin-nature .font-display,.skin-nature .font-display *:not([class*="fa-"]){font-family:'{{ $displayFont }}',Georgia,serif}
+.skin-nature .font-display{letter-spacing:-.005em}
+.skin-nature .bg-slate-50{background-color:#ede4d8 !important}
+.skin-nature .tracking-\[0\.3em\],.skin-nature .tracking-\[0\.25em\]{letter-spacing:.2em !important;font-weight:700 !important}
+.skin-nature .bg-grad{background:var(--c) !important;box-shadow:none !important}
+.skin-nature a.bg-grad,.skin-nature button.bg-grad,.skin-nature #links a.bg-grad{border-radius:.5rem !important;text-transform:uppercase;letter-spacing:.08em;font-size:.82rem}
+.skin-nature .svc,.skin-nature .rev{background:#fbf8f3 !important;border:1px solid #e3d6c4 !important;box-shadow:none !important;border-radius:.75rem !important}
+.skin-nature .svc-ic{border-radius:.5rem !important;box-shadow:none !important}
+.skin-nature .step-n{border-radius:.75rem !important}
+.skin-nature img.rounded-3xl,.skin-nature img.rounded-\[2rem\]{border-radius:.75rem !important}
+.skin-nature .text-slate-900{color:#292524 !important}
+.skin-nature #nav.solid{background:rgba(246,241,234,.94) !important;backdrop-filter:blur(12px)}
+.theme-dark.skin-nature body{background:#14110e;color:#d6d3d1}.theme-dark.skin-nature .bg-slate-50{background-color:#1b1713 !important}.theme-dark.skin-nature .svc,.theme-dark.skin-nature .rev{background:#1d1915 !important;border-color:rgba(255,255,255,.08) !important}
 /* Thème sombre : fond, sections, textes, cartes et champs de tout le site (accueil + pages) */
 .theme-dark body{background:#0b0b10 !important;color:#e2e8f0}
 .theme-dark .bg-white{background-color:#12121a !important}

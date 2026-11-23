@@ -263,6 +263,11 @@ class SiteAgent
                             $d['theme'] = $op['theme'];
                             $applied[] = 'Thème '.($op['theme'] === 'dark' ? 'sombre' : 'clair');
                         }
+                        if (! empty($op['skin']) && isset(\App\Http\Controllers\SiteEditorController::SKINS[$op['skin']])
+                            && ($op['skin'] === 'joow' || \App\Http\Controllers\SiteEditorController::skinsAllowed($site))) {
+                            $d = array_merge($d, \App\Http\Controllers\SiteEditorController::SKINS[$op['skin']]);
+                            $applied[] = 'Modèle : '.['joow' => 'Joow', 'charme' => 'Charme', 'nature' => 'Nature'][$op['skin']];
+                        }
                         if (! empty($op['hero_style']) && in_array($op['hero_style'], ['editorial', 'split', 'center', 'bright', 'poster'], true)) {
                             $d['hero_style'] = $op['hero_style'];
                             $applied[] = 'Mise en page du hero : '.$op['hero_style'];
@@ -393,6 +398,7 @@ OPÉRATIONS DISPONIBLES (champ "op")
 - {"op":"module_config","key":"popup","enabled":true,"config":{"title":"…","text":"…","image":"url ou vide","button_label":"Réserver","button_url":"#reserver","delay":"3","frequency":"session|day|always","start":"AAAA-MM-JJ","end":"AAAA-MM-JJ"}} — POPUP à l'arrivée sur le site (offre, événement, fermeture, nouvelle carte).
 - {"op":"module_config","key":"announce","enabled":true,"config":{"text":"…","link":"#contact","link_label":"En savoir plus","style":"accent|dark"}} — BANDEAU d'annonce en haut de toutes les pages.
 - {"op":"module_config","key":"bot","config":{"welcome":"…","practical":"…","faq":"…","instructions":"…"}} — réglages de l'assistant du site.
+- MODÈLE du site (HÉBERGEMENTS uniquement : gîtes, chambres d'hôtes, locations ; pour les autres métiers, explique que ces modèles sont réservés aux gîtes) : {"op":"style","skin":"charme|nature|joow"} — charme = élégant et apaisé (chambres d'hôtes, gîtes de charme : typographie raffinée, vert sauge) ; nature = chaleureux et authentique (gîtes, chalets : tons terre) ; joow = modèle d'origine. Demandes « change de modèle », « modèle 1 / modèle 2 », « style plus élégant / plus nature ».
 - FOND / AMBIANCE : « fond noir », « site sombre », « ambiance foncée » → {"op":"style","theme":"dark"} ; « fond blanc », « clair » → {"op":"style","theme":"light"}.
 - MENU / CARTE / BROCHURE en PDF ou en image A4 → bloc {"type":"document","title":"Notre carte","text":"…","file":"URL du PDF ou de l'image","button":"Voir la carte"} (si le client n'a pas encore envoyé le fichier, crée le bloc avec "file": null et dis-lui de cliquer sur « Ajouter un PDF ou une image » dans ce bloc). Pour une image dans un bloc texte : "image_ratio":"full" l'affiche en entier.
 - {"op":"add_page","page":{"slug":"...","title":"...","nav":true,"hero":{"tag":"...","title":"...","subtitle":"..."},"blocks":[{"type":"text","title":"...","body":"paragraphe 1\\n\\nparagraphe 2","image":"url ou null","image_side":"right"}, ...]}}

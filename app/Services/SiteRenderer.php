@@ -135,6 +135,7 @@ class SiteRenderer
                 'font'  => $cfg['font'] ?? 'Space Grotesk',
                 'theme' => $data['theme'] ?? ($cfg['theme'] ?? 'light'),
                 'hero'  => $data['hero_style'] ?? ($cfg['hero'] ?? 'editorial'),
+                'skin'  => $data['skin'] ?? null,
                 'stock' => $cfg['stock'] ?? [],
                 'order' => $cfg['order'] ?? [],
             ],

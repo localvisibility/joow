@@ -353,6 +353,7 @@ class SiteEditorController extends Controller
             'font'       => ['nullable', 'string', 'max:40'],
             'theme'      => ['nullable', 'in:light,dark'],
             'hero_style' => ['nullable', 'in:editorial,split,center,bright,poster'],
+            'skin'       => ['nullable', 'in:joow,charme,nature'],
         ]);
 
         $siteData = $site->site_data ?? [];
@@ -368,10 +369,15 @@ class SiteEditorController extends Controller
         if (! empty($data['hero_style'])) {
             $siteData['hero_style'] = $data['hero_style'];
         }
+        abort_if(! empty($data['skin']) && $data['skin'] !== 'joow' && ! self::skinsAllowed($site), 422, 'Les modèles Charme et Nature sont réservés aux gîtes et hébergements.');
+        if (! empty($data['skin'])) {
+            // Un modèle = une « peau » + ses réglages conseillés (police, couleur, haut de page), modifiables ensuite
+            $siteData = array_merge($siteData, self::SKINS[$data['skin']]);
+        }
         $site->update(['site_data' => $siteData]);
         $pub = ! empty($siteData['content']) ? $renderer->publish($site) : ['queued' => false];
 
-        return response()->json(['ok' => true, 'accent' => $siteData['accent'] ?? null, 'font' => $siteData['font'] ?? null, 'theme' => $siteData['theme'] ?? null, 'hero_style' => $siteData['hero_style'] ?? null, 'version' => now()->timestamp, 'queued' => $pub['queued']]);
+        return response()->json(['ok' => true, 'accent' => $siteData['accent'] ?? null, 'font' => $siteData['font'] ?? null, 'theme' => $siteData['theme'] ?? null, 'hero_style' => $siteData['hero_style'] ?? null, 'skin' => $siteData['skin'] ?? null, 'version' => now()->timestamp, 'queued' => $pub['queued']]);
     }
 
     /** Compat : ancien endpoint couleur. */
@@ -508,6 +514,19 @@ class SiteEditorController extends Controller
         'popup' => ['title' => 120, 'text' => 600, 'image' => 600, 'button_label' => 40, 'button_url' => 400, 'delay' => 3, 'frequency' => 10, 'start' => 10, 'end' => 10],
         'announce' => ['text' => 200, 'link' => 400, 'link_label' => 40, 'style' => 10],
     ];
+
+    /** Modèles de site : peau visuelle + réglages conseillés. */
+    public const SKINS = [
+        'joow' => ['skin' => null],
+        'charme' => ['skin' => 'charme', 'font' => 'Playfair Display', 'accent' => '#7d8c6a', 'hero_style' => 'editorial', 'theme' => 'light'],
+        'nature' => ['skin' => 'nature', 'font' => 'DM Serif Display', 'accent' => '#b0613a', 'hero_style' => 'split', 'theme' => 'light'],
+    ];
+
+    /** Les modèles Charme / Nature sont réservés aux hébergements (gîtes, chambres d'hôtes, locations). */
+    public static function skinsAllowed(Site $site): bool
+    {
+        return $site->sector === 'hebergement' || $site->moduleEnabled('rooms');
+    }
 
     public const MODULE_DEFAULTS = [
         'popup' => ['title' => '', 'text' => '', 'image' => '', 'button_label' => '', 'button_url' => '', 'delay' => '3', 'frequency' => 'session', 'start' => '', 'end' => ''],
@@ -649,6 +668,8 @@ class SiteEditorController extends Controller
             'font'     => $d['font'] ?? null,
             'theme'    => $d['theme'] ?? ($cfg['theme'] ?? 'light'),
             'hero_style' => $d['hero_style'] ?? ($cfg['hero'] ?? 'editorial'),
+            'skin'     => $d['skin'] ?? null,
+            'skins_allowed' => self::skinsAllowed($site),
             'brand'    => \App\Services\LogoStudio::settings($d) + ['source_logo' => $b['logo'] ?? null, 'inline' => \App\Services\LogoStudio::inline(\App\Services\LogoStudio::settings($d)['logo'])],
             'modules'  => $site->modules ?: ['booking' => true],
             'module_config' => $this->moduleConfig($site),
