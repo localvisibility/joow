@@ -23,7 +23,7 @@ class LvLocalizeTest extends TestCase
             'local-visibility.com/widgets/legal.js*' => Http::response("const CONFIG={API_URL:'https://local-visibility.com/api/get-legal.php'};fetch(`\${CONFIG.API_URL}?site_id=x`);"),
             'local-visibility.com/previews/*' => Http::response(str_repeat('x', 500)),
         ]);
-        $html = '<html><head><link href="https://local-visibility.com"></head><body><img src="https://local-visibility.com/previews/clos/images/hero.webp">'
+        $html = '<html><head><link rel="canonical" href="https://www.clos.fr/"><meta property="og:url" content="https://local-visibility.com/previews/clos/"><meta property="og:image" content="https://www.clos.fr/images/photo-1.jpg"><link href="https://local-visibility.com"></head><body><img src="https://local-visibility.com/previews/clos/images/hero.webp">'
             .'<div style="background:url(\'https://local-visibility.com/previews/clos/images/bg.jpg\')"></div><script>window.LEGAL_SITE_ID="'.$id.'";</script>'
             .'<script src="https://local-visibility.com/widgets/legal.js?v=1"></script></body></html>';
         @mkdir("$dir/clos", 0777, true);
@@ -41,6 +41,10 @@ class LvLocalizeTest extends TestCase
         $this->assertStringContainsString('/lv-assets/legal.json', file_get_contents("$dir/clos/lv-assets/widgets/legal.js"));
         $this->assertStringContainsString('Hostinger', file_get_contents("$dir/clos/lv-assets/legal.json"));
         $this->assertSame($page, $site->fresh()->html_content);
+        $this->assertStringContainsString('og:url" content="https://www.clos.fr/"', $page);
+        $this->assertStringContainsString('og:image" content="https://www.clos.fr/lv-assets/previews/clos/images/hero.webp"', $page);
+        $this->assertStringContainsString('Sitemap: https://www.clos.fr/sitemap.xml', file_get_contents("$dir/clos/robots.txt"));
+        $this->assertStringContainsString('<loc>https://www.clos.fr/</loc>', file_get_contents("$dir/clos/sitemap.xml"));
 
         $this->assertSame('proprio@yahoo.fr', $site->fresh()->owner_email);
         Mail::assertSent(\App\Mail\JoowNotification::class, fn ($m) => $m->hasTo('proprio@yahoo.fr') && str_contains($m->render(), 'reservations'));

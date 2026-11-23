@@ -92,6 +92,31 @@ class LocalizeLvSite extends Command
             $this->line('  Traceur de visites Joow ajouté');
         }
 
+        // Référencement : partage (og:url) vers le vrai domaine, image de partage existante, robots.txt et sitemap.xml
+        $canonical = preg_match('#<link[^>]+rel="canonical"[^>]+href="(https?://[^"]+)"#i', $html, $cm) ? $cm[1]
+            : ($site->custom_domain ? 'https://'.$site->custom_domain.'/' : null);
+        if ($canonical) {
+            $html = preg_replace('#(<meta property="og:url" content=")https?://(?:www\.)?local-visibility\.com/[^"]*(")#i', '${1}'.$canonical.'${2}', $html, -1, $n);
+            if ($n) {
+                $this->line('  Lien de partage (og:url) corrigé : '.$canonical);
+            }
+            $base = rtrim(preg_replace('#^(https?://[^/]+).*$#', '$1', $canonical), '/');
+            if (preg_match('#property="og:image" content="'.preg_quote($base, '#').'(/[^"]+)"#i', $html, $im) && ! is_file($root.$im[1])
+                && preg_match('#(?:src|href)="(/lv-assets/[^"]+\.(?:webp|jpe?g|png))"#i', $html, $hero)) {
+                $html = str_replace($base.$im[1], $base.$hero[1], $html);
+                $this->line('  Image de partage (og:image) remplacée par une photo existante');
+            }
+            if (! $dry) {
+                if (! is_file($root.'/robots.txt')) {
+                    file_put_contents($root.'/robots.txt', "User-agent: *\nAllow: /\n\nSitemap: {$base}/sitemap.xml\n");
+                }
+                if (! is_file($root.'/sitemap.xml')) {
+                    file_put_contents($root.'/sitemap.xml', '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>'.htmlspecialchars($canonical, ENT_XML1).'</loc><lastmod>'.now()->toDateString().'</lastmod></url></urlset>'."\n");
+                }
+            }
+            $this->line('  robots.txt et sitemap.xml en place');
+        }
+
         $left = substr_count($html, 'local-visibility.com/');
         if ($left) {
             $this->warn("  $left lien(s) vers l'ancien serveur restent dans la page (liens de navigation, pas des fichiers).");
