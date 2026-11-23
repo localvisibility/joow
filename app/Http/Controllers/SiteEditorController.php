@@ -98,6 +98,7 @@ class SiteEditorController extends Controller
     public function bulk(Request $request, string $slug, SiteRenderer $renderer)
     {
         $site = $this->ownedSite($request, $slug);
+        $this->assertEditable($site);
         $data = $request->validate(['patch' => ['required', 'array', 'max:60']]);
 
         $siteData = $site->site_data ?? [];
@@ -176,6 +177,7 @@ class SiteEditorController extends Controller
     public function brand(Request $request, string $slug, SiteRenderer $renderer)
     {
         $site = $this->ownedSite($request, $slug);
+        $this->assertEditable($site);
         $data = $request->validate([
             'file'      => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,svg', 'max:4096'],
             'logo_url'  => ['nullable', 'string', 'max:300'],
@@ -323,6 +325,7 @@ class SiteEditorController extends Controller
     public function sections(Request $request, string $slug, SiteRenderer $renderer)
     {
         $site = $this->ownedSite($request, $slug);
+        $this->assertEditable($site);
         $data = $request->validate([
             'order'  => ['nullable', 'array', 'max:12'],
             'order.*' => ['string', 'max:30'],
@@ -344,6 +347,7 @@ class SiteEditorController extends Controller
     public function style(Request $request, string $slug, SiteRenderer $renderer)
     {
         $site = $this->ownedSite($request, $slug);
+        $this->assertEditable($site);
         $data = $request->validate([
             'accent'     => ['nullable', 'regex:/^#?[0-9a-fA-F]{6}$/'],
             'font'       => ['nullable', 'string', 'max:40'],
@@ -380,6 +384,7 @@ class SiteEditorController extends Controller
     public function publish(Request $request, string $slug, SiteRenderer $renderer)
     {
         $site = $this->ownedSite($request, $slug);
+        $this->assertEditable($site);
         $pub = $renderer->publish($site);
 
         return response()->json(['ok' => true, 'version' => now()->timestamp, 'queued' => $pub['queued']]);
@@ -389,6 +394,7 @@ class SiteEditorController extends Controller
     public function chat(Request $request, string $slug, SiteAgent $agent, SiteRenderer $renderer)
     {
         $site = $this->ownedSite($request, $slug);
+        $this->assertEditable($site);
         $data = $request->validate(['message' => ['required', 'string', 'min:2', 'max:1200']]);
 
         // L'appel Gemini peut prendre 20-90 s : ne pas se faire tuer par max_execution_time.
@@ -462,6 +468,7 @@ class SiteEditorController extends Controller
     public function revert(Request $request, string $slug, SiteRenderer $renderer)
     {
         $site = $this->ownedSite($request, $slug);
+        $this->assertEditable($site);
         $data = $request->validate(['id' => ['required', 'alpha_num', 'max:12']]);
         $snap = Cache::pull("joow:snap:{$site->id}:{$data['id']}");
         abort_unless(is_array($snap), 404, 'Cet instantané a expiré.');
@@ -654,6 +661,12 @@ class SiteEditorController extends Controller
             'subscription' => app(\App\Services\Subscription::class)->state($site),
             'version'  => optional($site->updated_at)->timestamp ?? now()->timestamp,
         ];
+    }
+
+    /** Site importé (page figée) : le Studio ne doit rien modifier ni republier. */
+    private function assertEditable(Site $site): void
+    {
+        abort_if(SiteRenderer::legacyHtml($site) !== null, 422, 'Ce site importé s\'affiche tel quel : il ne se modifie pas dans le Studio. Gérez ses réservations, chambres et modules depuis votre espace.');
     }
 
     private function isEditable(string $path): bool

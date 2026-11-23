@@ -27,8 +27,8 @@ class PublishSiteJob implements ShouldQueue
     public function handle(SiteRenderer $renderer): void
     {
         $site = Site::find($this->siteId);
-        if (! $site) {
-            return;
+        if (! $site || SiteRenderer::legacyHtml($site) !== null) {
+            return; // introuvable, ou site importé dont la page publiée ne doit pas être écrasée
         }
 
         $all = $renderer->renderAll($site);

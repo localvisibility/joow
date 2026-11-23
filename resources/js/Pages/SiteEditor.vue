@@ -485,6 +485,7 @@ const revert = async (m) => {
 };
 
 const regenerate = () => router.post(route('sites.editor.regenerate', slug), {}, { preserveScroll: true });
+const confirmRegenerate = () => { if (confirm('Recréer ce site avec l\'IA ? Le design et les textes actuels seront remplacés par un nouveau site.')) regenerate(); };
 const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', saved: 'Enregistré ✓', queued: 'Enregistré · publication en cours…', error: 'Erreur d\'enregistrement' }[status.value]));
 </script>
 
@@ -522,7 +523,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                 <button v-if="st?.credits" @click="modal='credits'" class="hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition md:inline-flex" :class="st.credits.balance > 0 ? 'border-white/10 text-slate-200 hover:border-white/25' : 'border-amber-400/40 bg-amber-500/10 text-amber-200'" title="Crédits IA disponibles">✦ {{ st.credits.balance }} <span class="hidden xl:inline">crédits IA</span></button>
                 <a :href="liveUrl" target="_blank" rel="noopener" class="hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25 md:inline">Voir ↗</a>
                 <button v-if="!authUser" @click="modal='claim'" class="hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25 lg:inline">Retrouver mon site plus tard</button>
-                <button v-if="paid" @click="publish" :disabled="publishing" class="btn-brand !px-3 !py-2 text-sm sm:!px-4">{{ publishing ? 'Publication…' : 'Publier' }}</button>
+                <button v-if="paid && site.editable" @click="publish" :disabled="publishing" class="btn-brand !px-3 !py-2 text-sm sm:!px-4">{{ publishing ? 'Publication…' : 'Publier' }}</button>
                 <button v-else @click="modal='publish'" class="btn-brand !px-3 !py-2 text-sm sm:!px-4"><span class="sm:hidden">🚀 En ligne</span><span class="hidden sm:inline">🚀 Mettre en ligne</span></button>
             </div>
         </header>
@@ -535,17 +536,26 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
             <span v-if="freeDomain" class="mr-2 text-emerald-300">✓ {{ freeDomain }} est disponible ·</span><button @click="modal='publish'" class="font-semibold underline decoration-brand-400/60 underline-offset-2 hover:text-white">Mettre en ligne quand il est parfait →</button>
         </div>
 
-        <div v-if="!site.editable" class="m-4 rounded-2xl border border-amber-400/20 bg-amber-500/[0.06] p-5">
-            <p class="font-semibold text-white">Édition à activer</p>
-            <p class="mt-1 text-sm text-slate-400">Ce site a été importé sans contenu structuré. Régénérez-le depuis sa fiche Google pour débloquer le Studio.</p>
-            <button v-if="hasPlace" @click="regenerate" class="btn-brand mt-4 text-sm">Régénérer avec l'IA</button>
+        <div v-if="!site.editable" class="m-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <p class="font-semibold text-white">Site importé : il s'affiche tel quel</p>
+            <p class="mt-1 max-w-3xl text-sm text-slate-400">Ce site vient de votre ancien prestataire. Son design et ses textes sont conservés à l'identique (aperçu ci-dessous), mais ils ne se modifient pas dans le Studio. Ses réservations, ses chambres, ses modules et ses statistiques se gèrent dans votre espace.</p>
+            <div class="mt-4 flex flex-wrap gap-2">
+                <Link :href="route('reservations.index')" class="btn-brand text-sm">Réservations et calendrier</Link>
+                <Link :href="route('modules.index', { site: slug })" class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5">Chambres, tarifs et modules</Link>
+                <Link :href="route('stats.index', { site: slug })" class="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5">Statistiques</Link>
+            </div>
+            <details v-if="hasPlace" class="mt-4 text-sm text-slate-400">
+                <summary class="cursor-pointer text-slate-300">Le recréer en site Joow modifiable…</summary>
+                <p class="mt-2 max-w-3xl">L'IA recrée un nouveau site à partir de la fiche Google, modifiable dans le Studio. <b class="text-amber-200">Le design et les textes actuels seront remplacés</b> dès la publication : à ne faire qu'avec l'accord du client.</p>
+                <button @click="confirmRegenerate" class="mt-3 rounded-xl border border-amber-400/40 px-4 py-2 text-sm font-semibold text-amber-200 hover:bg-amber-500/10">Recréer le site avec l'IA</button>
+            </details>
         </div>
 
         <!-- ═══ CORPS ═══ -->
-        <div class="relative grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[420px,1fr]">
+        <div class="relative grid min-h-0 flex-1 grid-cols-1" :class="site.editable ? 'lg:grid-cols-[420px,1fr]' : ''">
             <!-- ─── PANNEAU (colonne sur desktop, feuille coulissante sur mobile) ─── -->
             <div v-if="sheet" class="absolute inset-0 z-30 bg-black/50 backdrop-blur-[2px] lg:hidden" @click="sheet=false"></div>
-            <aside class="studio-aside flex min-h-0 flex-col border-r border-white/[0.06] bg-ink-900/95 lg:bg-ink-900/40" :class="sheet ? 'is-open' : ''">
+            <aside v-if="site.editable" class="studio-aside flex min-h-0 flex-col border-r border-white/[0.06] bg-ink-900/95 lg:bg-ink-900/40" :class="sheet ? 'is-open' : ''">
                 <div class="flex items-center justify-between px-4 pt-2 lg:hidden" @click="sheet=false">
                     <span class="mx-auto block h-1.5 w-12 rounded-full bg-white/20"></span>
                 </div>

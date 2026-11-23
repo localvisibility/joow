@@ -34,8 +34,26 @@ class SiteRenderer
      * @param  bool         $editMode  Injecte le runtime d'édition (Studio)
      * @param  string|null  $pageSlug  null = accueil, sinon slug d'une page additionnelle
      */
+    /**
+     * Site importé (ancienne page Local Visibility, sans contenu structuré) : sa page publiée fait foi.
+     * Elle n'est jamais régénérée par le gabarit Joow (sinon le vrai site serait remplacé par un modèle vide).
+     */
+    public static function legacyHtml(Site $site): ?string
+    {
+        if (! empty($site->site_data['content'])) {
+            return null;
+        }
+        $file = rtrim((string) config('services.sites_path', '/var/www/sites'), '/').'/'.$site->slug.'/index.html';
+        $html = is_file($file) ? (string) @file_get_contents($file) : '';
+
+        return $html !== '' ? $html : ((string) $site->html_content ?: null);
+    }
+
     public function html(Site $site, bool $editMode = false, ?string $pageSlug = null): string
     {
+        if ($pageSlug === null && ($legacy = self::legacyHtml($site)) !== null) {
+            return $legacy;
+        }
         $data = $site->site_data ?? [];
         $sector = $site->sector ?: 'service';
         $cfg = config("sectors.$sector") ?? config('sectors.service');
@@ -132,6 +150,9 @@ class SiteRenderer
     /** Re-rend et publie le site (accueil + pages). Renvoie ['queued' => bool]. */
     public function publish(Site $site): array
     {
+        if (self::legacyHtml($site) !== null) {
+            return ['ok' => true, 'queued' => false]; // site importé : sa page publiée n'est jamais écrasée
+        }
         $all = $this->renderAll($site);
         $site->update(['html_content' => $all['']]);
 
