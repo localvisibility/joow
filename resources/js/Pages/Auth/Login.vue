@@ -61,7 +61,7 @@ const submit = () => form.post(route('login'), { onFinish: () => form.reset('pas
             <div>
                 <div class="mb-1.5 flex items-center justify-between">
                     <label for="password" class="text-sm font-medium text-slate-300">Mot de passe</label>
-                    <Link v-if="canResetPassword" :href="route('password.request')" class="text-sm text-brand-400 hover:text-brand-300">Oublié ?</Link>
+                    <Link v-if="canResetPassword" :href="route('password.request')" class="text-sm text-brand-400 hover:text-brand-300">Mot de passe oublié ?</Link>
                 </div>
                 <input id="password" type="password" v-model="form.password" required autocomplete="current-password" class="field" placeholder="••••••••" />
                 <p v-if="form.errors.password" class="mt-1.5 text-sm text-rose-400">{{ form.errors.password }}</p>

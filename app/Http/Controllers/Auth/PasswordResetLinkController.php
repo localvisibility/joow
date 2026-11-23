@@ -36,16 +36,15 @@ class PasswordResetLinkController extends Controller
         // We will send the password reset link to this user. Once we have attempted
         // to send the link, we will examine the response then see the message we
         // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        $status = Password::sendResetLink($request->only('email'));
 
-        if ($status == Password::RESET_LINK_SENT) {
-            return back()->with('status', __($status));
+        // Même réponse que l'adresse ait un compte ou non (on ne révèle pas qui est inscrit)
+        if (in_array($status, [Password::RESET_LINK_SENT, Password::INVALID_USER], true)) {
+            return back()->with('status', 'Si un compte existe avec cette adresse, un e-mail vient de lui être envoyé avec le lien pour choisir un nouveau mot de passe.');
         }
 
         throw ValidationException::withMessages([
-            'email' => [trans($status)],
+            'email' => ['Un lien vient déjà d\'être envoyé : patientez une minute avant d\'en redemander un.'],
         ]);
     }
 }

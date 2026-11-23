@@ -39,6 +39,10 @@ class NewPasswordController extends Controller
             'token' => 'required',
             'email' => 'required|email',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+        ], [
+            'password.confirmed' => 'Les deux mots de passe ne correspondent pas.',
+            'password.min' => 'Le mot de passe doit faire au moins :min caractères.',
+            'password.required' => 'Choisissez un mot de passe.',
         ]);
 
         // Here we will attempt to reset the user's password. If it is successful we
@@ -71,11 +75,11 @@ class NewPasswordController extends Controller
                 return redirect()->route('dashboard')->with('status', 'Mot de passe enregistré, vous êtes connecté.');
             }
 
-            return redirect()->route('login')->with('status', __($status));
+            return redirect()->route('login')->with('status', 'Mot de passe enregistré : vous pouvez vous connecter.');
         }
 
         throw ValidationException::withMessages([
-            'email' => [trans($status)],
+            'email' => [$status === Password::INVALID_TOKEN ? 'Ce lien a expiré ou a déjà servi : demandez-en un nouveau.' : 'Adresse e-mail inconnue.'],
         ]);
     }
 }

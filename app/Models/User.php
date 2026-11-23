@@ -18,6 +18,19 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use Billable, HasFactory, Notifiable;
 
+    /** E-mail « mot de passe oublié » en français, aux couleurs de Joow. */
+    public function sendPasswordResetNotification($token): void
+    {
+        $url = route('password.reset', ['token' => $token]).'?'.http_build_query(['email' => $this->email]);
+        app(\App\Services\Accounts::class)->send($this, 'Choisissez un nouveau mot de passe', [
+            'preheader' => 'Le lien pour changer votre mot de passe Joow.',
+            'title' => 'Nouveau mot de passe',
+            'intro' => \App\Services\Accounts::greeting($this)."\n\nVous avez demandé à changer votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau.",
+            'cta' => ['label' => 'Choisir mon nouveau mot de passe', 'url' => $url],
+            'note' => 'Ce lien est valable 60 minutes. Si vous n\'avez rien demandé, ignorez simplement cet e-mail : votre mot de passe ne change pas.',
+        ]);
+    }
+
     public function sites()
     {
         return $this->hasMany(Site::class);
