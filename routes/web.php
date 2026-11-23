@@ -200,6 +200,9 @@ Route::prefix('/sites/{slug}/editeur')->name('sites.editor')->group(function () 
     Route::post('/page-importee', [SiteEditorController::class, 'legacyEdit'])->middleware('throttle:120,1')->name('.legacy');
     Route::post('/page-importee/annuler', [SiteEditorController::class, 'legacyUndo'])->middleware('throttle:30,1')->name('.legacy.undo');
     Route::post('/page-importee/ia', [SiteEditorController::class, 'legacyAi'])->middleware('throttle:20,1')->name('.legacy.ai');
+    Route::post('/page-importee/publier', [SiteEditorController::class, 'legacyPublish'])->middleware('throttle:30,1')->name('.legacy.publish');
+    Route::post('/page-importee/abandonner', [SiteEditorController::class, 'legacyDiscard'])->middleware('throttle:30,1')->name('.legacy.discard');
+    Route::post('/page-importee/version-precedente', [SiteEditorController::class, 'legacyRestore'])->middleware('throttle:30,1')->name('.legacy.restore');
     Route::post('/fichier', [SiteEditorController::class, 'file'])->middleware('throttle:20,1')->name('.file');
     Route::post('/image-format', [SiteEditorController::class, 'imageFit'])->middleware('throttle:60,1')->name('.fit');
     Route::post('/sections', [SiteEditorController::class, 'sections'])->name('.sections');

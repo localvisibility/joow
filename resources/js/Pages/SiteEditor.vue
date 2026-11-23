@@ -51,14 +51,17 @@ const post = (m) => frame.value?.contentWindow?.postMessage({ joow: 1, ...m }, '
 const reload = (v) => { version.value = v || Date.now(); };
 
 /* ───────────── page importée (design conservé) : textes, photos, Google, IA ───────────── */
-const lv = ref({ meta: { title: '', description: '' }, backups: 0, msgs: [], input: '', sending: false });
+const lv = ref({ meta: { title: '', description: '' }, backups: 0, pending: 0, draft: false, msgs: [], input: '', sending: false, publishing: false });
 const lvErr = (e) => alert(e?.message || e?.reply || 'Modification impossible, réessayez.');
-const lvLoad = async () => { try { const r = await fetch(route('sites.editor.legacy.state', slug), { headers: headers() }); const d = await r.json(); lv.value.meta = d.meta || lv.value.meta; lv.value.backups = d.backups || 0; } catch {} };
-const lvDone = (d, reloadFrame = false) => { lv.value.backups = d.backups ?? lv.value.backups; if (d.meta) lv.value.meta = d.meta; status.value = 'saved'; if (reloadFrame) reload(d.version); };
+const lvLoad = async () => { try { const r = await fetch(route('sites.editor.legacy.state', slug), { headers: headers() }); const d = await r.json(); lv.value.meta = d.meta || lv.value.meta; lv.value.backups = d.backups || 0; lv.value.pending = d.pending || 0; lv.value.draft = !!d.draft; } catch {} };
+const lvDone = (d, reloadFrame = false) => { lv.value.backups = d.backups ?? lv.value.backups; lv.value.pending = d.pending ?? lv.value.pending; lv.value.draft = d.draft ?? lv.value.draft; if (d.meta) lv.value.meta = d.meta; status.value = 'saved'; if (reloadFrame) reload(d.version); };
 const lvSaveText = async (k, value) => { status.value = 'saving'; try { lvDone(await postJson(route('sites.editor.legacy', slug), { type: 'text', k, value })); } catch (e) { status.value = 'error'; lvErr(e); reload(); } };
 const lvSaveImage = async (j, url) => { status.value = 'saving'; try { lvDone(await postJson(route('sites.editor.legacy', slug), { type: 'image', j, url }), true); } catch (e) { status.value = 'error'; lvErr(e); } };
 const lvSaveMeta = async () => { status.value = 'saving'; try { lvDone(await postJson(route('sites.editor.legacy', slug), { type: 'meta', title: lv.value.meta.title, description: lv.value.meta.description })); } catch (e) { status.value = 'error'; lvErr(e); } };
 const lvUndo = async () => { status.value = 'saving'; try { lvDone(await postJson(route('sites.editor.legacy.undo', slug), {}), true); } catch (e) { status.value = 'error'; lvErr(e); } };
+const lvPublish = async () => { lv.value.publishing = true; try { lvDone(await postJson(route('sites.editor.legacy.publish', slug), {})); } catch (e) { lvErr(e); } finally { lv.value.publishing = false; } };
+const lvDiscard = async () => { if (!confirm('Abandonner toutes les modifications non publiées ?')) return; try { lvDone(await postJson(route('sites.editor.legacy.discard', slug), {}), true); } catch (e) { lvErr(e); } };
+const lvRestore = async () => { if (!confirm('Remettre en ligne la version précédente du site ? La version actuelle sera remplacée.')) return; try { lvDone(await postJson(route('sites.editor.legacy.restore', slug), {}), true); } catch (e) { lvErr(e); } };
 const lvAsk = async (text) => {
     const msg = (text ?? lv.value.input).trim(); if (!msg || lv.value.sending) return;
     lv.value.input = ''; lv.value.msgs.push({ role: 'user', text: msg }); lv.value.sending = true;
@@ -548,7 +551,11 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                 <button v-if="st?.credits" @click="modal='credits'" class="hidden items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition md:inline-flex" :class="st.credits.balance > 0 ? 'border-white/10 text-slate-200 hover:border-white/25' : 'border-amber-400/40 bg-amber-500/10 text-amber-200'" title="Crédits IA disponibles">✦ {{ st.credits.balance }} <span class="hidden xl:inline">crédits IA</span></button>
                 <a :href="liveUrl" target="_blank" rel="noopener" class="hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25 md:inline">Voir ↗</a>
                 <button v-if="!authUser" @click="modal='claim'" class="hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 transition hover:border-white/25 lg:inline">Retrouver mon site plus tard</button>
-                <a v-if="site.imported && paid" :href="liveUrl" target="_blank" rel="noopener" class="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200" title="Chaque modification est enregistrée directement sur votre site en ligne">✓ En ligne<span class="hidden sm:inline"> · modifications publiées automatiquement</span></a>
+                <template v-if="site.imported && lv.draft">
+                    <button @click="lvDiscard" class="hidden rounded-xl border border-white/10 px-3 py-2 text-sm font-semibold text-slate-300 hover:border-white/25 sm:inline">Abandonner</button>
+                    <button @click="lvPublish" :disabled="lv.publishing" class="btn-brand !px-3 !py-2 text-sm sm:!px-4">{{ lv.publishing ? 'Publication…' : '🚀 Publier' }}<span class="hidden sm:inline"> les modifications ({{ lv.pending }})</span></button>
+                </template>
+                <a v-else-if="site.imported && paid" :href="liveUrl" target="_blank" rel="noopener" class="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200" title="Votre site en ligne est à jour">✓ En ligne<span class="hidden sm:inline"> · à jour</span></a>
                 <button v-else-if="paid && site.editable" @click="publish" :disabled="publishing" class="btn-brand !px-3 !py-2 text-sm sm:!px-4">{{ publishing ? 'Publication…' : 'Publier' }}</button>
                 <button v-else @click="modal='publish'" class="btn-brand !px-3 !py-2 text-sm sm:!px-4"><span class="sm:hidden">🚀 En ligne</span><span class="hidden sm:inline">🚀 Mettre en ligne</span></button>
             </div>
@@ -563,7 +570,7 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
         </div>
 
         <div v-if="!site.editable" class="mx-4 mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm">
-            <p class="text-slate-300"><b class="text-white">Site importé, design conservé.</b> Cliquez sur un texte pour le modifier, ou sur une photo pour la changer. Chaque modification est en ligne immédiatement.</p>
+            <p class="text-slate-300"><b class="text-white">Site importé, design conservé.</b> Cliquez sur un texte pour le modifier, ou sur une photo pour la changer. Vos modifications restent en brouillon jusqu'au clic sur « Publier ».</p>
             <details v-if="hasPlace" class="text-slate-400">
                 <summary class="cursor-pointer text-xs text-slate-500">Recréer en site Joow…</summary>
                 <p class="mt-2 max-w-2xl text-xs">L'IA recrée un nouveau site depuis la fiche Google, avec toutes les fonctions du Studio. <b class="text-amber-200">Le design et les textes actuels seront remplacés.</b></p>
@@ -584,7 +591,12 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                             <li>📷 <b class="text-slate-200">Photo</b> : cliquez sur « Changer la photo ».</li>
                             <li>🎨 Le design, les couleurs et la mise en page restent identiques.</li>
                         </ul>
-                        <button @click="lvUndo" :disabled="!lv.backups" class="mt-3 rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-40">↶ Annuler la dernière modification<span v-if="lv.backups"> ({{ lv.backups }} version{{ lv.backups > 1 ? 's' : '' }} gardée{{ lv.backups > 1 ? 's' : '' }})</span></button>
+                        <p v-if="lv.draft" class="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">{{ lv.pending }} modification{{ lv.pending > 1 ? 's' : '' }} pas encore en ligne. Cliquez sur « Publier » pour les mettre sur votre site.</p>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <button @click="lvUndo" :disabled="!lv.pending" class="rounded-lg bg-white/[0.06] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/10 disabled:opacity-40">↶ Annuler la dernière modification</button>
+                            <button v-if="lv.draft" @click="lvPublish" :disabled="lv.publishing" class="rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/25">🚀 Publier</button>
+                            <button v-if="!lv.draft && lv.backups" @click="lvRestore" class="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:border-white/25">⟲ Revenir à la version précédente du site</button>
+                        </div>
                     </div>
 
                     <div class="rounded-xl border border-white/[0.08] p-4">

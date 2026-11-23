@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
  * La page source est découpée de façon déterministe en segments de texte (entre deux balises, dans le
  * <body>, hors scripts/styles…) et en images <img>. Le Studio affiche la page avec ces éléments repérés
  * (data-lvt / data-lvi) ; une modification remplace uniquement le segment ou l'attribut concerné dans le
- * fichier d'origine, puis le republie. Chaque version précédente est sauvegardée (annulation possible).
+ * brouillon ; « Publier » le met en ligne. Chaque étape et chaque version publiée sont annulables.
  */
 class LegacyEditor
 {
@@ -201,7 +201,8 @@ img[data-lvi]{cursor:pointer}img[data-lvi]:hover{outline:3px solid rgba(99,102,2
     document.querySelectorAll('img[data-lvi]').forEach(function(img){
       var r=img.getBoundingClientRect();if(r.width<90||r.height<60)return;
       var b=document.createElement('button');b.type='button';b.className='lv-chip';b.textContent='📷 Changer la photo';
-      b.style.left=(r.left+window.scrollX+10)+'px';b.style.top=(r.top+window.scrollY+10)+'px';
+      // en bas à gauche de la photo : jamais caché par un menu fixe en haut de page
+      b.style.left=(r.left+window.scrollX+10)+'px';b.style.top=(r.bottom+window.scrollY-42)+'px';
       b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();send({type:'image',path:'lvi.'+img.dataset.lvi,current:img.currentSrc||img.src||''});});
       document.body.appendChild(b);
     });
@@ -214,29 +215,142 @@ img[data-lvi]{cursor:pointer}img[data-lvi]:hover{outline:3px solid rgba(99,102,2
 HTML;
     }
 
-    // ───────────── fichier publié, sauvegardes ─────────────
+    // ───────────── brouillon, publication, sauvegardes ─────────────
+    //
+    // Les modifications du Studio vont dans un brouillon (hors du dossier public du site) : le site en ligne
+    // ne change qu'au clic sur « Publier ». Chaque étape du brouillon est annulable ; chaque publication
+    // garde la version précédente du site (retour en arrière possible).
 
     public function file(Site $site): string
     {
         return rtrim((string) config('services.sites_path', '/var/www/sites'), '/').'/'.$site->slug.'/index.html';
     }
 
-    public function current(Site $site): string
+    private function draftDir(Site $site): string
+    {
+        return rtrim((string) config('services.lv_drafts_path', storage_path('app/lv-drafts')), '/').'/'.$site->slug;
+    }
+
+    private function draftFile(Site $site): string
+    {
+        return $this->draftDir($site).'/draft.html';
+    }
+
+    /** Version publiée (en ligne). */
+    public function published(Site $site): string
     {
         return (string) \App\Services\SiteRenderer::legacyHtml($site);
     }
 
-    /** Publie la nouvelle version après avoir sauvegardé l'actuelle. */
+    /** Version en cours d'édition : le brouillon s'il existe, sinon la version en ligne. */
+    public function current(Site $site): string
+    {
+        $f = $this->draftFile($site);
+
+        return is_file($f) ? (string) file_get_contents($f) : $this->published($site);
+    }
+
+    public function hasDraft(Site $site): bool
+    {
+        return is_file($this->draftFile($site));
+    }
+
+    /** Nombre de modifications en attente de publication. */
+    public function pending(Site $site): int
+    {
+        return count(glob($this->draftDir($site).'/steps/*.html') ?: []);
+    }
+
+    /** Enregistre une modification dans le brouillon (l'étape précédente reste annulable). */
     public function save(Site $site, string $html): void
     {
-        $file = $this->file($site);
-        $dir = dirname($file);
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0777, true);
+        $dir = $this->draftDir($site);
+        @mkdir($dir.'/steps', 0777, true);
+        file_put_contents($dir.'/steps/'.now()->format('Ymd-His-u').'.html', $this->current($site));
+        file_put_contents($this->draftFile($site), $html);
+        if ($html === $this->published($site)) {
+            $this->discard($site); // revenu à l'identique : plus rien à publier
         }
-        $bak = $dir.'/.lv-backups';
-        @mkdir($bak, 0777, true);
-        if (is_file($file)) {
+    }
+
+    /** Annule la dernière modification du brouillon ; false s'il n'y en a pas. */
+    public function undo(Site $site): bool
+    {
+        $steps = glob($this->draftDir($site).'/steps/*.html') ?: [];
+        sort($steps);
+        $last = end($steps);
+        if (! $last) {
+            return false;
+        }
+        $html = (string) file_get_contents($last);
+        @unlink($last);
+        if (count($steps) === 1 || $html === $this->published($site)) {
+            $this->discard($site);
+        } else {
+            file_put_contents($this->draftFile($site), $html);
+        }
+
+        return true;
+    }
+
+    /** Abandonne toutes les modifications non publiées. */
+    public function discard(Site $site): void
+    {
+        $dir = $this->draftDir($site);
+        foreach (glob($dir.'/steps/*.html') ?: [] as $f) {
+            @unlink($f);
+        }
+        @rmdir($dir.'/steps');
+        @unlink($this->draftFile($site));
+        @rmdir($dir);
+    }
+
+    /** Met le brouillon en ligne (la version remplacée est gardée) ; false s'il n'y a rien à publier. */
+    public function publish(Site $site): bool
+    {
+        if (! $this->hasDraft($site)) {
+            return false;
+        }
+        $this->write($site, $this->current($site), true);
+        $this->discard($site);
+
+        return true;
+    }
+
+    /** Remet en ligne la version publiée précédente ; false s'il n'y en a pas. */
+    public function restore(Site $site): bool
+    {
+        $all = glob($this->backupDir($site).'/*.html') ?: [];
+        sort($all);
+        $last = end($all);
+        if (! $last) {
+            return false;
+        }
+        $this->write($site, (string) file_get_contents($last), false);
+        @unlink($last);
+        $this->discard($site);
+
+        return true;
+    }
+
+    /** Versions précédentes du site gardées (retour en arrière). */
+    public function backups(Site $site): int
+    {
+        return count(glob($this->backupDir($site).'/*.html') ?: []);
+    }
+
+    private function backupDir(Site $site): string
+    {
+        return dirname($this->file($site)).'/.lv-backups';
+    }
+
+    private function write(Site $site, string $html, bool $backup): void
+    {
+        $file = $this->file($site);
+        @mkdir(dirname($file), 0777, true);
+        if ($backup && is_file($file)) {
+            $bak = $this->backupDir($site);
+            @mkdir($bak, 0777, true);
             @copy($file, $bak.'/'.now()->format('Ymd-His-u').'.html');
             $old = glob($bak.'/*.html') ?: [];
             sort($old);
@@ -247,30 +361,6 @@ HTML;
         file_put_contents($file, $html);
         @chmod($file, 0666);
         $site->forceFill(['html_content' => $html])->saveQuietly();
-    }
-
-    /** Rétablit la version précédente ; false s'il n'y en a pas. */
-    public function undo(Site $site): bool
-    {
-        $file = $this->file($site);
-        $all = glob(dirname($file).'/.lv-backups/*.html') ?: [];
-        sort($all);
-        $last = end($all);
-        if (! $last) {
-            return false;
-        }
-        $html = (string) file_get_contents($last);
-        file_put_contents($file, $html);
-        @chmod($file, 0666);
-        @unlink($last);
-        $site->forceFill(['html_content' => $html])->saveQuietly();
-
-        return true;
-    }
-
-    public function backups(Site $site): int
-    {
-        return count(glob(dirname($this->file($site)).'/.lv-backups/*.html') ?: []);
     }
 
     // ───────────── assistant IA ─────────────

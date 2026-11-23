@@ -58,7 +58,7 @@ class SiteRenderer
             }
             // Dans le Studio (app.joow.fr), les fichiers du site (/lv-assets/…) se chargent depuis son propre domaine
             $base = $site->custom_domain ? 'https://'.$site->custom_domain.'/' : 'https://'.$site->slug.'.joow.fr/';
-            $html = app(LegacyEditor::class)->instrument($legacy, LegacyEditor::runtime());
+            $html = app(LegacyEditor::class)->instrument(app(LegacyEditor::class)->current($site), LegacyEditor::runtime()); // brouillon en cours
 
             return preg_replace('#<head(\s[^>]*)?>#i', '$0<base href="'.e($base).'">', $html, 1) ?? $html;
         }

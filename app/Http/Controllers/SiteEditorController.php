@@ -700,7 +700,7 @@ class SiteEditorController extends Controller
     {
         $site = $this->legacySite($request, $slug);
 
-        return response()->json(['meta' => $ed->meta($ed->current($site)), 'backups' => $ed->backups($site)]);
+        return response()->json($this->legacyOut($site, $ed));
     }
 
     /** Modifie un texte (k), une photo (j) ou le titre / la description Google de la page importée. */
@@ -724,7 +724,7 @@ class SiteEditorController extends Controller
             $ed->save($site, $new);
         }
 
-        return response()->json(['ok' => true, 'backups' => $ed->backups($site), 'meta' => $ed->meta($new), 'version' => now()->timestamp]);
+        return response()->json(['ok' => true] + $this->legacyOut($site, $ed));
     }
 
     public function legacyUndo(Request $request, string $slug, \App\Services\LegacyEditor $ed)
@@ -732,7 +732,39 @@ class SiteEditorController extends Controller
         $site = $this->legacySite($request, $slug);
         abort_unless($ed->undo($site), 422, 'Aucune modification à annuler.');
 
-        return response()->json(['ok' => true, 'backups' => $ed->backups($site), 'meta' => $ed->meta($ed->current($site)), 'version' => now()->timestamp]);
+        return response()->json(['ok' => true] + $this->legacyOut($site, $ed));
+    }
+
+    /** Met en ligne les modifications du brouillon. */
+    public function legacyPublish(Request $request, string $slug, \App\Services\LegacyEditor $ed)
+    {
+        $site = $this->legacySite($request, $slug);
+        abort_unless($ed->publish($site), 422, 'Aucune modification à publier.');
+
+        return response()->json(['ok' => true] + $this->legacyOut($site, $ed));
+    }
+
+    /** Abandonne les modifications non publiées. */
+    public function legacyDiscard(Request $request, string $slug, \App\Services\LegacyEditor $ed)
+    {
+        $site = $this->legacySite($request, $slug);
+        $ed->discard($site);
+
+        return response()->json(['ok' => true] + $this->legacyOut($site, $ed));
+    }
+
+    /** Remet en ligne la version publiée précédente du site. */
+    public function legacyRestore(Request $request, string $slug, \App\Services\LegacyEditor $ed)
+    {
+        $site = $this->legacySite($request, $slug);
+        abort_unless($ed->restore($site), 422, 'Aucune version précédente à rétablir.');
+
+        return response()->json(['ok' => true] + $this->legacyOut($site, $ed));
+    }
+
+    private function legacyOut(Site $site, \App\Services\LegacyEditor $ed): array
+    {
+        return ['meta' => $ed->meta($ed->current($site)), 'pending' => $ed->pending($site), 'draft' => $ed->hasDraft($site), 'backups' => $ed->backups($site), 'version' => now()->timestamp];
     }
 
     /** Assistant IA sur une page importée : réécrit les textes demandés (1 crédit si quelque chose change). */
@@ -755,7 +787,7 @@ class SiteEditorController extends Controller
             }
         }
 
-        return response()->json(['reply' => $out['reply'], 'applied' => $out['applied'], 'backups' => $ed->backups($site), 'meta' => $ed->meta($ed->current($site)), 'version' => now()->timestamp]);
+        return response()->json(['reply' => $out['reply'], 'applied' => $out['applied']] + $this->legacyOut($site, $ed));
     }
 
     /** Site importé (page figée) : le Studio ne doit rien modifier ni republier. */

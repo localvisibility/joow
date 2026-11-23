@@ -59,31 +59,49 @@ class LegacyEditorTest extends TestCase
         $this->assertCount(count($segs), $ed->segments($new)); // la numérotation est stable
     }
 
-    public function test_studio_edits_publish_the_page_with_backup_and_undo(): void
+    public function test_studio_edits_stay_in_draft_until_published_with_undo_and_restore(): void
     {
         $dir = sys_get_temp_dir().'/joow-led-'.uniqid();
-        config(['services.sites_path' => $dir]);
+        config(['services.sites_path' => $dir, 'services.lv_drafts_path' => "$dir/drafts"]);
         @mkdir("$dir/clos", 0777, true);
         file_put_contents("$dir/clos/index.html", $this->html);
+        $live = fn () => file_get_contents("$dir/clos/index.html");
         $user = User::factory()->create(['email' => 'proprio@yahoo.fr']);
         $site = Site::create(['slug' => 'clos', 'name' => 'Le Clos', 'sector' => 'chambres', 'status' => 'paid', 'source' => 'legacy', 'owner_email' => 'proprio@yahoo.fr', 'site_data' => [], 'ai_credits_monthly' => 3, 'ai_credits_reset_at' => now()->addMonth()]);
 
-        $preview = app(SiteRenderer::class)->html($site, true);
-        $this->assertStringContainsString('data-lvt="1"', $preview);
+        $this->assertStringContainsString('data-lvt="1"', app(SiteRenderer::class)->html($site, true));
         $this->assertStringNotContainsString('data-lvt', app(SiteRenderer::class)->html($site)); // le site public n'est jamais repéré
 
-        $this->actingAs($user)->postJson(route('sites.editor.legacy', 'clos'), ['type' => 'text', 'k' => 1, 'value' => 'Piscine chauffée'])->assertOk()->assertJsonPath('backups', 1);
-        $this->assertStringContainsString('<p>Piscine chauffée</p>', file_get_contents("$dir/clos/index.html"));
+        // Modifications : brouillon seulement, le site en ligne ne bouge pas
+        $this->actingAs($user)->postJson(route('sites.editor.legacy', 'clos'), ['type' => 'text', 'k' => 1, 'value' => 'Piscine chauffée'])->assertOk()->assertJsonPath('pending', 1)->assertJsonPath('draft', true);
+        $this->actingAs($user)->postJson(route('sites.editor.legacy', 'clos'), ['type' => 'text', 'k' => 0, 'value' => 'Le Clos à Cassis'])->assertOk()->assertJsonPath('pending', 2);
+        $this->assertSame($this->html, $live());
+        $this->assertStringContainsString('Piscine chauffée', app(SiteRenderer::class)->html($site, true)); // l'aperçu du Studio montre le brouillon
         $this->actingAs($user)->postJson(route('sites.editor.legacy', 'clos'), ['type' => 'text', 'k' => 1, 'value' => '   '])->assertStatus(422);
 
-        $this->actingAs($user)->postJson(route('sites.editor.legacy.undo', 'clos'))->assertOk();
-        $this->assertSame($this->html, file_get_contents("$dir/clos/index.html"));
+        // Annuler la dernière étape, puis publier
+        $this->actingAs($user)->postJson(route('sites.editor.legacy.undo', 'clos'))->assertOk()->assertJsonPath('pending', 1);
+        $this->actingAs($user)->postJson(route('sites.editor.legacy.publish', 'clos'))->assertOk()->assertJsonPath('draft', false)->assertJsonPath('backups', 1);
+        $this->assertStringContainsString('<p>Piscine chauffée</p>', $live());
+        $this->assertStringContainsString('Chambres d&#8217;hôtes à Cassis', $live());
+        $this->actingAs($user)->postJson(route('sites.editor.legacy.publish', 'clos'))->assertStatus(422);
 
-        // IA : réécrit le texte demandé et consomme 1 crédit
+        // Abandonner un brouillon
+        $this->actingAs($user)->postJson(route('sites.editor.legacy', 'clos'), ['type' => 'text', 'k' => 1, 'value' => 'Oups'])->assertOk();
+        $this->actingAs($user)->postJson(route('sites.editor.legacy.discard', 'clos'))->assertOk()->assertJsonPath('draft', false);
+        $this->assertStringContainsString('<p>Piscine chauffée</p>', $live());
+
+        // Revenir à la version publiée précédente
+        $this->actingAs($user)->postJson(route('sites.editor.legacy.restore', 'clos'))->assertOk()->assertJsonPath('backups', 0);
+        $this->assertSame($this->html, $live());
+
+        // IA : réécrit le texte demandé dans le brouillon et consomme 1 crédit
         config(['services.gemini.key' => 'test']);
         Http::fake(['*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode(['reply' => 'J\'ai réécrit le titre.', 'changes' => [['k' => 0, 'text' => 'Chambres d\'hôtes de charme à Cassis']]])]]]]]])]);
-        $this->actingAs($user)->postJson(route('sites.editor.legacy.ai', 'clos'), ['message' => 'rends le titre plus chaleureux'])->assertOk()->assertJsonPath('applied', 1);
-        $this->assertStringContainsString('<h1 class="t">Chambres d\'hôtes de charme à Cassis</h1>', file_get_contents("$dir/clos/index.html"));
+        $this->actingAs($user)->postJson(route('sites.editor.legacy.ai', 'clos'), ['message' => 'rends le titre plus chaleureux'])->assertOk()->assertJsonPath('applied', 1)->assertJsonPath('draft', true);
+        $this->assertSame($this->html, $live());
+        $this->actingAs($user)->postJson(route('sites.editor.legacy.publish', 'clos'))->assertOk();
+        $this->assertStringContainsString('<h1 class="t">Chambres d\'hôtes de charme à Cassis</h1>', $live());
         $this->assertSame(2, $site->fresh()->ai_credits_monthly);
     }
 
