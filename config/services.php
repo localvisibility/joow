@@ -106,4 +106,10 @@ return [
         'image_model' => env('OPENAI_IMAGE_MODEL', 'gpt-image-2.5'),
     ],
 
+    // Ancien compte Stripe de Local Visibility (formules historiques) : clé restreinte en LECTURE
+    // (Customers, Subscriptions, Invoices) + Billing portal en écriture pour « Gérer ma carte ».
+    'stripe_lv' => [
+        'secret' => env('STRIPE_LV_SECRET'),
+    ],
+
 ];

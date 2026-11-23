@@ -32,7 +32,7 @@ class InvoicesController extends Controller
             'currency'   => $i->currency,
             'status'     => $i->status,
             'issued_at'  => $i->issued_at,
-            'has_pdf'    => ! empty($i->html),
+            'has_pdf'    => ! empty($i->html) || ! empty($i->external_url),
         ]);
 
         $totalTtc = $invoices->where('status', 'paid')->sum('amount_ttc');
@@ -45,7 +45,7 @@ class InvoicesController extends Controller
     }
 
     /** Affiche/télécharge la facture (HTML stocké). */
-    public function show(Request $request, Invoice $invoice): Response
+    public function show(Request $request, Invoice $invoice): Response|\Illuminate\Http\RedirectResponse
     {
         $user = $request->user();
         if (! $user->isAdmin()) {
@@ -56,6 +56,9 @@ class InvoicesController extends Controller
             abort_unless($owns, 403);
         }
 
+        if (! $invoice->html && $invoice->external_url) {
+            return redirect()->away($invoice->external_url); // facture de l'ancien compte Stripe (PDF officiel)
+        }
         $html = $invoice->html ?: '<!doctype html><meta charset="utf-8"><body style="font-family:sans-serif;padding:40px">'
             .'<h1>Facture '.$invoice->invoice_number.'</h1>'
             .'<p>'.$invoice->module_name.'</p>'

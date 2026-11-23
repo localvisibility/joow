@@ -78,16 +78,18 @@ const included = [
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <div class="min-w-0">
                             <p class="flex flex-wrap items-center gap-2"><span class="font-display text-lg font-bold text-white">{{ s.name }}</span>
-                                <span class="chip" :class="s.plan === 'liberte' ? 'bg-violet-500/15 text-violet-300' : 'bg-brand-500/15 text-brand-300'">{{ s.plan === 'liberte' ? 'Liberté' : 'Pro' }}</span>
+                                <span class="chip" :class="s.legacy ? 'bg-amber-500/15 text-amber-200' : s.plan === 'liberte' ? 'bg-violet-500/15 text-violet-300' : 'bg-brand-500/15 text-brand-300'">{{ s.legacy ? (s.legacy.label || 'Formule historique') : s.plan === 'liberte' ? 'Liberté' : 'Pro' }}</span>
                                 <span class="chip" :class="s.sub === 'past_due' ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'">{{ subLabel(s) }}</span></p>
                             <p class="mt-1 text-sm text-slate-400">
-                                <template v-if="s.plan === 'pro'">39 € HT / mois<span v-if="cancelAtEnd && subEndsAt"> · s'arrête le {{ date(subEndsAt) }}</span><span v-else-if="s.period_end"> · prochain prélèvement le {{ date(s.period_end) }}</span></template>
+                                <template v-if="s.legacy">{{ s.legacy.amount ? String(s.legacy.amount).replace('.', ',') + ' € / ' + (s.legacy.interval || 'mois') : 'Abonnement' }} · prélevé par Local Visibility<span v-if="s.legacy.cancel_at_end && s.legacy.period_end"> · s'arrête le {{ date(s.legacy.period_end) }}</span><span v-else-if="s.legacy.period_end"> · prochain prélèvement le {{ date(s.legacy.period_end) }}</span></template>
+                                <template v-else-if="s.plan === 'pro'">39 € HT / mois<span v-if="cancelAtEnd && subEndsAt"> · s'arrête le {{ date(subEndsAt) }}</span><span v-else-if="s.period_end"> · prochain prélèvement le {{ date(s.period_end) }}</span></template>
                                 <template v-else>Payé en une fois<span v-if="s.paid_at"> le {{ date(s.paid_at) }}</span></template>
-                                · <a :href="`https://${s.slug}.joow.fr`" target="_blank" rel="noopener" class="text-brand-400 hover:text-brand-300">voir le site ↗</a>
+                                · <a :href="s.url || `https://${s.slug}.joow.fr`" target="_blank" rel="noopener" class="text-brand-400 hover:text-brand-300">voir le site ↗</a>
                             </p>
                         </div>
                         <div class="flex flex-wrap gap-2">
                             <button type="button" @click="domainSite = s.slug" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">🌐 Nom de domaine</button>
+                            <a v-if="s.legacy" :href="route('hosting.legacy-portal', s.slug)" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">Gérer l'abonnement</a>
                             <a v-if="s.plan === 'pro'" :href="route('hosting.portal')" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">Gérer l'abonnement</a>
                         </div>
                     </div>

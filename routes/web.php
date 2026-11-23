@@ -178,6 +178,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/pages/{page}/apercu', [\App\Http\Controllers\AdsController::class, 'preview'])->name('pages.preview');
     });
     Route::get('/hebergement/abonnement', [HostingController::class, 'portal'])->name('hosting.portal');
+    Route::get('/hebergement/{slug}/abonnement-historique', [HostingController::class, 'legacyPortal'])->name('hosting.legacy-portal');
 
     // Factures
     Route::get('/factures', [InvoicesController::class, 'index'])->name('invoices.index');
