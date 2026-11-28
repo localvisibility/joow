@@ -50,7 +50,7 @@ class AiCredits
     /** Renouvelle le quota mensuel (Pro) si la période est écoulée. */
     public function refresh(Site $site): void
     {
-        if ($site->hosting_plan !== 'pro' || ! in_array($site->status, ['paid', 'published'], true)) {
+        if (! Plans::monthly($site->hosting_plan) || ! in_array($site->status, ['paid', 'published'], true)) {
             return;
         }
         if (in_array($site->subscription_status, ['trialing', 'canceled', 'cancelled', 'past_due', 'unpaid'], true)) {
@@ -59,7 +59,7 @@ class AiCredits
         if ($site->ai_credits_reset_at && $site->ai_credits_reset_at->isFuture()) {
             return;
         }
-        $quota = $this->quota('pro');
+        $quota = $this->quota($site->hosting_plan);
         $site->forceFill(['ai_credits_monthly' => $quota, 'ai_credits_reset_at' => now()->addMonth()])->save();
         $this->log($site, $quota, 'monthly_reset');
     }
@@ -103,7 +103,7 @@ class AiCredits
     public function onPaid(Site $site, string $plan): void
     {
         $quota = $this->quota($plan);
-        if ($plan === 'pro') {
+        if (Plans::monthly($plan)) {
             $site->forceFill(['ai_credits_monthly' => $quota, 'ai_credits_reset_at' => now()->addMonth()])->save();
         } else {
             // Liberté : crédits offerts une fois, dans le portefeuille (pas de renouvellement)
@@ -133,7 +133,7 @@ class AiCredits
         if (! in_array($site->status, ['paid', 'published'], true)) {
             return 'free';
         }
-        if (($site->hosting_plan ?: 'pro') === 'pro' && $site->subscription_status === 'trialing') {
+        if (Plans::monthly($site->hosting_plan ?: 'pro') && $site->subscription_status === 'trialing') {
             return 'free';
         }
 

@@ -92,6 +92,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [\App\Http\Controllers\AdminController::class, 'index'])->name('index');
         Route::post('/abonnements/{site}', [\App\Http\Controllers\AdminController::class, 'subscription'])->name('subscription');
         Route::delete('/sites/{site}', [\App\Http\Controllers\AdminController::class, 'destroySite'])->name('sites.destroy');
+        Route::post('/sites/{site}/test', [\App\Http\Controllers\AdminController::class, 'toggleTest'])->name('sites.test');
         Route::match(['patch', 'post'], '/support/{id}', [\App\Http\Controllers\AdminController::class, 'ticket'])->name('support.ticket');
         Route::post('/sites/{site}/email', [\App\Http\Controllers\AdminController::class, 'email'])->middleware('throttle:30,1')->name('sites.email');
         Route::post('/clients/{user}/connexion', [\App\Http\Controllers\AdminController::class, 'impersonate'])->name('impersonate');
@@ -181,6 +182,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/pages/{page}/apercu', [\App\Http\Controllers\AdsController::class, 'preview'])->name('pages.preview');
     });
     Route::get('/hebergement/abonnement', [HostingController::class, 'portal'])->name('hosting.portal');
+    Route::post('/hebergement/{slug}/passer-pro', [HostingController::class, 'upgrade'])->middleware('throttle:10,1')->name('hosting.upgrade');
     Route::get('/hebergement/{slug}/abonnement-historique', [HostingController::class, 'legacyPortal'])->name('hosting.legacy-portal');
 
     // Factures

@@ -42,6 +42,9 @@ class ModulesController extends Controller
         ]);
         abort_unless(config("modules.{$data['module']}"), 422, 'Module inconnu');
 
+        if (! empty(($data['config'] ?? [])['enabled']) && \App\Services\Plans::blocks($site, $data['module'])) {
+            return back()->withErrors(['module' => 'Ce module est inclus dans la formule Pro : passez en Pro depuis Hébergement pour l\'activer.']);
+        }
         $cfg = $this->sanitize($data['module'], $data['config'] ?? []);
         $site->setModule($data['module'], $cfg);
 
@@ -92,6 +95,8 @@ class ModulesController extends Controller
             ],
             'sms_enabled' => (bool) config('services.brevo.key'),
             'live_url'  => 'https://'.$site->slug.'.joow.fr',
+            'plan'      => $site->hosting_plan,
+            'pro_locked' => array_values(array_filter(\App\Services\Plans::proModules(), fn ($k) => \App\Services\Plans::blocks($site, $k))),
         ];
     }
 

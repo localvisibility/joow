@@ -140,6 +140,9 @@ class PublicSiteController extends Controller
             'old_url' => $site->site_data['import']['url'] ?? null,
             'combo' => (bool) ($site->place_id && ! empty($site->site_data['import']['pages'])),
             'offer' => \App\Services\Offer::active($site),
+            'plans' => \App\Services\Plans::forUi(),
+            // Modules Pro déjà utilisés par ce site : signalés sur la carte Essentiel
+            'pro_in_use' => array_values(array_map(fn ($k) => config("modules.$k.name") ?? $k, array_filter(\App\Services\Plans::proModules(), fn ($k) => $site->moduleEnabled($k)))),
         ]);
     }
 

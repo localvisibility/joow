@@ -29,7 +29,7 @@ class SupportBot
 
         return "Sites du client :\n".$sites->map(function (Site $s) {
             $status = ['paid' => 'en ligne (payé)', 'published' => 'en ligne', 'preview' => 'aperçu gratuit, pas encore en ligne', 'ready' => 'aperçu gratuit', 'generating' => 'en cours de génération', 'failed' => 'échec de génération'][$s->status] ?? $s->status;
-            $plan = $s->hosting_plan ? ' · formule '.($s->hosting_plan === 'liberte' ? 'Liberté' : 'Pro').($s->subscription_status ? ' ('.$s->subscription_status.')' : '') : '';
+            $plan = $s->hosting_plan ? ' · formule '.\App\Services\Plans::label($s->hosting_plan).($s->subscription_status ? ' ('.$s->subscription_status.')' : '') : '';
             $dom = $s->custom_domain ? ' · domaine '.$s->custom_domain.' ('.($s->domain_status ?: 'en cours').')' : '';
             $ads = ! empty($s->site_data['addons']['ads']['active']) ? ' · Joow Ads actif' : '';
 

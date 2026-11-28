@@ -53,6 +53,7 @@ const subAction = (row, action) => {
     busy.value = row.id;
     router.post(route('admin.subscription', row.id), { action }, { preserveScroll: true, onFinish: () => (busy.value = null) });
 };
+const toggleTest = (row) => router.post(route('admin.sites.test', row.id), {}, { preserveScroll: true });
 const destroy = (row) => {
     if (!confirm(`Supprimer définitivement l'aperçu « ${row.name} » ?`)) return;
     router.delete(route('admin.sites.destroy', row.id), { preserveScroll: true });
@@ -159,6 +160,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                 <option value="studio">A ouvert le Studio</option>
                 <option value="checkout">A ouvert le paiement</option>
                 <option value="multi">Crée plusieurs sites</option>
+                <option value="test">Mes tests (exclus des stats)</option>
             </select>
             <button class="rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/15">Rechercher</button>
             <button type="button" @click="exportCsv(rows, tab)" class="ml-auto rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-300 hover:bg-white/5">Exporter CSV</button>
@@ -197,6 +199,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                         </div>
                     </div>
                     <div class="mt-6 flex gap-3 border-t border-white/[0.06] pt-4 text-sm">
+                        <div class="flex-1"><p class="text-xs text-slate-500">Essentiel</p><p class="font-display text-xl font-bold text-white">{{ data.plans.essentiel ?? 0 }}</p></div>
                         <div class="flex-1"><p class="text-xs text-slate-500">Pro</p><p class="font-display text-xl font-bold text-white">{{ data.plans.pro }}</p></div>
                         <div class="flex-1"><p class="text-xs text-slate-500">Liberté</p><p class="font-display text-xl font-bold text-white">{{ data.plans.liberte }}</p></div>
                     </div>
@@ -254,7 +257,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                     <tr v-for="r in rows" :key="r.id" class="hover:bg-white/[0.02]">
                         <td class="px-5 py-3"><a :href="r.url" target="_blank" class="font-semibold text-white hover:text-brand-300">{{ r.name }}</a><span class="block text-xs text-slate-500">{{ r.domain || r.slug }}</span></td>
                         <td class="px-3 py-3 text-slate-300">{{ r.email || '—' }}</td>
-                        <td class="px-3 py-3 text-slate-300">{{ r.plan === 'liberte' ? 'Liberté' : 'Pro' }}</td>
+                        <td class="px-3 py-3 text-slate-300">{{ r.plan === 'liberte' ? 'Liberté' : r.plan === 'essentiel' ? 'Essentiel' : 'Pro' }}</td>
                         <td class="px-3 py-3">
                             <span v-if="r.plan === 'liberte'" class="chip bg-violet-500/15 text-violet-300">Payé</span>
                             <span v-else class="chip" :class="subStyle(r.sub)">{{ subLabel[r.sub] || r.sub || '—' }}</span>
@@ -331,6 +334,7 @@ const lastSeen = (r) => Object.values(r.activity || {}).map((a) => a.last).filte
                             <div class="inline-flex items-center gap-1">
                                 <button v-if="r.email" @click="openMail(r)" class="rounded-lg bg-brand-500/15 px-2.5 py-1 text-xs font-semibold text-brand-300 hover:bg-brand-500/25" title="Écrire au prospect">✉ Écrire</button>
                                 <Link :href="route('sites.editor', r.slug)" class="rounded-lg bg-white/[0.06] px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-white/10" title="Ouvrir dans le Studio">Studio</Link>
+                                <button @click="toggleTest(r)" class="rounded-lg px-2 py-1 text-xs" :class="r.is_test ? 'bg-amber-500/15 text-amber-300' : 'bg-white/5 text-slate-400 hover:text-white'" :title="r.is_test ? 'Test : exclu des statistiques et des relances. Cliquer pour le remettre.' : 'Marquer comme test (exclu des statistiques et des relances)'">🧪{{ r.is_test ? ' Test' : '' }}</button>
                                 <button v-if="!['paid', 'published'].includes(r.status)" @click="destroy(r)" class="rounded-lg bg-rose-500/10 px-2 py-1 text-xs text-rose-300 hover:bg-rose-500/20" title="Supprimer l'aperçu">🗑</button>
                             </div>
                         </td>

@@ -27,8 +27,18 @@ return [
 
     // Crédits IA du Studio (1 action = 1 crédit, création d'une page = 2).
     // Les modifications manuelles sont illimitées.
+    // Formules d'hébergement (prix HT). Essentiel : sans les modules avancés listés ici.
+    'plans' => [
+        'essentiel' => ['label' => 'Essentiel', 'price' => (float) env('JOOW_PRICE_ESSENTIEL', 19), 'pro_modules' => ['restaurant', 'rooms', 'payment', 'bot', 'zenchef']],
+        'pro'       => ['label' => 'Pro', 'price' => 39.0],
+        'liberte'   => ['label' => 'Liberté', 'price' => 349.0],
+    ],
+    // Satisfait ou remboursé (jours) affiché au paiement ; 0 pour ne pas l'afficher. À reprendre dans les CGV.
+    'refund_days' => (int) env('JOOW_REFUND_DAYS', 30),
+
     'credits' => [
         'free'    => (int) env('JOOW_CREDITS_FREE', 10),      // aperçu gratuit, offerts à la génération
+        'essentiel' => (int) env('JOOW_CREDITS_ESSENTIEL', 20), // par mois, renouvelés
         'pro'     => (int) env('JOOW_CREDITS_PRO', 100),      // par mois, renouvelés
         'liberte' => (int) env('JOOW_CREDITS_LIBERTE', 100),  // offerts une fois
         // Packs de recharge (Stripe Checkout, paiement unique). Créer les prix dans Stripe puis :

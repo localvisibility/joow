@@ -18,6 +18,7 @@ class Offer
     public const HOURS = 72;
 
     public const COUPONS = [
+        'essentiel' => ['id' => 'joow-relance-pro-30', 'duration' => 'repeating', 'months' => 3, 'name' => 'Offre de bienvenue -30 % (3 mois)'],
         'pro' => ['id' => 'joow-relance-pro-30', 'duration' => 'repeating', 'months' => 3, 'name' => 'Offre de bienvenue -30 % (3 mois)'],
         'liberte' => ['id' => 'joow-relance-liberte-30', 'duration' => 'once', 'months' => null, 'name' => 'Offre de bienvenue -30 %'],
     ];
@@ -33,6 +34,7 @@ class Offer
         return [
             'percent' => self::PERCENT,
             'until' => Carbon::parse($until)->toIso8601String(),
+            'essentiel' => round(Plans::price('essentiel') * (100 - self::PERCENT) / 100, 2),
             'pro' => round(39 * (100 - self::PERCENT) / 100, 2),
             'liberte' => round(349 * (100 - self::PERCENT) / 100, 2),
             'months' => self::COUPONS['pro']['months'],

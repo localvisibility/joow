@@ -54,7 +54,7 @@ class NurtureLeads extends Command
         $sent = 0;
         $today = now()->toDateString();
 
-        $sites = Site::whereNotNull('user_id')->where('status', 'preview')->with('user')->orderByDesc('created_at')->get()
+        $sites = Site::real()->whereNotNull('user_id')->where('status', 'preview')->with('user')->orderByDesc('created_at')->get()
             ->filter(fn (Site $s) => $s->user && ! $s->user->marketing_optout_at)
             ->unique('user_id'); // le dernier site de chaque personne
 

@@ -23,7 +23,7 @@ class Subscription
     /** Fin de l'essai gratuit si l'abonnement Pro est encore en période d'essai, sinon null. */
     public function trialEndsAt(Site $site): ?Carbon
     {
-        if ($site->hosting_plan !== 'pro' || ! in_array($site->status, ['paid', 'published'], true)) {
+        if (! Plans::monthly($site->hosting_plan) || ! in_array($site->status, ['paid', 'published'], true)) {
             return null;
         }
         if ($site->subscription_status === 'active') {
@@ -64,8 +64,8 @@ class Subscription
             'trialing'      => $end !== null,
             'trial_ends_at' => $end?->toDateString(),
             'trial_days_left' => $end ? max(0, (int) ceil(now()->floatDiffInDays($end, false))) : null,
-            'price'         => 39,
-            'quota'         => $this->credits->quota('pro'),
+            'price'         => Plans::price($site->hosting_plan === 'essentiel' ? 'essentiel' : 'pro'),
+            'quota'         => $this->credits->quota($site->hosting_plan === 'essentiel' ? 'essentiel' : 'pro'),
         ];
     }
 
@@ -111,7 +111,7 @@ class Subscription
         $user = $billing->owner($site);
         if ($site->status === 'paid' || $site->status === 'published') {
             // Bascule Pro → Liberté : paiement unique reçu pour un site déjà abonné
-            if ($plan === 'liberte' && $site->hosting_plan === 'pro') {
+            if ($plan === 'liberte' && Plans::monthly($site->hosting_plan)) {
                 return $this->switchToLiberte($site, $session);
             }
             // Déjà traité : on s'assure seulement que la facture existe (webhook arrivé après le retour)
@@ -121,7 +121,7 @@ class Subscription
 
             return false;
         }
-        $trialing = $plan === 'pro' && self::trialDays() > 0;
+        $trialing = Plans::monthly($plan) && self::trialDays() > 0;
         $site->update([
             'status'              => 'paid',
             'paid_at'             => now(),
@@ -140,7 +140,7 @@ class Subscription
             app(Accounts::class)->live($user, $site->fresh(), $plan, $invoice);
         }
         try {
-            app(MetaConversions::class)->event('Purchase', ['value' => MetaConversions::PRICES[$plan], 'currency' => 'EUR', 'content_ids' => [$plan], 'content_type' => 'product', 'order_id' => (string) $sessionId], $site->owner_email, $site->user_id, 'purchase-'.$sessionId, $request);
+            app(MetaConversions::class)->event('Purchase', ['value' => Plans::price($plan), 'currency' => 'EUR', 'content_ids' => [$plan], 'content_type' => 'product', 'order_id' => (string) $sessionId], $site->owner_email, $site->user_id, 'purchase-'.$sessionId, $request);
         } catch (\Throwable $e) {
             Log::info('Tracking Purchase : '.$e->getMessage());
         }
@@ -163,7 +163,7 @@ class Subscription
         }
 
         // L'abonnement Stripe est rattaché au compte : on ne l'arrête que s'il ne finance plus aucun autre site
-        $otherPro = $user ? Site::where('user_id', $user->id)->where('id', '!=', $site->id)->where('hosting_plan', 'pro')->whereIn('status', ['paid', 'published'])->exists() : false;
+        $otherPro = $user ? Site::where('user_id', $user->id)->where('id', '!=', $site->id)->whereIn('hosting_plan', Plans::MONTHLY)->whereIn('status', ['paid', 'published'])->exists() : false;
         $sub = $user?->subscription('hosting');
         if ($sub && ! $otherPro && ! $sub->canceled()) {
             try {
@@ -197,8 +197,32 @@ class Subscription
             app(\App\Services\Domains\DomainRenewal::class)->onReactivated($site->fresh());
         }
         if (! $wasActive || ! $site->ai_credits_reset_at || $site->ai_credits_reset_at->isPast()) {
-            $this->credits->onPaid($site->fresh(), 'pro');
-            Log::info("Abonnement {$site->slug} actif ($reason) : crédits Pro accordés");
+            $plan = $site->hosting_plan === 'essentiel' ? 'essentiel' : 'pro';
+            $this->credits->onPaid($site->fresh(), $plan);
+            Log::info("Abonnement {$site->slug} actif ($reason) : crédits $plan accordés");
         }
+    }
+
+    /**
+     * Essentiel → Pro : le prix de l'abonnement est remplacé (prorata calculé par Stripe sur la
+     * prochaine facture), les modules Pro et les crédits Pro sont débloqués immédiatement.
+     */
+    public function upgradeToPro(Site $site): void
+    {
+        if ($site->hosting_plan !== 'essentiel') {
+            throw new \RuntimeException('Ce site n\'est pas en formule Essentiel.');
+        }
+        $price = Plans::stripePrice('pro');
+        $sub = $site->user?->subscription('hosting');
+        if (! $price || ! $sub) {
+            throw new \RuntimeException('Abonnement introuvable pour le moment. Réessayez dans quelques minutes ou contactez-nous.');
+        }
+        $sub->swap($price);
+        $site->forceFill(['hosting_plan' => 'pro'])->save();
+        if ($site->subscription_status === 'active') {
+            $this->credits->onPaid($site->fresh(), 'pro');
+        }
+        $this->republish($site);
+        Log::info("Passage en Pro : {$site->slug}");
     }
 }

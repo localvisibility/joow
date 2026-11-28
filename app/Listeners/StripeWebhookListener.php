@@ -62,7 +62,7 @@ class StripeWebhookListener
         // Mise en ligne (Pro / Liberté) : traitée ici même si la personne a fermé l'onglet avant le retour
         if (! empty($meta['plan']) && ! empty($meta['site_slug']) && in_array($s['payment_status'] ?? '', ['paid', 'no_payment_required'], true)) {
             if ($site = Site::where('slug', $meta['site_slug'])->first()) {
-                app(\App\Services\Subscription::class)->fulfil($site, $meta['plan'] === 'liberte' ? 'liberte' : 'pro', (string) ($s['id'] ?? ''), $s);
+                app(\App\Services\Subscription::class)->fulfil($site, in_array($meta['plan'], ['liberte', 'essentiel'], true) ? $meta['plan'] : 'pro', (string) ($s['id'] ?? ''), $s);
             }
         }
 
@@ -165,7 +165,7 @@ class StripeWebhookListener
         }
         $user = \App\Models\User::where('stripe_id', $customerId)->first();
 
-        return $user ? Site::where('user_id', $user->id)->where('hosting_plan', 'pro')->whereIn('status', ['paid', 'published'])->get() : collect();
+        return $user ? Site::where('user_id', $user->id)->whereIn('hosting_plan', \App\Services\Plans::MONTHLY)->whereIn('status', ['paid', 'published'])->get() : collect();
     }
 
     private function sessionExpired(array $s, array $meta): void

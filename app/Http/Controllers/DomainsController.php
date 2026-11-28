@@ -160,7 +160,7 @@ class DomainsController extends Controller
     {
         $site = $this->site($request, $slug);
         $this->requirePaid($site);
-        abort_unless($site->hosting_plan === 'pro' && $site->user, 422, 'Cette action concerne la formule Pro en période d\'essai.');
+        abort_unless(\App\Services\Plans::monthly($site->hosting_plan) && $site->user, 422, 'Cette action concerne la formule Pro en période d\'essai.');
 
         try {
             $r = $subscription->startNow($site);

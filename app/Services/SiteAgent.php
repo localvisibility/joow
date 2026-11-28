@@ -331,6 +331,10 @@ class SiteAgent
 
                     case 'module':
                         $key = (string) ($op['key'] ?? '');
+                        if (! empty($op['enabled']) && \App\Services\Plans::blocks($site, $key)) {
+                            $applied[] = 'Module « '.(config("modules.$key.name") ?? $key).' » non activé : il fait partie de la formule Pro';
+                            break;
+                        }
                         if (array_key_exists($key, config('modules')) && array_key_exists('enabled', $op)) {
                             // Garde les réglages existants du module (popup, assistant…) : seul l'état change
                             $modules[$key] = is_array($modules[$key] ?? null) ? array_merge($modules[$key], ['enabled' => (bool) $op['enabled']]) : (bool) $op['enabled'];

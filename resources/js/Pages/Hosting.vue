@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import DomainPanel from '@/Components/DomainPanel.vue';
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const page = usePage();
@@ -11,7 +11,16 @@ const props = defineProps({
     userEmail: String,
     cancelAtEnd: Boolean,
     subEndsAt: String,
+    plans: { type: Object, default: () => ({ essentiel: { price: 19, pro_modules: [] }, pro: { price: 39 }, liberte: { price: 349 }, refund_days: 0 }) },
 });
+const monthly = (p) => ['essentiel', 'pro'].includes(p);
+const planLabel = (p) => ({ essentiel: 'Essentiel', pro: 'Pro', liberte: 'Liberté' }[p] || 'Pro');
+const upgrading = ref(null);
+const toPro = (s) => {
+    if (!confirm(`Passer « ${s.name} » en formule Pro (${props.plans.pro.price} € HT/mois) ?\n\nRéservations, paiements et assistant IA sont débloqués tout de suite. La différence est calculée au prorata sur votre prochaine facture.`)) return;
+    upgrading.value = s.slug;
+    router.post(route('hosting.upgrade', s.slug), {}, { preserveScroll: true, onFinish: () => (upgrading.value = null) });
+};
 
 const offline = computed(() => props.sites.filter((s) => !s.online));
 const online = computed(() => props.sites.filter((s) => s.online));
@@ -78,11 +87,11 @@ const included = [
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <div class="min-w-0">
                             <p class="flex flex-wrap items-center gap-2"><span class="font-display text-lg font-bold text-white">{{ s.name }}</span>
-                                <span class="chip" :class="s.legacy ? 'bg-amber-500/15 text-amber-200' : s.plan === 'liberte' ? 'bg-violet-500/15 text-violet-300' : 'bg-brand-500/15 text-brand-300'">{{ s.legacy ? (s.legacy.label || 'Formule historique') : s.plan === 'liberte' ? 'Liberté' : 'Pro' }}</span>
+                                <span class="chip" :class="s.legacy ? 'bg-amber-500/15 text-amber-200' : s.plan === 'liberte' ? 'bg-violet-500/15 text-violet-300' : 'bg-brand-500/15 text-brand-300'">{{ s.legacy ? (s.legacy.label || 'Formule historique') : planLabel(s.plan) }}</span>
                                 <span class="chip" :class="s.sub === 'past_due' ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'">{{ subLabel(s) }}</span></p>
                             <p class="mt-1 text-sm text-slate-400">
                                 <template v-if="s.legacy">{{ s.legacy.amount ? String(s.legacy.amount).replace('.', ',') + ' € / ' + (s.legacy.interval || 'mois') : 'Abonnement' }} · prélevé par Local Visibility<span v-if="s.legacy.cancel_at_end && s.legacy.period_end"> · s'arrête le {{ date(s.legacy.period_end) }}</span><span v-else-if="s.legacy.period_end"> · prochain prélèvement le {{ date(s.legacy.period_end) }}</span></template>
-                                <template v-else-if="s.plan === 'pro'">39 € HT / mois<span v-if="cancelAtEnd && subEndsAt"> · s'arrête le {{ date(subEndsAt) }}</span><span v-else-if="s.period_end"> · prochain prélèvement le {{ date(s.period_end) }}</span></template>
+                                <template v-else-if="monthly(s.plan)">{{ plans[s.plan].price }} € HT / mois<span v-if="cancelAtEnd && subEndsAt"> · s'arrête le {{ date(subEndsAt) }}</span><span v-else-if="s.period_end"> · prochain prélèvement le {{ date(s.period_end) }}</span></template>
                                 <template v-else>Payé en une fois<span v-if="s.paid_at"> le {{ date(s.paid_at) }}</span></template>
                                 · <a :href="s.url || `https://${s.slug}.joow.fr`" target="_blank" rel="noopener" class="text-brand-400 hover:text-brand-300">voir le site ↗</a>
                             </p>
@@ -90,11 +99,17 @@ const included = [
                         <div class="flex flex-wrap gap-2">
                             <button type="button" @click="domainSite = s.slug" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">🌐 Nom de domaine</button>
                             <a v-if="s.legacy" :href="route('hosting.legacy-portal', s.slug)" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">Gérer l'abonnement</a>
-                            <a v-if="s.plan === 'pro'" :href="route('hosting.portal')" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">Gérer l'abonnement</a>
+                            <a v-if="monthly(s.plan)" :href="route('hosting.portal')" class="rounded-xl border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 hover:border-white/25">Gérer l'abonnement</a>
                         </div>
                     </div>
+                    <!-- Essentiel → Pro -->
+                    <div v-if="s.plan === 'essentiel'" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-400/30 bg-brand-500/[0.06] px-4 py-3">
+                        <p class="text-sm text-slate-300"><span class="font-semibold text-brand-300">Passer en Pro</span> · {{ plans.pro.price }} € HT/mois : {{ plans.essentiel.pro_modules.map((m) => m.name).join(', ') }}. Prorata calculé automatiquement.</p>
+                        <button type="button" @click="toPro(s)" :disabled="upgrading === s.slug" class="btn-brand !px-4 !py-2 text-sm">{{ upgrading === s.slug ? '…' : 'Passer en Pro' }}</button>
+                    </div>
+                    <p v-if="page.props.errors?.upgrade && upgrading === null" class="mt-2 text-sm text-rose-300">{{ page.props.errors.upgrade }}</p>
                     <!-- Bascule vers Liberté -->
-                    <div v-if="s.plan === 'pro'" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/[0.05] px-4 py-3">
+                    <div v-if="monthly(s.plan)" class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/[0.05] px-4 py-3">
                         <p class="text-sm text-slate-300"><span class="font-semibold text-emerald-300">Passer en Liberté</span> · 349 € HT une seule fois, plus d'abonnement. Votre site reste en ligne, sans interruption.</p>
                         <button type="button" @click="toLiberte(s)" :disabled="form.processing" class="rounded-xl border border-emerald-400/40 px-4 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/10">{{ switching === s.slug ? '…' : 'Passer en Liberté' }}</button>
                     </div>
@@ -119,7 +134,25 @@ const included = [
         <!-- Formules (sites pas encore en ligne) -->
         <div v-if="offline.length" class="mt-6">
             <p class="mb-4 flex items-center gap-2 font-semibold text-white">📦 Choisissez votre formule</p>
-            <div class="grid gap-5 lg:grid-cols-2">
+            <div class="grid gap-5 lg:grid-cols-3">
+                <!-- Essentiel -->
+                <div class="glass relative overflow-hidden rounded-3xl p-7">
+                    <h3 class="font-display text-xl font-bold text-white">Essentiel</h3>
+                    <p class="mt-1 text-xs text-slate-400">Sans engagement · un beau site, simplement</p>
+                    <p class="mt-5 font-display text-5xl font-bold text-white">{{ plans.essentiel.price }}€<span class="text-lg font-medium text-slate-400"> HT/mois</span></p>
+                    <p class="mt-2 text-sm font-semibold text-emerald-300">Mise en ligne immédiate</p>
+                    <ul class="mt-5 space-y-2 text-sm text-slate-300">
+                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Site web professionnel</li>
+                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .com / .fr inclus</li>
+                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Formulaire, WhatsApp, avis Google</li>
+                        <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Certificat SSL + référencement</li>
+                        <li class="flex items-center gap-2 text-slate-500"><span>—</span> Réservations, paiements, assistant IA</li>
+                    </ul>
+                    <button @click="buy('essentiel')" class="mt-7 w-full rounded-xl border border-white/15 px-6 py-3 font-semibold text-white transition hover:bg-white/5" :disabled="form.processing || !selected">
+                        {{ form.processing && form.plan==='essentiel' ? '…' : 'Souscrire · ' + plans.essentiel.price + ' € HT/mois' }}
+                    </button>
+                    <p class="mt-2 text-center text-xs text-slate-500">Résiliable à tout moment · passage en Pro en 1 clic</p>
+                </div>
                 <!-- Pro -->
                 <div class="glass relative overflow-hidden rounded-3xl border-brand-500/40 p-7">
                     <span class="absolute right-5 top-5 rounded-full bg-brand-gradient px-3 py-1 text-xs font-bold text-white shadow-glow">Recommandé</span>
@@ -159,7 +192,7 @@ const included = [
                     <p class="mt-2 text-center text-xs text-slate-500">Sans abonnement · site à vie</p>
                 </div>
             </div>
-            <p class="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500"><span>🔒</span> Paiement sécurisé Stripe</p>
+            <p class="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500"><span>🔒</span> Paiement sécurisé Stripe<span v-if="plans.refund_days"> · Satisfait ou remboursé {{ plans.refund_days }} jours</span></p>
         </div>
 
     </AuthenticatedLayout>

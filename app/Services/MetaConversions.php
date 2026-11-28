@@ -16,7 +16,7 @@ class MetaConversions
 {
     public const COOKIE = 'joow_consent';
 
-    public const PRICES = ['pro' => 39.0, 'liberte' => 349.0];
+    public const PRICES = ['essentiel' => 19.0, 'pro' => 39.0, 'liberte' => 349.0];
 
     public static function enabled(): bool
     {

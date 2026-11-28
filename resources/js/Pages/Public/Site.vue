@@ -5,7 +5,7 @@ import BrandLogo from '@/Components/BrandLogo.vue';
 import GenerationShow from '@/Components/GenerationShow.vue';
 import { track, fire, uuid } from '@/tracking';
 
-const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false }, has_email: { type: Boolean, default: false }, expires_in_days: { type: Number, default: 7 }, old_url: { type: String, default: null }, combo: { type: Boolean, default: false }, offer: { type: Object, default: null } });
+const props = defineProps({ site: Object, email: { type: String, default: '' }, can_edit: { type: Boolean, default: false }, has_email: { type: Boolean, default: false }, expires_in_days: { type: Number, default: 7 }, old_url: { type: String, default: null }, combo: { type: Boolean, default: false }, offer: { type: Object, default: null }, plans: { type: Object, default: () => ({ essentiel: { price: 19, pro_modules: [] }, pro: { price: 39 }, liberte: { price: 349 }, refund_days: 0 }) }, pro_in_use: { type: Array, default: () => [] } });
 const euro = (v) => Number(v).toFixed(2).replace('.', ',').replace(/,00$/, '') + ' €';
 const left = ref('');
 const tick = () => {
@@ -64,7 +64,7 @@ const buy = (plan) => {
     const f = document.createElement('form'); f.method = 'POST'; f.action = route('public.checkout', props.site.slug);
     const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; f.appendChild(i); };
     const eventId = uuid();
-    track('InitiateCheckout', { value: plan === 'liberte' ? 349 : 39, currency: 'EUR', content_ids: [plan], content_type: 'product' }, eventId);
+    track('InitiateCheckout', { value: props.plans[plan]?.price ?? 39, currency: 'EUR', content_ids: [plan], content_type: 'product' }, eventId);
     add('_token', document.querySelector('meta[name=csrf-token]')?.content || ''); add('email', checkout.email); add('plan', plan); add('event_id', eventId);
     document.body.appendChild(f); f.submit();
 };
@@ -93,6 +93,10 @@ const poll = async () => {
     } catch (e) { /* retry au prochain tick */ }
 };
 
+// Bandeau « mettre en ligne » : visible tant que la section des formules n'est pas à l'écran
+const showBar = ref(false);
+let barObs = null;
+const goPublish = () => { document.getElementById('publier')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); track('ViewPlans', { content_name: props.site.slug }); };
 const freeDomain = ref(null);
 const loadDomain = async () => { try { const r = await fetch(`/api/site/${props.site.slug}/domain`, { headers: { Accept: 'application/json' } }); const d = await r.json(); freeDomain.value = d.available ? d.domain : null; } catch {} };
 onMounted(() => {
@@ -100,9 +104,13 @@ onMounted(() => {
     if (window.location.hash === '#publier') setTimeout(() => document.getElementById('publier')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400);
     if (ready.value) track('ViewContent', { content_name: props.site.slug, content_category: props.site.sector || '', content_type: 'site' });
     if (!ready.value && !failed.value) { poll(); timer = setInterval(poll, 1500); }
+    setTimeout(() => {
+        const el = document.getElementById('publier');
+        if (el && 'IntersectionObserver' in window) { barObs = new IntersectionObserver(([e]) => { showBar.value = ready.value && !e.isIntersecting && e.boundingClientRect.top > 0; }, { threshold: 0.05 }); barObs.observe(el); }
+    }, 2500);
     if (fromStudio && !hasEmail.value) setTimeout(() => { studioInput.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }); studioInput.value?.focus({ preventScroll: true }); }, 400);
 });
-onUnmounted(() => timer && clearInterval(timer));
+onUnmounted(() => { if (timer) clearInterval(timer); barObs?.disconnect(); });
 </script>
 
 <template>
@@ -149,7 +157,7 @@ onUnmounted(() => timer && clearInterval(timer));
             <div class="mb-8 text-center">
                 <p class="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">🎉 Votre site est prêt</p>
                 <h1 class="font-display text-3xl font-bold text-white sm:text-4xl">{{ site.name }}</h1>
-                <p class="mt-2 text-slate-400">{{ combo ? 'Fiche Google et site actuel combinés : avis, note et photos Google, textes et pages de votre site, le tout réécrit et remis en forme.' : (oldUrl ? 'Voici votre nouveau site, reconstruit à partir de votre site actuel : textes réécrits, photos conservées, pages reprises.' : 'Voici l\'aperçu de votre site. Personnalisez-le gratuitement dans le Studio, puis mettez-le en ligne quand il est parfait.') }}</p>
+                <p class="mt-2 text-slate-400">{{ combo ? 'Fiche Google et site actuel combinés : avis, note et photos Google, textes et pages de votre site, le tout réécrit et remis en forme.' : (oldUrl ? 'Voici votre nouveau site, reconstruit à partir de votre site actuel : textes réécrits, photos conservées, pages reprises.' : 'Voici l\'aperçu de votre site. Mettez-le en ligne à votre nom dès aujourd\'hui, ou personnalisez-le d\'abord gratuitement dans le Studio.') }}</p>
                 <!-- Refonte : avant / après -->
                 <div v-if="oldUrl" class="mx-auto mt-4 inline-flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2 text-xs">
                     <span class="text-slate-500">Avant</span><a :href="oldUrl" target="_blank" rel="noopener nofollow" class="font-semibold text-slate-300 line-through decoration-rose-400/70 hover:text-white">{{ oldHost }}</a>
@@ -159,8 +167,8 @@ onUnmounted(() => timer && clearInterval(timer));
                 <!-- Studio accessible : email déjà rattaché -->
                 <template v-if="can_edit && hasEmail">
                     <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
-                        <Link :href="route('sites.editor', site.slug)" class="btn-brand !px-7 !py-3.5 text-base">✨ Personnaliser mon site dans le Studio</Link>
-                        <a :href="liveUrl" target="_blank" rel="noopener" class="rounded-xl border border-white/10 px-5 py-3.5 text-sm font-semibold text-slate-300 transition hover:border-white/25">Voir en plein écran ↗</a>
+                        <button type="button" @click="goPublish" class="btn-brand !px-7 !py-3.5 text-base">🚀 Mettre en ligne · dès {{ plans.essentiel.price }} € HT/mois</button>
+                        <Link :href="route('sites.editor', site.slug)" class="rounded-xl border border-white/15 px-5 py-3.5 text-sm font-semibold text-white transition hover:border-white/30">✨ Personnaliser dans le Studio</Link>
                     </div>
                     <p class="mt-3 text-xs text-slate-500">Textes, photos, pages, couleurs, formulaire… tout est modifiable en 2 clics ou avec l'assistant IA. Gratuit, sans compte.</p>
                     <p v-if="lead.sent" class="mt-2 text-xs text-emerald-300">✓ Votre lien privé vient d'être envoyé à {{ lead.email }}.</p>
@@ -263,20 +271,41 @@ onUnmounted(() => timer && clearInterval(timer));
                     <p class="font-display text-lg font-bold text-amber-200">🎁 Offre de bienvenue : -{{ offer.percent }} % pour mettre votre site en ligne</p>
                     <p class="mt-1 text-sm text-amber-100/90">Réduction appliquée automatiquement au paiement · se termine dans <b>{{ left }}</b></p>
                 </div>
-                <div class="grid gap-5 sm:grid-cols-2">
+                <div class="grid gap-5 lg:grid-cols-3">
+                    <!-- Essentiel -->
+                    <div class="glass relative overflow-hidden rounded-2xl p-6">
+                        <h4 class="font-display text-lg font-bold text-white">Essentiel</h4>
+                        <p class="mt-1 text-xs text-slate-400">Sans engagement · un beau site, simplement</p>
+                        <p v-if="offerOn && offer.essentiel" class="mt-4 font-display text-4xl font-bold text-white"><span class="mr-2 text-xl text-slate-500 line-through">{{ plans.essentiel.price }}€</span>{{ euro(offer.essentiel) }}<span class="text-base font-medium text-slate-400"> HT/mois</span></p>
+                        <p v-else class="mt-4 font-display text-4xl font-bold text-white">{{ plans.essentiel.price }}€<span class="text-base font-medium text-slate-400"> HT/mois</span></p>
+                        <p class="mt-1 text-xs font-semibold text-emerald-300">Mise en ligne immédiate</p>
+                        <ul class="mt-4 space-y-1.5 text-sm text-slate-300">
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .com / .fr inclus</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur & modifications illimitées</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Formulaire, WhatsApp, avis Google</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Certificat SSL + référencement</li>
+                            <li class="flex items-center gap-2 text-slate-500"><span>—</span> Réservations, paiements, assistant IA</li>
+                        </ul>
+                        <p v-if="pro_in_use.length" class="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">Votre site utilise {{ pro_in_use.join(', ') }} : inclus dans la formule Pro.</p>
+                        <button @click="buy('essentiel')" class="mt-6 w-full rounded-xl border border-white/15 px-6 py-3 font-semibold text-white transition hover:bg-white/5" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
+                            {{ checkout.processing && checkout.plan==='essentiel' ? '…' : 'Souscrire · ' + euro(offerOn && offer.essentiel ? offer.essentiel : plans.essentiel.price) + ' HT/mois' }}
+                        </button>
+                        <p class="mt-2 text-center text-xs text-slate-500">Passage en Pro en 1 clic, quand vous voulez</p>
+                    </div>
                     <!-- Pro -->
                     <div class="glass relative overflow-hidden rounded-2xl border-brand-500/40 p-6">
                         <span class="absolute right-4 top-4 rounded-full bg-brand-gradient px-3 py-1 text-xs font-bold text-white shadow-glow">Recommandé</span>
                         <h4 class="font-display text-lg font-bold text-white">Pro</h4>
-                        <p class="mt-1 text-xs text-slate-400">Sans engagement · .joow.fr + domaine .com/.fr</p>
+                        <p class="mt-1 text-xs text-slate-400">Tout l'Essentiel + réservations, paiements, IA</p>
                         <p v-if="offerOn" class="mt-4 font-display text-4xl font-bold text-white"><span class="mr-2 text-xl text-slate-500 line-through">39€</span>{{ euro(offer.pro) }}<span class="text-base font-medium text-slate-400"> HT/mois</span></p>
                         <p v-if="offerOn" class="text-xs font-semibold text-amber-300">pendant {{ offer.months }} mois, puis 39 € HT/mois</p>
                         <p v-else class="mt-4 font-display text-4xl font-bold text-white">39€<span class="text-base font-medium text-slate-400"> HT/mois</span></p>
                         <p class="mt-1 text-xs font-semibold text-emerald-300">{{ trialDays > 0 ? '🎉 ' + trialDays + ' jours d\'essai gratuit' : 'Mise en ligne immédiate · sans engagement' }}</p>
                         <ul class="mt-4 space-y-1.5 text-sm text-slate-300">
-                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .com / .fr inclus</li>
-                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Éditeur IA & modifications illimitées</li>
-                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Certificat SSL + SEO avancé</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Tout l'Essentiel</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Réservations, rendez-vous, chambres</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Paiements & acomptes en ligne</li>
+                            <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Assistant IA 24h/24 + 100 crédits IA/mois</li>
                             <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Support prioritaire 7j/7</li>
                         </ul>
                         <button @click="buy('pro')" class="btn-brand mt-6 w-full" :class="{ 'opacity-60': checkout.processing }" :disabled="checkout.processing">
@@ -305,9 +334,20 @@ onUnmounted(() => timer && clearInterval(timer));
                     </div>
                 </div>
 
-                <p class="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-500"><span>🔒</span> Paiement sécurisé Stripe</p>
+                <p v-if="plans.refund_days" class="mt-5 text-center text-sm font-semibold text-emerald-300">✓ Satisfait ou remboursé {{ plans.refund_days }} jours · sans engagement</p>
+                <p class="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-500"><span>🔒</span> Paiement sécurisé Stripe</p>
                 <a :href="liveUrl" target="_blank" rel="noopener" class="mt-2 block text-center text-sm text-slate-400 hover:text-white">Ouvrir l'aperçu en plein écran ↗</a>
             </div>
+
+            <!-- Bandeau fixe : mettre en ligne -->
+            <Transition name="bar">
+                <div v-if="showBar" class="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-ink-950/95 px-4 py-3 backdrop-blur">
+                    <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
+                        <p class="text-sm text-slate-300"><span class="font-semibold text-white">Votre site est prêt.</span> Mettez-le en ligne à votre nom<span v-if="freeDomain"> sur <b class="text-emerald-300">{{ freeDomain }}</b></span> · dès {{ plans.essentiel.price }} € HT/mois<span v-if="plans.refund_days" class="hidden sm:inline"> · satisfait ou remboursé {{ plans.refund_days }} jours</span></p>
+                        <button type="button" @click="goPublish" class="btn-brand shrink-0 !px-5 !py-2.5 text-sm">🚀 Mettre en ligne</button>
+                    </div>
+                </div>
+            </Transition>
         </section>
     </div>
 </template>
@@ -321,4 +361,6 @@ onUnmounted(() => timer && clearInterval(timer));
 .confetti { position: absolute; top: -6px; left: var(--x); width: 7px; height: 11px; border-radius: 2px; opacity: 0; transform: rotate(var(--r)); animation: confetti 1.9s ease-out var(--d) both; pointer-events: none; z-index: 5; }
 @keyframes confetti { 0% { opacity: 0; transform: translateY(0) rotate(var(--r)); } 12% { opacity: 1; } 100% { opacity: 0; transform: translateY(260px) rotate(calc(var(--r) + 300deg)); } }
 @media (prefers-reduced-motion: reduce) { .unveil, .confetti { animation: none; } .confetti { display: none; } }
+.bar-enter-active, .bar-leave-active { transition: transform .3s ease, opacity .3s ease; }
+.bar-enter-from, .bar-leave-to { transform: translateY(100%); opacity: 0; }
 </style>

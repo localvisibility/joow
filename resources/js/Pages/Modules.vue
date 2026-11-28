@@ -32,6 +32,7 @@ const save = (module, config, done) => {
     });
 };
 const toggle = (m) => save(m.key, { enabled: !m.cfg.enabled });
+const locked = (m) => (props.state?.pro_locked || []).includes(m.key);
 
 const open = ref(null);
 const cfg = reactive({});
@@ -178,6 +179,7 @@ const dayCfg = (d) => { if (!cfg.hours[d]) cfg.hours[d] = { closed: false, lunch
                     <div class="mt-4 flex gap-2">
                         <template v-if="m.key === 'ads'"><Link :href="route('ads.index', { site: current })" class="btn-brand flex-1 text-sm">📣 Ouvrir Joow Ads</Link></template>
                         <template v-else-if="m.key === 'stats'"><Link :href="route('stats.index')" class="btn-brand flex-1 text-sm">Voir les statistiques</Link></template>
+                        <template v-else-if="locked(m)"><Link :href="route('hosting.index')" class="btn-brand flex-1 text-center text-sm">🔓 Inclus dans la formule Pro · passer en Pro</Link></template>
                         <template v-else-if="m.soon"><button disabled class="flex-1 rounded-xl border border-white/10 px-4 py-2 text-sm text-slate-500">Disponible prochainement</button></template>
                         <template v-else>
                             <button @click="toggle(m)" :disabled="saving" class="flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition" :class="m.cfg.enabled ? 'border border-white/10 text-slate-300 hover:border-rose-400/40 hover:text-rose-300' : 'btn-brand'">{{ m.cfg.enabled ? 'Désactiver' : 'Activer' }}</button>

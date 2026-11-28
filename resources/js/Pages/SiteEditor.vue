@@ -360,7 +360,7 @@ const toggleModule = async (key = 'booking') => {
     const was = moduleOn(key); const enabled = !was; const prev = st.value.modules[key];
     st.value.modules[key] = (prev && typeof prev === 'object') ? { ...prev, enabled } : enabled; status.value = 'saving';
     try { const d = await postJson(route('sites.editor.module', slug), { key, enabled }); st.value.modules = d.modules; if (d.module_config) st.value.module_config = d.module_config; status.value = d.queued ? 'queued' : 'saved'; reload(d.version); }
-    catch { st.value.modules[key] = prev; status.value = 'error'; }
+    catch (e) { st.value.modules[key] = prev; status.value = 'error'; if (e?.upgrade && confirm((e.message || 'Module inclus dans la formule Pro.') + '\n\nOuvrir Hébergement pour passer en Pro ?')) window.location.href = e.upgrade; }
 };
 // Réglages de l'assistant IA (fusionnés avec les défauts côté serveur)
 const bot = computed(() => st.value?.module_config?.bot || {});
@@ -1266,16 +1266,23 @@ const statusLabel = computed(() => ({ idle: '', saving: 'Enregistrement…', sav
                     <!-- Mise en ligne -->
                     <template v-else-if="modal==='publish'">
                         <div class="mb-2 flex items-center justify-between"><h3 class="font-display text-xl font-bold text-white">Mettre votre site en ligne</h3><button @click="modal=null" class="text-slate-400 hover:text-white">✕</button></div>
-                        <p class="text-sm text-slate-400">Votre site reste modifiable à volonté après la mise en ligne. Tous les modules sont inclus.</p>
+                        <p class="text-sm text-slate-400">Votre site reste modifiable à volonté après la mise en ligne.<span v-if="plans.refund_days"> Satisfait ou remboursé {{ plans.refund_days }} jours.</span></p>
                         <div v-if="freeDomain" class="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm"><span class="text-emerald-300">✓</span><span class="font-bold text-white">{{ freeDomain }}</span><span class="text-emerald-200">est disponible · inclus, réservé à votre nom dès la mise en ligne</span></div>
                         <label class="lbl mt-4">Votre email (accès, factures, notifications)<input v-model="checkout.email" type="email" class="fld !py-2.5" placeholder="vous@exemple.fr" /></label>
-                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div class="mt-4 grid gap-3 sm:grid-cols-3">
+                            <div v-if="plans.essentiel" class="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                                <p class="font-display text-lg font-bold text-white">Essentiel</p>
+                                <p class="mt-1 font-display text-3xl font-bold text-white">{{ plans.essentiel.price }} €<span class="text-sm font-medium text-slate-400"> HT/mois</span></p>
+                                <p class="mt-1 text-xs font-semibold text-emerald-300">Sans engagement</p>
+                                <ul class="mt-3 space-y-1 text-xs text-slate-300"><li>✓ Domaine .fr / .com + hébergement + SSL</li><li>✓ Formulaire, WhatsApp, avis, SEO</li><li class="text-slate-500">— Réservations, paiements, assistant IA</li></ul>
+                                <button @click="startCheckout('essentiel')" :disabled="!plans.essentiel.ready" class="mt-4 w-full rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/5 disabled:opacity-50">Souscrire →</button>
+                            </div>
                             <div class="relative rounded-2xl border border-brand-500/50 bg-brand-500/[0.06] p-5">
                                 <span class="absolute right-3 top-3 rounded-full bg-brand-gradient px-2.5 py-0.5 text-[10px] font-bold text-white">Recommandé</span>
                                 <p class="font-display text-lg font-bold text-white">Pro</p>
                                 <p class="mt-1 font-display text-3xl font-bold text-white">{{ plans.pro.price }} €<span class="text-sm font-medium text-slate-400"> HT/mois</span></p>
                                 <p class="mt-1 text-xs font-semibold text-emerald-300">{{ plans.pro.trial > 0 ? plans.pro.trial + ' jours d\'essai gratuit · sans engagement' : 'Sans engagement · résiliable à tout moment' }}</p>
-                                <ul class="mt-3 space-y-1 text-xs text-slate-300"><li>✓ Domaine .fr / .com + hébergement + SSL</li><li>✓ Tous les modules · Studio + IA illimités</li><li>✓ Emails & SMS · statistiques · SEO</li></ul>
+                                <ul class="mt-3 space-y-1 text-xs text-slate-300"><li>✓ Tout l'Essentiel</li><li>✓ Réservations, paiements, assistant IA</li><li>✓ 100 crédits IA / mois · SMS</li></ul>
                                 <button @click="startCheckout('pro')" :disabled="!plans.pro.ready" class="btn-brand mt-4 w-full text-sm disabled:opacity-50">{{ !plans.pro.ready ? 'Bientôt disponible' : (plans.pro.trial > 0 ? 'Commencer l\'essai gratuit →' : 'Souscrire et mettre en ligne →') }}</button>
                             </div>
                             <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-5">

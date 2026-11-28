@@ -69,17 +69,17 @@ class AdminController extends Controller
     private function kpis(int $days): array
     {
         $since = now()->subDays($days);
-        $paid = Site::whereIn('status', ['paid', 'published'])->get(['id', 'hosting_plan', 'subscription_status', 'paid_at', 'updated_at']);
-        $pro = $paid->where('hosting_plan', 'pro');
+        $paid = Site::real()->whereIn('status', ['paid', 'published'])->get(['id', 'hosting_plan', 'subscription_status', 'paid_at', 'updated_at']);
+        $pro = $paid->whereIn('hosting_plan', \App\Services\Plans::MONTHLY); // abonnements mensuels (Essentiel + Pro)
         $activePro = $pro->whereIn('subscription_status', ['active', 'trialing'])->count();
         $pastDue = $pro->where('subscription_status', 'past_due')->count();
         $canceledPeriod = $pro->where('subscription_status', 'canceled')->filter(fn ($s) => $s->updated_at >= $since)->count();
         $liberte = $paid->where('hosting_plan', 'liberte');
-        $mrr = $activePro * $this->price('pro');
+        $mrr = $pro->whereIn('subscription_status', ['active', 'trialing'])->sum(fn ($s) => $this->price($s->hosting_plan));
         $startPro = max(1, $activePro + $canceledPeriod - $pro->filter(fn ($s) => $s->paid_at && $s->paid_at >= $since)->count());
         $revenuePeriod = (float) Invoice::where('status', 'paid')->where('issued_at', '>=', $since)->sum('price_ht');
         $newPaid = $paid->filter(fn ($s) => $s->paid_at && $s->paid_at >= $since)->count();
-        $generated = Site::where('created_at', '>=', $since)->count();
+        $generated = Site::real()->where('created_at', '>=', $since)->count();
 
         return [
             'mrr' => $mrr,
@@ -97,8 +97,8 @@ class AdminController extends Controller
             'clients' => User::count(),
             'support_open' => \Illuminate\Support\Facades\DB::table('support_tickets')->where('status', 'open')->count(),
             'blocked' => \Illuminate\Support\Facades\DB::table('creation_blocks')->where('created_at', '>=', $since)->count(),
-            'offers_sent' => Site::whereNotNull('site_data->emails->offer_at')->count(),
-            'offers_won' => Site::whereNotNull('site_data->emails->offer_at')->whereIn('status', ['paid', 'published'])->count(),
+            'offers_sent' => Site::real()->whereNotNull('site_data->emails->offer_at')->count(),
+            'offers_won' => Site::real()->whereNotNull('site_data->emails->offer_at')->whereIn('status', ['paid', 'published'])->count(),
             'arpu' => $activePro ? round($mrr / $activePro, 2) : 0,
         ];
     }
@@ -107,8 +107,8 @@ class AdminController extends Controller
     private function overview(int $days): array
     {
         $since = now()->subDays($days)->startOfDay();
-        $sites = Site::where('created_at', '>=', $since)->get(['id', 'created_at', 'paid_at', 'status', 'owner_email', 'user_id', 'source', 'sector', 'hosting_plan', 'site_data']);
-        $paidInPeriod = Site::whereNotNull('paid_at')->where('paid_at', '>=', $since)->get(['paid_at', 'hosting_plan']);
+        $sites = Site::real()->where('created_at', '>=', $since)->get(['id', 'created_at', 'paid_at', 'status', 'owner_email', 'user_id', 'source', 'sector', 'hosting_plan', 'site_data']);
+        $paidInPeriod = Site::real()->whereNotNull('paid_at')->where('paid_at', '>=', $since)->get(['paid_at', 'hosting_plan']);
 
         $series = [];
         for ($d = $since->copy(); $d <= now(); $d->addDay()) {
@@ -159,7 +159,7 @@ class AdminController extends Controller
             'by_source' => $group(fn ($s) => $s->source === 'joow-public' ? 'fiche Google' : ($s->source ?: 'fiche Google')),
             'by_sector' => $group(fn ($s) => config("sectors.{$s->sector}.label") ?? $s->sector),
             'ip_check' => (function () use ($since) {
-                $ips = Site::where('created_at', '>=', $since)->whereNotNull('creator_ip')->pluck('creator_ip');
+                $ips = Site::real()->where('created_at', '>=', $since)->whereNotNull('creator_ip')->pluck('creator_ip');
 
                 return ['sites' => $ips->count(), 'distinct' => $ips->unique()->count(),
                     'private' => $ips->filter(fn ($ip) => ! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE))->count()];
@@ -167,8 +167,9 @@ class AdminController extends Controller
             'blocks' => \Illuminate\Support\Facades\DB::table('creation_blocks')->where('created_at', '>=', $since)->orderByDesc('created_at')->take(100)->get()
                 ->map(fn ($b) => ['at' => \Illuminate\Support\Carbon::parse($b->created_at)->toIso8601String(), 'ip' => $b->ip, 'email' => $b->email, 'reason' => $b->reason, 'count' => $b->count, 'flow' => $b->flow, 'query' => $b->query])->all(),
             'plans' => [
-                'pro' => Site::whereIn('status', ['paid', 'published'])->where('hosting_plan', 'pro')->count(),
-                'liberte' => Site::whereIn('status', ['paid', 'published'])->where('hosting_plan', 'liberte')->count(),
+                'essentiel' => Site::real()->whereIn('status', ['paid', 'published'])->where('hosting_plan', 'essentiel')->count(),
+                'pro' => Site::real()->whereIn('status', ['paid', 'published'])->where('hosting_plan', 'pro')->count(),
+                'liberte' => Site::real()->whereIn('status', ['paid', 'published'])->where('hosting_plan', 'liberte')->count(),
             ],
         ];
     }
@@ -188,14 +189,14 @@ class AdminController extends Controller
     {
 
         return [
-            'id' => $s->id, 'slug' => $s->slug, 'name' => $s->name, 'status' => $s->status,
+            'id' => $s->id, 'slug' => $s->slug, 'name' => $s->name, 'status' => $s->status, 'is_test' => (bool) $s->is_test,
             'sector' => config("sectors.{$s->sector}.label") ?? $s->sector, 'source' => $s->source,
             'plan' => $s->hosting_plan, 'sub' => $s->subscription_status,
             'email' => $s->owner_email ?? $s->user?->email, 'user_id' => $s->user_id,
             'created_at' => optional($s->created_at)->toIso8601String(), 'paid_at' => optional($s->paid_at)->toIso8601String(),
             'period_end' => optional($s->subscription_period_end)->toIso8601String(),
             'domain' => $s->custom_domain, 'campaign' => self::campaign($s->site_data['attribution'] ?? null),
-            'url' => 'https://'.$s->slug.'.joow.fr', 'mrr' => $s->hosting_plan === 'pro' && in_array($s->subscription_status, ['active', 'trialing'], true) ? $this->price('pro') : 0,
+            'url' => 'https://'.$s->slug.'.joow.fr', 'mrr' => \App\Services\Plans::monthly($s->hosting_plan) && in_array($s->subscription_status, ['active', 'trialing'], true) ? $this->price($s->hosting_plan) : 0,
             'stripe' => $s->user?->stripe_id ? 'https://dashboard.stripe.com/customers/'.$s->user->stripe_id : null,
             'activity' => (array) ($s->site_data['activity'] ?? []),
             'checkout_at' => $s->site_data['emails']['checkout_started_at'] ?? null,
@@ -215,7 +216,7 @@ class AdminController extends Controller
 
     private function subscriptions(string $q): array
     {
-        $rows = Site::with('user')->whereIn('status', ['paid', 'published'])
+        $rows = Site::real()->with('user')->whereIn('status', ['paid', 'published'])
             ->when($q !== '', fn ($w) => $w->where(fn ($x) => $x->whereRaw('lower(name) like ?', [$this->like])->orWhereRaw('lower(slug) like ?', [$this->like])->orWhereRaw('lower(owner_email) like ?', [$this->like])))
             ->orderByDesc('paid_at')->take(500)->get();
 
@@ -227,13 +228,13 @@ class AdminController extends Controller
         $users = User::withCount('sites')
             ->when($q !== '', fn ($w) => $w->where(fn ($x) => $x->whereRaw('lower(email) like ?', [$this->like])->orWhereRaw('lower(name) like ?', [$this->like])))
             ->orderByDesc('created_at')->take(300)->get();
-        $paid = Site::whereIn('status', ['paid', 'published'])->whereIn('user_id', $users->pluck('id'))->get(['user_id', 'hosting_plan', 'subscription_status'])->groupBy('user_id');
+        $paid = Site::real()->whereIn('status', ['paid', 'published'])->whereIn('user_id', $users->pluck('id'))->get(['user_id', 'hosting_plan', 'subscription_status'])->groupBy('user_id');
 
         return ['rows' => $users->map(fn ($u) => [
             'id' => $u->id, 'name' => $u->name, 'email' => $u->email, 'source' => $u->source ?? null,
             'created_at' => optional($u->created_at)->toIso8601String(), 'sites' => $u->sites_count,
             'paid' => ($paid[$u->id] ?? collect())->count(),
-            'mrr' => ($paid[$u->id] ?? collect())->filter(fn ($s) => $s->hosting_plan === 'pro' && in_array($s->subscription_status, ['active', 'trialing'], true))->count() * $this->price('pro'),
+            'mrr' => ($paid[$u->id] ?? collect())->filter(fn ($s) => \App\Services\Plans::monthly($s->hosting_plan) && in_array($s->subscription_status, ['active', 'trialing'], true))->sum(fn ($s) => $this->price($s->hosting_plan)),
             'google' => ! empty($u->google_id), 'optout' => ! empty($u->marketing_optout_at), 'admin' => $u->isAdmin(),
         ])->all()];
     }
@@ -241,6 +242,7 @@ class AdminController extends Controller
     private function sites(string $q, string $status, string $f = ''): array
     {
         $rows = Site::with('user')
+            ->when($f === 'test', fn ($w) => $w->where('is_test', true), fn ($w) => $w->where('is_test', false))
             ->when($status !== '', fn ($w) => $w->where('status', $status))
             ->when($f === 'email', fn ($w) => $w->where(fn ($x) => $x->whereNotNull('owner_email')->orWhereNotNull('user_id')))
             ->when($f === 'noemail', fn ($w) => $w->whereNull('owner_email')->whereNull('user_id'))
@@ -249,17 +251,17 @@ class AdminController extends Controller
             ->when($f === 'studio', fn ($c) => $c->filter(fn ($s) => ! empty($s->site_data['activity']['studio'])))
             ->when($f === 'checkout', fn ($c) => $c->filter(fn ($s) => ! empty($s->site_data['emails']['checkout_started_at'])));
         if ($f === 'multi') {
-            $dup = Site::whereNotNull('creator_device')->selectRaw('creator_device')->groupBy('creator_device')->havingRaw('count(*) > 1')->pluck('creator_device');
-            $dupMail = Site::whereNotNull('owner_email')->selectRaw('lower(owner_email) as e')->groupBy(\Illuminate\Support\Facades\DB::raw('lower(owner_email)'))->havingRaw('count(*) > 1')->pluck('e');
+            $dup = Site::real()->whereNotNull('creator_device')->selectRaw('creator_device')->groupBy('creator_device')->havingRaw('count(*) > 1')->pluck('creator_device');
+            $dupMail = Site::real()->whereNotNull('owner_email')->selectRaw('lower(owner_email) as e')->groupBy(\Illuminate\Support\Facades\DB::raw('lower(owner_email)'))->havingRaw('count(*) > 1')->pluck('e');
             $rows = $rows->filter(fn ($s) => $dup->contains($s->creator_device) || $dupMail->contains(strtolower((string) $s->owner_email)));
         }
         $this->preloadMails($rows->map(fn ($s) => $s->owner_email ?? $s->user?->email)->filter()->all());
         $devices = $rows->pluck('creator_device')->filter()->unique()->values();
         $emails = $rows->pluck('owner_email')->filter()->map(fn ($e) => strtolower($e))->unique()->values();
-        $this->multi['device'] = $devices->isEmpty() ? [] : Site::whereIn('creator_device', $devices)->selectRaw('creator_device, count(*) as n')->groupBy('creator_device')->pluck('n', 'creator_device')->all();
-        $this->multi['email'] = $emails->isEmpty() ? [] : Site::whereIn(\Illuminate\Support\Facades\DB::raw('lower(owner_email)'), $emails)->selectRaw('lower(owner_email) as e, count(*) as n')->groupBy(\Illuminate\Support\Facades\DB::raw('lower(owner_email)'))->pluck('n', 'e')->all();
+        $this->multi['device'] = $devices->isEmpty() ? [] : Site::real()->whereIn('creator_device', $devices)->selectRaw('creator_device, count(*) as n')->groupBy('creator_device')->pluck('n', 'creator_device')->all();
+        $this->multi['email'] = $emails->isEmpty() ? [] : Site::real()->whereIn(\Illuminate\Support\Facades\DB::raw('lower(owner_email)'), $emails)->selectRaw('lower(owner_email) as e, count(*) as n')->groupBy(\Illuminate\Support\Facades\DB::raw('lower(owner_email)'))->pluck('n', 'e')->all();
 
-        return ['rows' => $rows->map(fn ($s) => $this->siteRow($s))->values()->all(), 'statuses' => Site::selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status')];
+        return ['rows' => $rows->map(fn ($s) => $this->siteRow($s))->values()->all(), 'statuses' => Site::real()->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status')];
     }
 
     private function preloadMails(array $emails): void
@@ -413,6 +415,14 @@ class AdminController extends Controller
     }
 
     /** Supprime un aperçu non payé (jamais un site payé). */
+    /** Marque / démarque un site comme test de l'équipe. */
+    public function toggleTest(Site $site)
+    {
+        $site->forceFill(['is_test' => ! $site->is_test])->saveQuietly();
+
+        return back()->with('status', $site->is_test ? "« {$site->name} » marqué comme test : exclu des statistiques et des relances." : "« {$site->name} » n'est plus un test.");
+    }
+
     public function destroySite(Request $request, Site $site)
     {
         abort_if(in_array($site->status, ['paid', 'published'], true), 422, 'Un site payé ne se supprime pas depuis ici : résiliez d\'abord l\'abonnement.');

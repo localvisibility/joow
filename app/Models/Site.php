@@ -24,6 +24,7 @@ class Site extends Model
     }
 
     protected $casts = [
+        'is_test'             => 'boolean',
         'pages'               => 'array',
         'site_data'           => 'array',
         'modules'             => 'array',
@@ -72,6 +73,12 @@ class Site extends Model
      * Activité du prospect sur son site (aperçu, site plein écran, Studio, modifications…) :
      * compteur + première / dernière date, dans site_data.activity. Ignore l'équipe Joow.
      */
+    /** Sites réels : sans les tests de l'équipe (exclus des statistiques, des prospects et des relances). */
+    public function scopeReal($query)
+    {
+        return $query->where('is_test', false);
+    }
+
     public function track(string $event): void
     {
         $req = request();
@@ -178,6 +185,9 @@ class Site extends Model
     public function moduleEnabled(string $key): bool
     {
         $cfg = config("modules.$key", []);
+        if (\App\Services\Plans::blocks($this, $key)) {
+            return false; // module de la formule Pro, site en Essentiel
+        }
         if (! empty($cfg['always_on'])) {
             return true;
         }

@@ -38,7 +38,22 @@ class HostingController extends Controller
             'cancelAtEnd' => (bool) $sub?->onGracePeriod(),
             'subEndsAt'  => optional($sub?->ends_at)->toDateString(),
             'userEmail'  => $user->email,
+            'plans'      => \App\Services\Plans::forUi(),
         ]);
+    }
+
+    /** Essentiel → Pro en un clic (prorata Stripe). */
+    public function upgrade(Request $request, string $slug, \App\Services\Subscription $subs)
+    {
+        $user = $request->user();
+        $site = Site::where('slug', $slug)->where(fn ($q) => $q->where('user_id', $user->id)->orWhere('owner_email', $user->email))->firstOrFail();
+        try {
+            $subs->upgradeToPro($site);
+        } catch (\Throwable $e) {
+            return back()->withErrors(['upgrade' => $e instanceof \RuntimeException ? $e->getMessage() : 'Passage en Pro impossible pour le moment : réessayez ou contactez-nous.']);
+        }
+
+        return back()->with('status', "« {$site->name} » est maintenant en formule Pro : réservations, paiements et assistant IA sont disponibles.");
     }
 
     /** Portail de l'ancien compte Stripe (formule historique) : carte bancaire, factures, résiliation. */

@@ -23,21 +23,19 @@ class CheckoutController extends Controller
 
         $data = $request->validate([
             'email'    => ['required', 'email'],
-            'plan'     => ['nullable', 'in:pro,liberte'],
+            'plan'     => ['nullable', 'in:essentiel,pro,liberte'],
             'event_id' => ['nullable', 'string', 'max:64'],
         ]);
         $plan = $data['plan'] ?? 'pro';
 
         // Site déjà en ligne : seule la bascule Pro → Liberté a un sens (jamais un second abonnement)
         if (in_array($site->status, ['paid', 'published'], true)) {
-            if ($plan === 'pro' || $site->hosting_plan === 'liberte') {
-                return back()->withErrors(['email' => $site->hosting_plan === 'liberte' ? 'Ce site est déjà en formule Liberté.' : 'Ce site est déjà en ligne avec la formule Pro.']);
+            if ($plan !== 'liberte' || $site->hosting_plan === 'liberte') {
+                return back()->withErrors(['email' => $site->hosting_plan === 'liberte' ? 'Ce site est déjà en formule Liberté.' : 'Ce site est déjà en ligne avec la formule '.\App\Services\Plans::label((string) $site->hosting_plan).'.']);
             }
         }
 
-        $price = $plan === 'liberte'
-            ? config('services.stripe.price_liberte')
-            : config('services.stripe.price_pro');
+        $price = \App\Services\Plans::stripePrice($plan);
 
         // Stripe non configuré (clé secrète ou tarif absent) : message clair au lieu d'une erreur 500
         if (! $price || ! config('cashier.secret')) {
@@ -72,7 +70,7 @@ class CheckoutController extends Controller
             $urls['metadata']['offer'] = $coupon;
         }
 
-        // Liberté : paiement unique. Pro : abonnement mensuel avec essai gratuit.
+        // Liberté : paiement unique. Essentiel / Pro : abonnement mensuel.
         return $user->withValidStripeCustomer(function () use ($user, $plan, $price, $urls, $coupon) {
             if ($plan === 'liberte') {
                 return $user->checkout([$price => 1], $urls + ['invoice_creation' => ['enabled' => true]] + ($coupon ? ['discounts' => [['coupon' => $coupon]]] : []))->redirect();
@@ -106,7 +104,7 @@ class CheckoutController extends Controller
             }
         }
 
-        $plan = $request->query('plan') === 'liberte' ? 'liberte' : 'pro';
+        $plan = in_array($request->query('plan'), ['essentiel', 'liberte'], true) ? $request->query('plan') : 'pro';
 
         if ($paid) {
             app(\App\Services\Subscription::class)->fulfil($site, $plan, $sessionId, $session ?? null, $request);

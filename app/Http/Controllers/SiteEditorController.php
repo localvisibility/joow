@@ -69,6 +69,8 @@ class SiteEditorController extends Controller
                 'edit_link'   => route('sites.editor', $site->slug).'?t='.$site->editToken(),
             ],
             'plans' => [
+                'essentiel' => ['price' => \App\Services\Plans::price('essentiel'), 'ready' => (bool) config('cashier.secret')],
+                'refund_days' => (int) config('joow.refund_days', 0),
                 'pro'     => ['price' => 39, 'trial' => (int) config('services.stripe.trial_days', 0), 'ready' => (bool) config('services.stripe.price_pro')],
                 'liberte' => ['price' => 349, 'ready' => (bool) config('services.stripe.price_liberte')],
             ],
@@ -458,7 +460,7 @@ class SiteEditorController extends Controller
     public function startSubscription(Request $request, string $slug, \App\Services\Subscription $subscription)
     {
         $site = $this->ownedSite($request, $slug);
-        abort_unless(in_array($site->status, ['paid', 'published'], true) && $site->hosting_plan === 'pro' && $site->user, 422, 'Cette action concerne un site en ligne avec la formule Pro.');
+        abort_unless(in_array($site->status, ['paid', 'published'], true) && \App\Services\Plans::monthly($site->hosting_plan) && $site->user, 422, 'Cette action concerne un site en ligne avec un abonnement mensuel.');
         abort_unless($subscription->isTrialing($site), 422, 'Votre abonnement est déjà actif.');
 
         try {
@@ -539,6 +541,9 @@ class SiteEditorController extends Controller
     {
         $site = $this->ownedSite($request, $slug);
         $data = $request->validate(['key' => ['required', 'string', 'max:40'], 'enabled' => ['required', 'boolean'], 'config' => ['nullable', 'array']]);
+        if ($data['enabled'] && \App\Services\Plans::blocks($site, $data['key'])) {
+            return response()->json(['message' => 'Ce module est inclus dans la formule Pro. Passez en Pro (39 € HT/mois) pour l\'activer.', 'upgrade' => route('hosting.index')], 402);
+        }
 
         $modules = $site->modules ?: ['booking' => true];
         $current = $site->module($data['key']);
