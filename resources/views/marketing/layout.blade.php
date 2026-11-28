@@ -33,7 +33,7 @@
 <meta name="theme-color" content="#08080c">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="icon" href="/favicon.ico" sizes="32x32"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<script type="application/ld+json">{!! json_encode(['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Joow', 'url' => $apex, 'logo' => url('/brand/joow-logo-white@2x.png'), 'sameAs' => [], 'contactPoint' => [['@type' => 'ContactPoint', 'email' => config('mail.from.address', 'contact@joow.fr'), 'contactType' => 'customer support', 'availableLanguage' => 'French']]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
+<script type="application/ld+json">{!! json_encode(['@context' => 'https://schema.org', '@type' => 'Organization', 'name' => 'Joow', 'url' => $apex, 'logo' => url('/brand/joow-logo-white@2x.png'), 'sameAs' => [], 'contactPoint' => [['@type' => 'ContactPoint', 'email' => config('joow.support.email', 'contact@joow.fr'), 'contactType' => 'customer support', 'availableLanguage' => 'French']]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) !!}</script>
 @stack('jsonld')
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" media="print" onload="this.media='all'">
 @vite(['resources/js/marketing.js'])

@@ -77,7 +77,7 @@ const reply = (t) => {
 
                 <div ref="formEl" class="glass scroll-mt-6 rounded-2xl p-5">
                     <p class="font-semibold text-white">✉ Écrire à l'équipe</p>
-                    <p class="mt-1 text-xs text-slate-500">Réponse par email sous 24 h ouvrées.</p>
+                    <p class="mt-1 text-xs text-slate-500">Réponse par email sous 24 h ouvrées · <a :href="'mailto:' + ($page.props.support?.email || 'contact@joow.fr')" class="text-brand-400 hover:text-brand-300">{{ $page.props.support?.email || 'contact@joow.fr' }}</a><template v-if="$page.props.support?.phone"> · <a :href="'tel:' + $page.props.support.phone.replace(/[^\d+]/g, '')" class="text-brand-400 hover:text-brand-300">{{ $page.props.support.phone }}</a></template></p>
                     <p v-if="page.props.flash?.status" class="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">{{ page.props.flash.status }}</p>
                     <form @submit.prevent="send" class="mt-3 space-y-3">
                         <label v-if="sites.length > 1" class="block text-xs font-semibold text-slate-400">Site concerné<select v-model="form.site" class="mt-1 w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm text-white"><option value="">Aucun en particulier</option><option v-for="s in sites" :key="s.slug" :value="s.slug">{{ s.name }}</option></select></label>

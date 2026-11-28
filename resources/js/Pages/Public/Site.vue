@@ -336,6 +336,7 @@ onUnmounted(() => { if (timer) clearInterval(timer); barObs?.disconnect(); });
 
                 <p v-if="plans.refund_days" class="mt-5 text-center text-sm font-semibold text-emerald-300">✓ Satisfait ou remboursé {{ plans.refund_days }} jours · sans engagement</p>
                 <p class="mt-2 flex items-center justify-center gap-1.5 text-xs text-slate-500"><span>🔒</span> Paiement sécurisé Stripe</p>
+                <p class="mt-2 text-center text-xs text-slate-400">Une question avant de vous lancer ? <a :href="'mailto:' + ($page.props.support?.email || 'contact@joow.fr')" class="font-semibold text-brand-400 hover:text-brand-300">{{ $page.props.support?.email || 'contact@joow.fr' }}</a><template v-if="$page.props.support?.phone"> · <a :href="'tel:' + $page.props.support.phone.replace(/[^\d+]/g, '')" class="font-semibold text-brand-400 hover:text-brand-300">{{ $page.props.support.phone }}</a></template></p>
                 <a :href="liveUrl" target="_blank" rel="noopener" class="mt-2 block text-center text-sm text-slate-400 hover:text-white">Ouvrir l'aperçu en plein écran ↗</a>
             </div>
 

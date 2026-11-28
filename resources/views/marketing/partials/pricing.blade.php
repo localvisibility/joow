@@ -1,4 +1,4 @@
-<div class="stagger mt-12 grid gap-5 md:grid-cols-2">
+<div class="stagger mt-12 grid gap-5 md:grid-cols-3">
     @foreach($pricing as $k => $p)
     <div class="reveal relative rounded-3xl border p-8 {{ $k === 'pro' ? 'border-brand-500/50 bg-brand-500/[0.06] shadow-glow' : 'border-white/10 bg-white/[0.03]' }}">
         @if($k === 'pro')<span class="absolute -top-3 left-8 rounded-full bg-brand-gradient px-3 py-1 text-xs font-bold text-white">Le plus choisi</span>@endif
@@ -10,3 +10,4 @@
     </div>
     @endforeach
 </div>
+@if(config('joow.refund_days'))<p class="mt-6 text-center text-sm font-semibold text-emerald-300">✓ Satisfait ou remboursé {{ config('joow.refund_days') }} jours · sans engagement</p>@endif

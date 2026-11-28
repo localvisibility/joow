@@ -29,6 +29,8 @@
                 <li><a href="{{ route('marketing.faq') }}" class="text-slate-300 hover:text-white">Questions fréquentes</a></li>
                 <li><a href="{{ route('marketing.about') }}" class="text-slate-300 hover:text-white">À propos</a></li>
                 <li><a href="{{ route('marketing.contact') }}" class="text-slate-300 hover:text-white">Contact</a></li>
+                <li><a href="mailto:{{ config('joow.support.email') }}" class="text-slate-300 hover:text-white">{{ config('joow.support.email') }}</a></li>
+                @if(config('joow.support.phone'))<li><a href="tel:{{ preg_replace('/[^\d+]/', '', config('joow.support.phone')) }}" class="text-slate-300 hover:text-white">{{ config('joow.support.phone') }}</a></li>@endif
                 <li><a href="{{ $appUrl }}/login" class="text-slate-300 hover:text-white">Espace client</a></li>
                 <li class="pt-2"><a href="{{ route('marketing.legal', 'mentions-legales') }}" class="text-slate-500 hover:text-white">Mentions légales</a></li>
                 <li><a href="{{ route('marketing.legal', 'confidentialite') }}" class="text-slate-500 hover:text-white">Confidentialité</a></li>

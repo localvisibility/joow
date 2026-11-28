@@ -12,7 +12,7 @@
         <label class="block"><span class="mb-1.5 block text-sm font-semibold text-white">Votre message</span><textarea name="message" rows="5" required class="field">{{ old('message') }}</textarea></label>
         @error('message')<p class="text-sm text-rose-300">{{ $message }}</p>@enderror
         <button type="submit" class="btn-brand w-full">Envoyer</button>
-        <p class="text-center text-xs text-slate-500">Ou directement : <a href="mailto:{{ config('mail.from.address', 'contact@joow.fr') }}" class="text-slate-300 hover:text-white">{{ config('mail.from.address', 'contact@joow.fr') }}</a></p>
+        <p class="text-center text-xs text-slate-500">Ou directement : <a href="mailto:{{ config('joow.support.email', 'contact@joow.fr') }}" class="text-slate-300 hover:text-white">{{ config('joow.support.email', 'contact@joow.fr') }}</a></p>
     </form>
     @endif
 </section>

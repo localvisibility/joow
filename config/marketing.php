@@ -68,8 +68,10 @@ return [
     ],
 
     'pricing' => [
+        'essentiel' => ['name' => 'Essentiel', 'price' => (string) env('JOOW_PRICE_ESSENTIEL', 19), 'period' => 'HT / mois', 'note' => 'Sans engagement, résiliable en un clic',
+            'items' => ['Site complet en ligne sur votre adresse', 'Nom de domaine personnalisé', 'Formulaire de demande, WhatsApp, avis Google', 'Popup, bandeau d\'annonce, menu, statistiques', '20 crédits IA par mois', 'Hébergement, HTTPS, sauvegardes', 'Modifications illimitées dans le Studio']],
         'pro' => ['name' => 'Pro', 'price' => '39', 'period' => 'HT / mois', 'note' => 'Sans engagement, résiliable en un clic',
-            'items' => ['Site complet en ligne sur votre adresse', 'Tous les modules inclus', '100 crédits IA par mois pour l\'assistant', 'Nom de domaine personnalisé', 'Hébergement, HTTPS, sauvegardes', 'Modifications illimitées dans le Studio', 'Support par email']],
+            'items' => ['Tout ce que contient l\'Essentiel', 'Réservations : tables, chambres, rendez-vous', 'Paiements et acomptes en ligne', 'Assistant IA 24h/24 sur votre site', '100 crédits IA par mois pour l\'assistant', 'Nom de domaine personnalisé', 'Hébergement, HTTPS, sauvegardes', 'Modifications illimitées dans le Studio', 'Support par email']],
         'liberte' => ['name' => 'Liberté', 'price' => '349', 'period' => 'HT, une fois', 'note' => 'Votre site pour toujours, sans abonnement',
             'items' => ['Tout ce que contient la formule Pro', '100 crédits IA offerts', 'Hébergement inclus sans mensualité', 'Nom de domaine personnalisé', 'Mises à jour de la plateforme incluses', 'Recharges de crédits IA à la demande']],
     ],
@@ -81,14 +83,14 @@ return [
     ],
 
     'faq' => [
-        ['q' => 'Combien ça coûte ?', 'a' => 'La création et l\'aperçu sont 100 % gratuits, sans carte bancaire. Vous ne payez que si vous publiez : formule Pro à 39 € HT par mois, sans engagement, ou formule Liberté à 349 € HT une fois, sans abonnement.'],
-        ['q' => 'Les modules (réservation, devis, assistant IA…) sont-ils inclus ?', 'a' => 'Oui, tous les modules sont inclus dans les deux formules et s\'activent en un clic depuis le Studio. Les paiements en ligne passent par votre propre compte Stripe.'],
+        ['q' => 'Combien ça coûte ?', 'a' => 'La création et l\'aperçu sont 100 % gratuits, sans carte bancaire. Vous ne payez que si vous publiez : formule Essentiel à partir de 19 € HT par mois, formule Pro à 39 € HT par mois avec réservations, paiements et assistant IA, ou formule Liberté à 349 € HT une fois, sans abonnement. Toutes sont sans engagement et couvertes par notre garantie satisfait ou remboursé 30 jours.'],
+        ['q' => 'Les modules (réservation, devis, assistant IA…) sont-ils inclus ?', 'a' => 'Les modules de base (formulaire, avis, WhatsApp, popup, menu…) sont inclus dès l\'Essentiel. Les réservations, les paiements en ligne et l\'assistant IA sont inclus dans les formules Pro et Liberté. Tout s\'active en un clic depuis le Studio. Les paiements en ligne passent par votre propre compte Stripe.'],
         ['q' => 'Ai-je besoin de compétences techniques ?', 'a' => 'Aucune. Vous cherchez votre établissement, l\'IA fait le reste. Ensuite vous cliquez sur un texte ou une image pour le modifier, ou vous demandez à l\'assistant.'],
         ['q' => 'D\'où viennent les textes et les photos ?', 'a' => 'De votre fiche Google (avis, photos, horaires) et de votre site existant si vous en avez un, enrichis par une IA qui rédige pour votre métier. Sans photo, une banque d\'images professionnelle prend le relais. Vous remplacez tout ce que vous voulez.'],
         ['q' => 'Et si je n\'ai pas de fiche Google ?', 'a' => 'Un questionnaire de cinq écrans suffit : nom, métier, coordonnées, prestations, photos. Vous pourrez rattacher votre fiche plus tard pour afficher vos avis.'],
         ['q' => 'Puis-je utiliser mon propre nom de domaine ?', 'a' => 'Oui. Le site est livré sur une adresse joow.fr, et vous branchez votre domaine (.fr, .com…) à tout moment, certificat SSL inclus. Vous pouvez aussi en commander un depuis votre espace.'],
         ['q' => 'Le site m\'appartient-il ?', 'a' => 'Les textes, photos et contenus sont les vôtres. En formule Liberté, le site reste en ligne sans abonnement. En formule Pro, vous résiliez quand vous voulez.'],
-        ['q' => 'Et si je ne suis pas satisfait ?', 'a' => 'Vous ne payez rien tant que vous n\'avez pas décidé de publier. La formule Pro est résiliable en un clic, sans frais.'],
+        ['q' => 'Et si je ne suis pas satisfait ?', 'a' => 'Vous ne payez rien tant que vous n\'avez pas décidé de publier. Après la mise en ligne, vous avez 30 jours pour changer d\'avis : satisfait ou remboursé, sur simple email à contact@joow.fr. Les abonnements sont ensuite résiliables en un clic, sans frais.'],
     ],
 
     'examples' => [

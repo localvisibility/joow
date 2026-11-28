@@ -33,6 +33,8 @@ return [
         'pro'       => ['label' => 'Pro', 'price' => 39.0],
         'liberte'   => ['label' => 'Liberté', 'price' => 349.0],
     ],
+    // Contact du support affiché aux clients (pied de page, aperçu, espace client, CGV, e-mails)
+    'support' => ['email' => env('JOOW_SUPPORT_EMAIL', 'contact@joow.fr'), 'phone' => env('JOOW_SUPPORT_PHONE')],
     // Satisfait ou remboursé (jours) affiché au paiement ; 0 pour ne pas l'afficher. À reprendre dans les CGV.
     'refund_days' => (int) env('JOOW_REFUND_DAYS', 30),
 

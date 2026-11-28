@@ -37,6 +37,7 @@ class HandleInertiaRequests extends Middleware
                 'impersonating' => (bool) $request->session()->get('admin_impersonator'),
             ],
             // Offre : 0 = paiement à la mise en ligne, N = N jours d'essai gratuit avant le 1er prélèvement
+            'support' => config('joow.support'),
             'flash' => fn () => ['status' => is_string($request->session()->get('status')) ? $request->session()->get('status') : null],
             'trial_days' => (int) config('services.stripe.trial_days', 0),
             'google_enabled' => \App\Http\Controllers\Auth\GoogleAuthController::enabled(),
