@@ -226,9 +226,12 @@ onUnmounted(() => { if (timer) clearInterval(timer); barObs?.disconnect(); });
                         <span class="h-3 w-3 rounded-full bg-amber-400/70"></span>
                         <span class="h-3 w-3 rounded-full bg-emerald-400/70"></span>
                         <span class="ml-3 truncate rounded-md bg-white/5 px-3 py-1 text-xs text-slate-400">{{ site.slug }}.joow.fr</span>
-                        <span class="ml-auto hidden rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 sm:inline">● En direct</span>
+                        <a :href="liveUrl" target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-1.5 text-xs font-bold text-ink-950 shadow transition hover:bg-slate-100">⛶ Voir en plein écran</a>
                     </div>
                     <iframe :src="liveUrl" class="w-full bg-white" :class="device === 'mobile' ? 'h-[78vh]' : 'h-[70vh]'" loading="lazy"></iframe>
+                </div>
+                <div class="mt-4 flex justify-center">
+                    <a :href="liveUrl" target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-6 py-3 text-sm font-semibold text-white transition hover:border-white/30 hover:bg-white/10">⛶ Ouvrir mon site en plein écran</a>
                 </div>
                 <div class="mt-3 flex items-center justify-center gap-2 text-xs">
                     <button type="button" @click="device = 'desktop'" class="rounded-full px-3 py-1.5 font-semibold transition" :class="device === 'desktop' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'">🖥 Ordinateur</button>

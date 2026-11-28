@@ -175,13 +175,14 @@ const order = computed(() => {
     return [...o.filter((id) => SECTIONS.some((s) => s.id === id)), ...rest];
 });
 const orderedSections = computed(() => [SECTIONS[0], ...order.value.map((id) => SECTIONS.find((s) => s.id === id))]);
-const isHidden = (id) => !!st.value?.content?.sections?.hidden?.[id];
+// « process » (étapes) est masqué tant qu'il n'a pas été explicitement affiché
+const isHidden = (id) => { const h = st.value?.content?.sections?.hidden || {}; return id === 'process' ? h[id] !== false : !!h[id]; };
 const saveSections = async (newOrder, hidden) => {
     status.value = 'saving';
     try { const d = await postJson(route('sites.editor.sections', slug), { order: newOrder, hidden }); setPath(st.value, 'content.sections', { order: newOrder, hidden }); status.value = d.queued ? 'queued' : 'saved'; reload(d.version); }
     catch { status.value = 'error'; }
 };
-const toggleSection = (id) => { const hidden = { ...(st.value.content.sections?.hidden || {}) }; hidden[id] = !hidden[id]; saveSections(order.value, hidden); };
+const toggleSection = (id) => { const hidden = { ...(st.value.content.sections?.hidden || {}) }; hidden[id] = !isHidden(id); saveSections(order.value, hidden); };
 const move = (id, dir) => { const o = [...order.value]; const i = o.indexOf(id); const j = i + dir; if (i < 0 || j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; saveSections(o, st.value.content.sections?.hidden || {}); };
 const goto = (id) => { panel.value = id; post({ type: 'scrollTo', id }); };
 

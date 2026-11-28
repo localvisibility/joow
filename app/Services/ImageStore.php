@@ -37,6 +37,18 @@ class ImageStore
     }
 
     /** Enregistre des octets d'image (déjà téléchargés) et retourne le nom du fichier, ou null si illisible. */
+    /** PNG (avec transparence) tel quel. */
+    public function storePng(string $png, string $dir, string $prefix = 'img'): ?string
+    {
+        if ($png === '' || ! str_starts_with($png, "\x89PNG")) {
+            return null;
+        }
+        $name = $prefix.'-'.Str::lower(Str::random(8)).'.png';
+        $this->write("uploads/$dir/$name", $png);
+
+        return $name;
+    }
+
     public function storeBytes(string $raw, string $dir): ?string
     {
         $jpeg = $this->toJpeg($raw);

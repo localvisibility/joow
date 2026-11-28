@@ -93,6 +93,19 @@ class SiteRenderer
         }
 
         $brand = \App\Services\LogoStudio::settings($data);
+        // Logo sur fond uni : détouré une fois (le fond blanc ou noir autour du dessin disparaît)
+        if ($brand['source'] && ($data['brand']['clean_for'] ?? null) !== $brand['source']) {
+            try {
+                $clean = app(\App\Services\LogoStudio::class)->removeBackground($brand['source']);
+            } catch (\Throwable) {
+                $clean = null;
+            }
+            $data['brand'] = ($data['brand'] ?? []);
+            $data['brand']['clean'] = $clean;
+            $data['brand']['clean_for'] = $brand['source'];
+            $site->forceFill(['site_data' => $data])->saveQuietly();
+            $brand = \App\Services\LogoStudio::settings($data);
+        }
         if ($brand['logo'] && (! $brand['tone'] || ($data['brand']['tone_for'] ?? null) !== $brand['logo'])) {
             $brand['tone'] = app(\App\Services\LogoStudio::class)->tone($brand['logo']) ?: 'dark';
             $data['brand'] = ($data['brand'] ?? []) + [];

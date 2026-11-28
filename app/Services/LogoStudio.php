@@ -25,14 +25,131 @@ class LogoStudio
     {
         $b = $siteData['brand'] ?? [];
 
+        $logo = ! empty($b['hide']) ? null : ($b['logo'] ?? ($siteData['business']['logo'] ?? null));
+        // Logo détouré automatiquement (fond uni retiré) : utilisé tant que la source n'a pas changé
+        if ($logo && ! empty($b['clean']) && ($b['clean_for'] ?? null) === $logo) {
+            $logo = $b['clean'];
+        }
+
         return [
-            'logo'      => ! empty($b['hide']) ? null : ($b['logo'] ?? ($siteData['business']['logo'] ?? null)),
+            'logo'      => $logo,
+            'source'    => $b['logo'] ?? ($siteData['business']['logo'] ?? null),
             'bg'        => in_array($b['bg'] ?? 'auto', self::BG, true) ? ($b['bg'] ?? 'auto') : 'auto',
             'size'      => in_array($b['size'] ?? 'md', self::SIZES, true) ? ($b['size'] ?? 'md') : 'md',
             'invert'    => ! empty($b['invert']),
-            'show_name' => ! array_key_exists('show_name', $b) || (bool) $b['show_name'],
+            // Logo OU nom : avec un logo, le nom n'est affiché que si le client l'a demandé
+            'show_name' => array_key_exists('show_name', $b) ? (bool) $b['show_name'] : false,
             'tone'      => $b['tone'] ?? null, // light | dark, calculé
         ];
+    }
+
+    /**
+     * Retire le fond uni d'un logo bitmap (blanc, noir ou couleur pleine autour du dessin) :
+     * remplissage depuis les bords, avec un léger fondu sur le contour. Renvoie l'URL du PNG
+     * transparent, ou null si le logo est déjà transparent, vectoriel, ou sur un fond non uni (photo).
+     */
+    public function removeBackground(?string $url): ?string
+    {
+        if (! $url || ! preg_match('#/media/([a-z0-9-]+)/([A-Za-z0-9._-]+)$#', $url, $m) || Str::endsWith(strtolower($m[2]), '.svg')) {
+            return null;
+        }
+        $path = "uploads/{$m[1]}/{$m[2]}";
+        if (! function_exists('imagecreatefromstring') || ! Storage::disk('local')->exists($path)) {
+            return null;
+        }
+        $img = @imagecreatefromstring(Storage::disk('local')->get($path));
+        if (! $img) {
+            return null;
+        }
+        $w = imagesx($img);
+        $h = imagesy($img);
+        if ($w < 8 || $h < 8 || $w * $h > 4_000_000) {
+            return null;
+        }
+        if (! imageistruecolor($img)) {
+            imagepalettetotruecolor($img);
+        }
+        // Bords : couleur dominante et proportion de pixels proches d'elle
+        $border = [];
+        $step = max(1, (int) floor(max($w, $h) / 200));
+        for ($x = 0; $x < $w; $x += $step) {
+            $border[] = [$x, 0];
+            $border[] = [$x, $h - 1];
+        }
+        for ($y = 0; $y < $h; $y += $step) {
+            $border[] = [0, $y];
+            $border[] = [$w - 1, $y];
+        }
+        $rgba = fn ($x, $y) => imagecolorsforindex($img, imagecolorat($img, $x, $y));
+        $cols = array_map(fn ($p) => $rgba($p[0], $p[1]), $border);
+        $opaque = array_filter($cols, fn ($c) => $c['alpha'] < 20);
+        if (count($opaque) < count($cols) * 0.6) {
+            return null; // déjà transparent
+        }
+        $ref = ['red' => $this->median(array_column($opaque, 'red')), 'green' => $this->median(array_column($opaque, 'green')), 'blue' => $this->median(array_column($opaque, 'blue'))];
+        $dist = fn ($c) => sqrt(($c['red'] - $ref['red']) ** 2 + ($c['green'] - $ref['green']) ** 2 + ($c['blue'] - $ref['blue']) ** 2);
+        $near = count(array_filter($opaque, fn ($c) => $dist($c) < 40));
+        if ($near < count($opaque) * 0.9) {
+            return null; // fond non uni (photo, dégradé) : on ne touche pas
+        }
+        // Remplissage depuis les bords
+        $out = imagecreatetruecolor($w, $h);
+        imagealphablending($out, false);
+        imagesavealpha($out, true);
+        imagecopy($out, $img, 0, 0, 0, 0, $w, $h);
+        $seen = [];
+        $queue = [];
+        for ($x = 0; $x < $w; $x++) {
+            $queue[] = [$x, 0];
+            $queue[] = [$x, $h - 1];
+        }
+        for ($y = 0; $y < $h; $y++) {
+            $queue[] = [0, $y];
+            $queue[] = [$w - 1, $y];
+        }
+        $removed = 0;
+        while ($queue) {
+            [$x, $y] = array_pop($queue);
+            $k = $y * $w + $x;
+            if (isset($seen[$k])) {
+                continue;
+            }
+            $seen[$k] = true;
+            $c = $rgba($x, $y);
+            $d = $dist($c);
+            if ($d >= 70) {
+                continue; // le dessin commence ici
+            }
+            // Cœur du fond : transparent ; zone de contour : semi-transparente (anticrénelage)
+            $alpha = $d < 35 ? 127 : (int) round(127 * (70 - $d) / 35);
+            imagesetpixel($out, $x, $y, imagecolorallocatealpha($out, $c['red'], $c['green'], $c['blue'], max($alpha, $c['alpha'])));
+            $removed++;
+            if ($d < 35) {
+                foreach ([[1, 0], [-1, 0], [0, 1], [0, -1]] as [$dx, $dy]) {
+                    $nx = $x + $dx;
+                    $ny = $y + $dy;
+                    if ($nx >= 0 && $ny >= 0 && $nx < $w && $ny < $h && ! isset($seen[$ny * $w + $nx])) {
+                        $queue[] = [$nx, $ny];
+                    }
+                }
+            }
+        }
+        if ($removed < $w * $h * 0.08 || $removed > $w * $h * 0.97) {
+            return null; // presque rien retiré, ou tout retiré : on garde l'original
+        }
+        ob_start();
+        imagepng($out, null, 9);
+        $png = (string) ob_get_clean();
+        $name = $this->images->storePng($png, $m[1], 'logo-clean');
+
+        return $name ? '/media/'.$m[1].'/'.$name : null;
+    }
+
+    private function median(array $v): int
+    {
+        sort($v);
+
+        return (int) ($v[intdiv(count($v), 2)] ?? 0);
     }
 
     /**

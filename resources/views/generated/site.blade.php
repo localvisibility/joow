@@ -76,7 +76,8 @@
     }
     $order = array_values(array_unique(array_merge(array_values($secCfg['order'] ?? []), $defaultOrder)));
     $hidden = $secCfg['hidden'] ?? [];
-    $show = fn($k) => empty($hidden[$k]);
+    // « Comment ça se passe » : masqué par défaut (pas adapté à tous les métiers), affichable depuis le Studio
+    $show = fn($k) => $k === 'process' ? (array_key_exists('process', $hidden) && ! $hidden['process']) : empty($hidden[$k]);
     $ord  = fn($k) => (($i = array_search($k, $order, true)) === false ? 99 : $i + 1);
 
     // ── Modules (catalogue Joow) : état résolu {enabled, ...config} ──
@@ -487,13 +488,13 @@ document.getElementById('joow-bar-x').onclick=function(){b.hidden=true;document.
       @if(!empty($brand['logo']))<span class="brand-logo brand-bg-{{ $brand['bg'] }} inline-flex items-center rounded-lg {{ $lh }} {{ $brand['invert'] ? 'brand-invert' : '' }}" data-tone="{{ $brand['tone'] ?? 'dark' }}" data-edit-logo>@if(!empty($brand['inline'])){!! $brand['inline'] !!}@else<img src="{{ $brand['logo'] }}" alt="{{ $b['name'] ?? '' }}" class="h-full w-auto {{ $lw }} object-contain" decoding="async">@endif</span>@else<span class="grid h-10 w-10 place-items-center rounded-xl text-white bg-grad shadow-c"><i class="fa-solid {{ $icon }}"></i></span>@endif
       <span class="font-display text-lg font-bold {{ (!empty($brand['logo']) && empty($brand['show_name'])) ? 'sr-only' : '' }}" data-edit="business.name">{{ $b['name'] ?? '' }}</span>
     </a>
-    <div class="hidden items-center gap-6 md:flex" id="links">
+    <div class="hidden items-center gap-4 whitespace-nowrap md:flex xl:gap-6" id="links">
       @if($show('services') && count($services))<a href="{{ $home }}#services" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>Services</a>@endif
       @if($menuOn)<a href="{{ $home }}#carte" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>Carte</a>@endif
       @if($roomsOn)<a href="{{ $home }}#sejour" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>Chambres</a>@endif
       @if($show('about'))<a href="{{ $home }}#apropos" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>À propos</a>@endif
       @if($show('reviews') && $reviews->count() && count($navPages) < 3)<a href="{{ $home }}#avis" class="text-sm font-semibold text-white/90 transition hover:text-white" @if($page) data-page="" @endif>Avis</a>@endif
-      @foreach(array_slice($navPages, 0, 5) as $np)<a href="/{{ $np['slug'] }}/" data-page="{{ $np['slug'] }}" class="text-sm font-semibold transition hover:text-white {{ $page && $page['slug'] === $np['slug'] ? 'text-white underline decoration-2 underline-offset-8' : 'text-white/90' }}">{{ $np['title'] }}</a>@endforeach
+      @foreach(array_slice($navPages, 0, 4) as $np)<a href="/{{ $np['slug'] }}/" data-page="{{ $np['slug'] }}" class="text-sm font-semibold transition hover:text-white {{ $page && $page['slug'] === $np['slug'] ? 'text-white underline decoration-2 underline-offset-8' : 'text-white/90' }}">{{ $np['title'] }}</a>@endforeach
       <a href="{{ $ctaHref }}" class="rounded-xl bg-grad px-5 py-2.5 text-sm font-bold text-white shadow-c transition hover:-translate-y-0.5"><span data-edit="content.cta_label">{{ $ctaLabel }}</span></a>
     </div>
     @if($phoneHref)<a href="{{ $phoneHref }}" id="nav-phone" aria-label="Appeler" class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white backdrop-blur md:hidden"><i class="fa-solid fa-phone"></i></a>@endif
