@@ -9,7 +9,7 @@ const props = defineProps({
 });
 
 /* ───────────────────────── Recherche d'établissement ───────────────────────── */
-const form = useForm({ query: '', email: '' });
+const form = useForm({ query: '', email: '', owner_ok: false });
 const q = ref('');
 const results = ref([]);
 const open = ref(false);
@@ -22,11 +22,11 @@ let debounce = null;
 const URL_RE = /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i;
 const siteUrl = computed(() => { const v = q.value.trim(); return !selected.value && URL_RE.test(v) && !/\s/.test(v) ? v : ''; });
 const siteHost = computed(() => siteUrl.value.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0]);
-const redesign = useForm({ url: '', email: '' });
+const redesign = useForm({ url: '', email: '', owner_ok: false });
 // Trois parcours, un seul champ : la fiche Google reste le chemin principal
 const mode = ref('google'); // 'google' | 'site'
 const setMode = (m) => { mode.value = m; reset(); stopTypewriter(); setTimeout(() => document.getElementById('search-input')?.focus({ preventScroll: true }), 50); };
-const startRedesign = () => { redesign.url = siteUrl.value; redesign.email = form.email; track('Search', { search_string: siteHost.value, content_category: 'site_existant' }); redesign.post(route('redesign.start')); };
+const startRedesign = () => { redesign.url = siteUrl.value; redesign.email = form.email; redesign.owner_ok = form.owner_ok; track('Search', { search_string: siteHost.value, content_category: 'site_existant' }); redesign.post(route('redesign.start')); };
 // Aucun résultat après recherche : on propose le questionnaire
 const noResult = ref(false);
 const intakeUrl = computed(() => route('intake.create', { q: q.value.trim(), email: form.email || undefined }));
@@ -64,7 +64,8 @@ const widen = async () => {
 
 const pick = (r) => { selected.value = r; form.query = r.place_id; q.value = r.main; open.value = false; results.value = []; track('Search', { search_string: r.main, content_category: 'fiche_google' }); };
 const reset = () => { selected.value = null; form.query = ''; q.value = ''; results.value = []; open.value = false; };
-const submit = () => { if (form.query) form.post(route('public.generate')); };
+const emailOk = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email || ''));
+const submit = () => { if (form.query && emailOk.value && form.owner_ok) form.post(route('public.generate')); };
 
 const scrollToSearch = () => {
     document.getElementById('start')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -330,8 +331,9 @@ onUnmounted(() => {
                             <div v-if="siteUrl" class="glass mt-3 rounded-2xl border-brand-500/30 p-4 text-left">
                                 <p class="flex items-center gap-2 text-sm font-semibold text-white"><span class="grid h-7 w-7 place-items-center rounded-lg bg-brand-gradient text-xs">↻</span> Refaire le site <span class="truncate text-brand-300">{{ siteHost }}</span></p>
                                 <p class="mt-1.5 text-xs text-slate-400">L'IA lit vos pages, garde vos textes, prix et photos, retrouve votre fiche Google et reconstruit un site moderne. Vous comparez avant / après.</p>
-                                <button type="button" @click="startRedesign" :disabled="redesign.processing" class="btn-brand mt-3 w-full !py-3 text-sm disabled:opacity-60">{{ redesign.processing ? 'Analyse…' : 'Analyser et refaire mon site →' }}</button>
-                                <p v-if="redesign.errors.url" class="mt-2 text-xs text-rose-300">{{ redesign.errors.url }}</p>
+                                <input v-if="!emailOk" v-model="form.email" type="email" autocomplete="email" class="field mt-3" placeholder="Votre email, pour recevoir le nouveau site" />
+                                <button type="button" @click="startRedesign" :disabled="redesign.processing || !emailOk || !form.owner_ok" class="btn-brand mt-3 w-full !py-3 text-sm disabled:opacity-60">{{ redesign.processing ? 'Analyse…' : 'Analyser et refaire mon site →' }}</button>
+                                <p v-if="redesign.errors.url || redesign.errors.email" class="mt-2 text-xs text-rose-300">{{ redesign.errors.url || redesign.errors.email }}</p>
                             </div>
                             <div v-if="selected" class="glass flex items-center gap-3 rounded-2xl border-emerald-400/20 bg-emerald-500/[0.06] p-4 text-left">
                                 <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-300"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path :d="icons.check"/></svg></span>
@@ -339,12 +341,15 @@ onUnmounted(() => {
                                 <button type="button" @click="reset" class="shrink-0 rounded-lg px-2 py-1 text-xs text-slate-400 transition hover:text-white">Changer</button>
                             </div>
                             <p v-if="form.errors.query" class="mt-2 text-sm text-rose-400">{{ form.errors.query }}</p>
+                            <p v-if="form.errors.email" class="mt-2 text-sm text-rose-400">{{ form.errors.email }}</p>
                             <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-                                <input v-model="form.email" type="email" class="field sm:flex-1" placeholder="Votre email (optionnel, pour recevoir le lien)" />
-                                <button type="submit" class="btn-brand shrink-0 !px-6" :class="{ 'opacity-50': !form.query || form.processing }" :disabled="!form.query || form.processing">
+                                <input v-model="form.email" type="email" required autocomplete="email" class="field sm:flex-1" placeholder="Votre email, pour recevoir votre site" />
+                                <button type="submit" class="btn-brand shrink-0 !px-6" :class="{ 'opacity-50': !form.query || !emailOk || !form.owner_ok || form.processing }" :disabled="!form.query || !emailOk || !form.owner_ok || form.processing">
                                     {{ form.processing ? 'Création…' : selected ? 'Générer mon site →' : 'Créer mon site' }}
                                 </button>
                             </div>
+                            <div v-if="selected || siteUrl" class="mt-3"><label class="flex items-start gap-2.5 text-left text-xs leading-relaxed text-slate-400"><input type="checkbox" v-model="form.owner_ok" class="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 text-brand-500 focus:ring-brand-500/40" /><span>Je confirme être le responsable de cet établissement, ou mandaté par lui, et j'accepte les <a :href="route('legal', 'cgv')" target="_blank" class="underline hover:text-white">conditions générales</a>. Joow m'envoie par e-mail le lien de mon site et des conseils pour le mettre en ligne (désinscription en un clic). <a :href="route('legal', 'confidentialite')" target="_blank" class="underline hover:text-white">Confidentialité</a></span></label></div>
+                            <p v-if="form.errors.owner_ok || redesign.errors.owner_ok" class="mt-2 text-sm text-rose-400">{{ form.errors.owner_ok || redesign.errors.owner_ok }}</p>
                             <p class="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-slate-500 lg:justify-start">
                                 <span>✓ Gratuit</span><span>✓ Sans carte bancaire</span><span>✓ Aperçu immédiat</span><span>✓ Modifiable en 2 clics</span>
                             </p>

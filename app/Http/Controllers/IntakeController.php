@@ -100,6 +100,7 @@ class IntakeController extends Controller
             'sector_hint' => ['nullable', 'string', 'max:120'],
             'phone'       => ['required', 'string', 'min:6', 'max:30'],
             'email'       => ['required', 'email:rfc', 'max:190'],
+            'owner_ok'    => ['accepted'],
             'services'    => ['nullable', 'array', 'max:12'],
             'services.*'  => ['string', 'max:60'],
             'strengths'   => ['nullable', 'array', 'max:10'],
@@ -109,7 +110,7 @@ class IntakeController extends Controller
             'hours'       => ['nullable', 'string', 'max:300'],
             'photos'      => ['nullable', 'array', 'max:8'],
             'photos.*'    => ['string', 'max:80'],
-        ]);
+        ], ['owner_ok.accepted' => 'Cochez la case pour confirmer que vous êtes le responsable de l\'établissement.']);
 
         $sectors = config('sectors');
         $sector = ($data['sector'] ?? null) && isset($sectors[$data['sector']]) && $data['sector'] !== 'service'
@@ -136,7 +137,7 @@ class IntakeController extends Controller
             'owner_email' => $data['email'],
             'source'      => 'questionnaire',
             'preview_url' => 'https://'.$slug.'.joow.fr',
-            'site_data'   => ['intake' => array_merge($data, ['photos' => $photos]), 'attribution' => $request->session()->get('attribution'), 'tracking' => \App\Services\MetaConversions::context($request)],
+            'site_data'   => ['consent' => \App\Services\CreationGuard::consent($request), 'intake' => array_merge(\Illuminate\Support\Arr::except($data, ['owner_ok']), ['photos' => $photos]), 'attribution' => $request->session()->get('attribution'), 'tracking' => \App\Services\MetaConversions::context($request)],
         ]);
         app(\App\Services\MetaConversions::class)->event('StartGeneration', ['source' => 'intake', 'sector' => $sector], $data['email'], null, null, $request);
 

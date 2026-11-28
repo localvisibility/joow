@@ -22,6 +22,7 @@ const form = useForm({
     phone: '', email: props.prefill?.email || '',
     services: [], strengths: [], description: '', since: '', hours: '',
     photos: [],
+    owner_ok: false,
 });
 
 /* ── Étape 1 : recherche Google discrète en arrière-plan (« C'est vous ? ») ── */
@@ -49,15 +50,16 @@ const lookForProfile = () => {
 };
 watch(() => [form.name, form.city], lookForProfile);
 const useProfile = (r) => {
-    const f = useForm({ query: r.place_id, email: form.email || '' });
+    if (!emailOk(form.email) || !form.owner_ok) { profileEmailAsk.value = true; return; }
+    const f = useForm({ query: r.place_id, email: form.email || '', owner_ok: true });
     f.post(route('public.generate'));
 };
 // Un site existant ? La refonte (lecture du site + fiche Google) remplace le questionnaire
 const existingUrl = ref('');
 const URL_RE = /^(https?:\/\/)?(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i;
 const existingOk = computed(() => URL_RE.test(existingUrl.value.trim()));
-const redesign = useForm({ url: '', email: '' });
-const startRedesign = () => { redesign.url = existingUrl.value.trim(); redesign.email = form.email || ''; redesign.post(route('redesign.start')); };
+const redesign = useForm({ url: '', email: '', owner_ok: false });
+const startRedesign = () => { redesign.url = existingUrl.value.trim(); redesign.email = form.email || ''; redesign.owner_ok = form.owner_ok; redesign.post(route('redesign.start')); };
 
 /* ── Étape 2 : métier ── */
 const sectorQuery = ref('');
@@ -106,12 +108,13 @@ const upload = async (e) => {
 const removePhoto = (id) => { photos.value = photos.value.filter((p) => p.id !== id); form.photos = photos.value.map((p) => p.id); };
 
 /* ── Navigation ── */
+const profileEmailAsk = ref(false);
 const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v || '');
 const validate = () => {
     switch (cur.value.key) {
         case 'who': if (form.name.trim().length < 2) return 'Indiquez le nom de votre entreprise.'; if (form.city.trim().length < 2) return 'Indiquez votre ville.'; return '';
         case 'sector': if (!form.sector && form.sector_hint.trim().length < 3) return 'Choisissez votre métier ou décrivez-le en quelques mots.'; return '';
-        case 'contact': if (form.phone.trim().length < 6) return 'Un numéro de téléphone est indispensable : c\'est ainsi que vos clients vous appellent.'; if (!emailOk(form.email)) return 'Entrez un email valide : il sert à retrouver votre site.'; return '';
+        case 'contact': if (form.phone.trim().length < 6) return 'Un numéro de téléphone est indispensable : c\'est ainsi que vos clients vous appellent.'; if (!emailOk(form.email)) return 'Entrez un email valide : il sert à retrouver votre site.'; if (!form.owner_ok) return 'Cochez la case pour confirmer que vous êtes le responsable de l\'établissement.'; return '';
         default: return '';
     }
 };
@@ -160,6 +163,9 @@ onMounted(() => { document.querySelector('[data-focus]')?.focus(); if (form.name
                 <div v-if="matches.length && !dismissed" class="rounded-2xl border border-emerald-400/25 bg-emerald-500/[0.07] p-4">
                     <p class="text-sm font-semibold text-emerald-200">Nous avons trouvé une fiche Google qui ressemble à la vôtre. C'est vous ?</p>
                     <p class="mt-1 text-xs text-slate-400">En l'utilisant, vos avis, votre note et vos photos Google sont repris automatiquement. Plus rien à remplir.</p>
+                    <label class="mt-3 block"><span class="mb-1 block text-xs font-semibold text-white">Votre email <span class="text-brand-400">*</span> <span class="font-normal text-slate-400">pour recevoir votre site</span></span><input v-model="form.email" type="email" inputmode="email" autocomplete="email" class="field" :class="profileEmailAsk && !emailOk(form.email) ? '!border-rose-400/60' : ''" placeholder="prenom@exemple.fr" /></label>
+                    <div class="mt-3"><label class="flex items-start gap-2.5 text-left text-xs leading-relaxed text-slate-400"><input type="checkbox" v-model="form.owner_ok" class="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 text-brand-500 focus:ring-brand-500/40" /><span>Je confirme être le responsable de cet établissement, ou mandaté par lui, et j'accepte les <a :href="route('legal', 'cgv')" target="_blank" class="underline hover:text-white">conditions générales</a>. Joow m'envoie par e-mail le lien de mon site et des conseils pour le mettre en ligne (désinscription en un clic). <a :href="route('legal', 'confidentialite')" target="_blank" class="underline hover:text-white">Confidentialité</a></span></label></div>
+                    <p v-if="profileEmailAsk && (!emailOk(form.email) || !form.owner_ok)" class="mt-1 text-xs text-rose-300">Indiquez votre email et cochez la case, puis choisissez votre fiche.</p>
                     <div class="mt-3 space-y-2">
                         <button v-for="r in matches" :key="r.place_id" type="button" @click="useProfile(r)" class="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-ink-900/60 px-4 py-3 text-left transition hover:border-emerald-400/50">
                             <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/5 text-base">📍</span>
@@ -176,10 +182,14 @@ onMounted(() => { document.querySelector('[data-focus]')?.focus(); if (form.name
                     <p class="text-sm font-semibold text-white">Vous avez déjà un site internet ?</p>
                     <p class="mt-1 text-xs text-slate-400">Collez son adresse : nous lisons vos pages, gardons vos textes et photos, et le refaisons. Plus de questions à répondre.</p>
                     <div class="mt-3 flex flex-col gap-2 sm:flex-row">
-                        <input v-model="existingUrl" type="url" inputmode="url" class="field sm:flex-1" placeholder="www.mon-site.fr" @keydown.enter.prevent="existingOk && startRedesign()" />
-                        <button type="button" :disabled="!existingOk || redesign.processing" @click="startRedesign" class="rounded-xl border border-brand-400/50 bg-brand-500/15 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-500/25 disabled:opacity-40">{{ redesign.processing ? 'Analyse…' : 'Refaire mon site →' }}</button>
+                        <input v-model="existingUrl" type="url" inputmode="url" class="field sm:flex-1" placeholder="www.mon-site.fr" @keydown.enter.prevent="existingOk && emailOk(form.email) && form.owner_ok && startRedesign()" />
+                        <button type="button" :disabled="!existingOk || !emailOk(form.email) || !form.owner_ok || redesign.processing" @click="startRedesign" class="rounded-xl border border-brand-400/50 bg-brand-500/15 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-500/25 disabled:opacity-40">{{ redesign.processing ? 'Analyse…' : 'Refaire mon site →' }}</button>
                     </div>
-                    <p v-if="redesign.errors.url" class="mt-2 text-xs text-rose-300">{{ redesign.errors.url }}</p>
+                    <div v-if="existingOk && (!emailOk(form.email) || !form.owner_ok)" class="mt-3 space-y-2">
+                        <input v-model="form.email" type="email" inputmode="email" autocomplete="email" class="field" placeholder="Votre email, pour recevoir le nouveau site" />
+                        <label class="flex items-start gap-2.5 text-left text-xs leading-relaxed text-slate-400"><input type="checkbox" v-model="form.owner_ok" class="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 text-brand-500 focus:ring-brand-500/40" /><span>Je confirme être le responsable de cet établissement, ou mandaté par lui, et j'accepte les <a :href="route('legal', 'cgv')" target="_blank" class="underline hover:text-white">conditions générales</a>. Joow m'envoie par e-mail le lien de mon site et des conseils pour le mettre en ligne (désinscription en un clic).</span></label>
+                    </div>
+                    <p v-if="redesign.errors.url || redesign.errors.email || redesign.errors.owner_ok" class="mt-2 text-xs text-rose-300">{{ redesign.errors.url || redesign.errors.email || redesign.errors.owner_ok }}</p>
                 </div>
             </section>
 
@@ -201,6 +211,7 @@ onMounted(() => { document.querySelector('[data-focus]')?.focus(); if (form.name
                 <label class="block"><span class="mb-1.5 block text-sm font-semibold text-white">Email <span class="text-brand-400">*</span></span><input v-model="form.email" type="email" inputmode="email" class="field !py-4 text-base" placeholder="prenom@exemple.fr" autocomplete="email" @keydown.enter.prevent="next" /><span class="mt-1 block text-xs text-slate-500">Pour retrouver votre site et recevoir votre lien privé. Aucun compte à créer.</span></label>
                 <label class="block"><span class="mb-1.5 block text-sm font-semibold text-white">Adresse <span class="font-normal text-slate-500">(facultatif, si vous recevez du public)</span></span><input v-model="form.address" type="text" class="field" placeholder="12 rue des Lilas, 31000 Toulouse" autocomplete="street-address" /></label>
                 <label class="block"><span class="mb-1.5 block text-sm font-semibold text-white">Zone d'intervention <span class="font-normal text-slate-500">(facultatif)</span></span><input v-model="form.zone" type="text" class="field" placeholder="Ex : Toulouse et 30 km alentour" /></label>
+                <label class="flex items-start gap-2.5 text-left text-xs leading-relaxed text-slate-400"><input type="checkbox" v-model="form.owner_ok" class="mt-0.5 h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 text-brand-500 focus:ring-brand-500/40" /><span>Je confirme être le responsable de cet établissement, ou mandaté par lui, et j'accepte les <a :href="route('legal', 'cgv')" target="_blank" class="underline hover:text-white">conditions générales</a>. Joow m'envoie par e-mail le lien de mon site et des conseils pour le mettre en ligne (désinscription en un clic). <a :href="route('legal', 'confidentialite')" target="_blank" class="underline hover:text-white">Confidentialité</a></span></label>
             </section>
 
             <!-- 4. Prestations & points forts -->

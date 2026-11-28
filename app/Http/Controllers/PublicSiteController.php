@@ -44,8 +44,9 @@ class PublicSiteController extends Controller
     {
         $data = $request->validate([
             'query' => ['required', 'string', 'min:3', 'max:300'],
-            'email' => ['nullable', 'email'],
-        ]);
+            'email' => ['required', 'email:rfc', 'max:190'],
+            'owner_ok' => ['accepted'],
+        ], ['owner_ok.accepted' => 'Cochez la case pour confirmer que vous êtes le responsable de l\'établissement.', 'email.required' => 'Indiquez votre e-mail : c\'est là que nous envoyons le lien de votre site.', 'email.email' => 'Cet e-mail ne semble pas valide.']);
 
         $guard = app(\App\Services\CreationGuard::class);
         $b = $places->lookup($data['query']);
@@ -86,7 +87,7 @@ class PublicSiteController extends Controller
             'creator_ip'    => $request->ip(),
             'creator_device' => \App\Services\CreationGuard::device($request),
             'preview_url'   => 'https://'.$slug.'.joow.fr',
-            'site_data'     => ['attribution' => $request->session()->get('attribution'), 'tracking' => \App\Services\MetaConversions::context($request)],
+            'site_data'     => ['consent' => \App\Services\CreationGuard::consent($request), 'attribution' => $request->session()->get('attribution'), 'tracking' => \App\Services\MetaConversions::context($request)],
         ]);
         app(\App\Services\MetaConversions::class)->event('StartGeneration', ['source' => 'google', 'sector' => $sector], $data['email'] ?? null, null, null, $request);
 

@@ -99,4 +99,13 @@ class CreationGuard
                 }
             })->latest()->first();
     }
+
+    /** Texte de la case cochée à la création : gardé avec le site (preuve de l'accord et de la qualité de la personne). */
+    public const CONSENT_TEXT = "Je confirme être le responsable de cet établissement, ou mandaté par lui, et j'accepte les conditions générales. "
+        ."Joow m'envoie par e-mail le lien de mon site et des conseils pour le mettre en ligne (désinscription en un clic).";
+
+    public static function consent(\Illuminate\Http\Request $request): array
+    {
+        return ['owner' => true, 'text' => self::CONSENT_TEXT, 'at' => now()->toIso8601String(), 'ip' => $request->ip(), 'ua' => mb_substr((string) $request->userAgent(), 0, 200)];
+    }
 }

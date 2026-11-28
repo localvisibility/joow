@@ -185,7 +185,7 @@ HTML;
         $token = 'tok123';
         Storage::disk('local')->put("uploads/intake-$token/p1.jpg", 'x');
 
-        $this->withSession(['intake_token' => $token])->post(route('intake.store'), [
+        $this->withSession(['intake_token' => $token])->post(route('intake.store'), ['owner_ok' => 1, 
             'name' => 'Plomberie Martin', 'city' => 'Toulouse', 'phone' => '06 12 34 56 78', 'email' => 'martin@exemple.fr',
             'sector_hint' => 'plombier', 'services' => ['Dépannage'], 'photos' => ['p1.jpg', 'inconnu.jpg'],
         ])->assertRedirect();
@@ -213,15 +213,16 @@ HTML;
     public function test_redesign_unreadable_site_falls_back_to_intake(): void
     {
         Http::fake(['*' => Http::response('', 403)]);
-        $this->post(route('redesign.start'), ['url' => 'www.site-bloque.fr'])
-            ->assertRedirect(route('intake.create', ['q' => 'Site Bloque', 'email' => null, 'from_url' => 'site-bloque.fr']));
+        $this->post(route('redesign.start'), ['url' => 'www.site-bloque.fr', 'email' => 'pro@exemple.fr', 'owner_ok' => 1])
+            ->assertRedirect(route('intake.create', ['q' => 'Site Bloque', 'email' => 'pro@exemple.fr', 'from_url' => 'site-bloque.fr']));
+        $this->post(route('redesign.start'), ['url' => 'www.site-bloque.fr'])->assertSessionHasErrors('email');
         $this->assertSame(0, Site::count());
     }
 
     public function test_redesign_creates_site_and_dispatches(): void
     {
         Http::fake(['*' => Http::response(self::HTML, 200, ['Content-Type' => 'text/html'])]);
-        $this->post(route('redesign.start'), ['url' => 'plomberie-dupont.fr', 'email' => 'pro@exemple.fr'])->assertRedirect();
+        $this->post(route('redesign.start'), ['url' => 'plomberie-dupont.fr', 'email' => 'pro@exemple.fr', 'owner_ok' => 1])->assertRedirect();
         $site = Site::where('source', 'refonte')->firstOrFail();
         $this->assertSame('https://plomberie-dupont.fr', $site->site_data['import']['url']);
         $this->assertSame('pro@exemple.fr', $site->owner_email);
@@ -251,5 +252,12 @@ HTML;
         $this->assertSame(['https://x/a.jpg', 'https://g/1.jpg'], $site->site_data['business']['photos']);
         $this->assertSame('06', $site->site_data['business']['phone']);
         $this->assertSame(4.7, $site->site_data['business']['rating']);
+    }
+
+    public function test_generation_requires_email_and_owner_confirmation(): void
+    {
+        $this->post(route('public.generate'), ['query' => 'Boulangerie Martin Lyon'])->assertSessionHasErrors(['email', 'owner_ok']);
+        $this->post(route('redesign.start'), ['url' => 'boulangerie.fr', 'email' => 'pro@exemple.fr'])->assertSessionHasErrors('owner_ok');
+        $this->assertSame(0, Site::count());
     }
 }

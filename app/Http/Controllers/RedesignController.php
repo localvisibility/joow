@@ -19,8 +19,9 @@ class RedesignController extends Controller
     {
         $data = $request->validate([
             'url'   => ['required', 'string', 'max:300'],
-            'email' => ['nullable', 'email:rfc', 'max:190'],
-        ]);
+            'email' => ['required', 'email:rfc', 'max:190'],
+            'owner_ok' => ['accepted'],
+        ], ['owner_ok.accepted' => 'Cochez la case pour confirmer que vous êtes le responsable de l\'établissement.', 'email.required' => 'Indiquez votre e-mail : c\'est là que nous envoyons le lien de votre nouveau site.', 'email.email' => 'Cet e-mail ne semble pas valide.']);
 
         if ($msg = app(\App\Services\CreationGuard::class)->check($request, $data['email'] ?? null)) {
             return back()->withErrors(['url' => $msg]);
@@ -48,7 +49,7 @@ class RedesignController extends Controller
             'owner_email' => $data['email'] ?? null,
             'source'      => 'refonte',
             'preview_url' => 'https://'.$slug.'.joow.fr',
-            'site_data'   => ['import' => ['url' => $final, 'host' => $host], 'attribution' => $request->session()->get('attribution'), 'tracking' => \App\Services\MetaConversions::context($request)],
+            'site_data'   => ['consent' => \App\Services\CreationGuard::consent($request), 'import' => ['url' => $final, 'host' => $host], 'attribution' => $request->session()->get('attribution'), 'tracking' => \App\Services\MetaConversions::context($request)],
         ]);
         app(\App\Services\MetaConversions::class)->event('StartGeneration', ['source' => 'refonte'], $data['email'] ?? null, null, null, $request);
 
