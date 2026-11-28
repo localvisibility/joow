@@ -6,7 +6,9 @@ import { track } from '@/tracking';
 
 const props = defineProps({
     stats: { type: Object, default: () => ({ sites: 0, rating: 4.8, sectors: 0 }) },
+    plans: { type: Object, default: () => ({ essentiel: { price: 19 }, pro: { price: 39 }, liberte: { price: 349 }, refund_days: 30 }) },
 });
+const ess = computed(() => props.plans?.essentiel?.price ?? 19);
 
 /* ───────────────────────── Recherche d'établissement ───────────────────────── */
 const form = useForm({ query: '', email: '', owner_ok: false });
@@ -175,7 +177,7 @@ const icons = {
 
 const compare = [
     { k: 'Délai de mise en ligne', j: '90 secondes', a: '3 à 8 semaines', w: 'Plusieurs jours de travail' },
-    { k: 'Prix', j: '39 € HT/mois ou 349 € une fois', a: '1 500 à 5 000 €', w: '20 à 40 €/mois + votre temps' },
+    { k: 'Prix', j: 'Dès 19 € HT/mois, ou 349 € une fois', a: '1 500 à 5 000 €', w: '20 à 40 €/mois + votre temps' },
     { k: 'Textes rédigés pour votre métier', j: true, a: true, w: false },
     { k: 'Photos & avis Google intégrés', j: true, a: 'Parfois', w: false },
     { k: 'Réservation, paiement, assistant IA', j: 'Inclus', a: 'Sur devis', w: 'Extensions payantes' },
@@ -184,21 +186,57 @@ const compare = [
     { k: 'Design premium adapté au secteur', j: true, a: true, w: false },
 ];
 
-const testimonials = [
-    { q: 'En 2 minutes j\'avais un site plus beau que celui que je payais 1 500 €. Mes clientes réservent en ligne, je ne rate plus un appel.', a: 'Sophie M.', r: 'Institut de beauté, Lyon', i: 'S' },
-    { q: 'Je pensais que ce serait compliqué. J\'ai cherché mon restaurant, cliqué, c\'était fait. Les réservations tombent toutes seules.', a: 'Karim B.', r: 'Restaurant, Marseille', i: 'K' },
-    { q: 'Les avis Google intégrés, le formulaire de devis, tout y était. J\'ai publié le soir même et reçu 3 demandes dans la semaine.', a: 'Laurent D.', r: 'Rénovation, Toulouse', i: 'L' },
-];
+
 
 const faqs = [
-    { q: 'Combien ça coûte ?', a: 'La création et l\'aperçu sont 100 % gratuits. Vous ne payez que si vous publiez : formule Pro à 39 € HT/mois (sans engagement, résiliable à tout moment) ou formule Liberté à 349 € HT en paiement unique, site à vie.' },
-    { q: 'Les modules (réservation, paiement, assistant IA…) sont-ils inclus ?', a: 'Oui. Tous les modules sont inclus dans les deux formules et s\'activent en un clic depuis votre espace. Les paiements en ligne passent par Stripe : l\'argent arrive directement sur votre compte.' },
+    { q: 'Combien ça coûte ?', a: 'La création et l\'aperçu sont 100 % gratuits. Vous ne payez que si vous publiez : formule Essentiel dès 19 € HT/mois, formule Pro à 39 € HT/mois avec réservations, paiements et assistant IA, ou formule Liberté à 349 € HT en paiement unique. Sans engagement, et satisfait ou remboursé 30 jours.' },
+    { q: 'Les modules (réservation, paiement, assistant IA…) sont-ils inclus ?', a: 'Formulaire de demande, avis Google, WhatsApp, popup, carte et statistiques sont inclus dès l\'Essentiel. Réservations, paiements en ligne et assistant IA sont inclus dans les formules Pro et Liberté, et s\'activent en un clic. Les paiements passent par Stripe : l\'argent arrive directement sur votre compte.' },
     { q: 'Ai-je besoin de compétences techniques ?', a: 'Aucune. Vous cherchez votre établissement, l\'IA fait le reste. Ensuite, vous cliquez sur un texte ou une image pour le modifier, ou vous demandez à l\'assistant : « rends le ton plus chaleureux ».' },
     { q: 'D\'où viennent les textes et les photos ?', a: 'De votre fiche Google (avis, photos, horaires), enrichis par notre IA qui rédige des contenus adaptés à votre métier. Vous pouvez tout remplacer par vos propres photos et textes.' },
     { q: 'Puis-je utiliser mon propre nom de domaine ?', a: 'Oui. Votre site est livré sur une adresse joow.fr, et vous branchez votre propre domaine (.fr, .com…) à tout moment, certificat SSL inclus.' },
-    { q: 'Et si je ne suis pas satisfait ?', a: 'L\'aperçu est gratuit et sans engagement : vous ne payez rien tant que vous n\'avez pas décidé de publier. La formule Pro est résiliable en un clic.' },
+    { q: 'Et si je ne suis pas satisfait ?', a: 'L\'aperçu est gratuit : vous ne payez rien tant que vous n\'avez pas décidé de publier. Après la mise en ligne, vous avez 30 jours pour changer d\'avis : satisfait ou remboursé, sur simple email. Les abonnements sont ensuite résiliables en un clic.' },
 ];
 const openFaq = ref(0);
+
+/* ───────────────────────── Démos interactives ───────────────────────── */
+// Réservation : créneau, couverts, confirmation
+const resa = ref({ slot: '20:30', covers: 4, done: false });
+const resaSlots = [['19:00', true], ['19:30', true], ['20:30', true], ['21:00', false]];
+const bookTable = () => { resa.value.done = true; setTimeout(() => { resa.value.done = false; }, 3200); };
+// Assistant IA : questions cliquables, réponse « tapée »
+const chatQs = [
+    { q: 'Vous avez une terrasse pour 6 ce samedi ?', a: 'Oui ! La terrasse est ouverte jusqu\'à 23h. Il reste de la place samedi à 20h et 20h30. Je vous réserve ?' },
+    { q: 'Vous avez des plats sans gluten ?', a: 'Bien sûr : la moitié de la carte est sans gluten, signalée par un pictogramme. Le chef adapte aussi les desserts sur demande.' },
+    { q: 'Je peux venir avec mon chien ?', a: 'Avec plaisir, les chiens sont les bienvenus en terrasse. On vous apporte même une gamelle d\'eau 🐶' },
+];
+const chat = ref([{ me: true, t: chatQs[0].q }, { me: false, t: chatQs[0].a }]);
+const chatTyping = ref(false);
+const askBot = (i) => {
+    if (chatTyping.value) return;
+    chat.value = [...chat.value.slice(-2), { me: true, t: chatQs[i].q }];
+    chatTyping.value = true;
+    setTimeout(() => { chatTyping.value = false; chat.value = [...chat.value, { me: false, t: chatQs[i].a }].slice(-3); }, 1100);
+};
+// Avant / après : fiche Google → site
+const ba = ref({ i: 0, pos: 50, drag: false });
+const baSite = computed(() => showcase[[0, 8, 2, 9, 6, 1][ba.value.i]]);
+const baSectors = [0, 8, 2, 9, 6, 1];
+const baMove = (e) => {
+    if (!ba.value.drag && e.type !== 'click') return;
+    const el = document.getElementById('ba-frame'); if (!el) return;
+    const r = el.getBoundingClientRect(); const x = (e.touches?.[0]?.clientX ?? e.clientX) - r.left;
+    ba.value.pos = Math.max(4, Math.min(96, (x / r.width) * 100));
+};
+// Simulateur : ce que le site peut rapporter (chiffres saisis par le visiteur)
+const roi = ref({ leads: 6, basket: 80 });
+const roiMonth = computed(() => roi.value.leads * roi.value.basket);
+const roiBreakEven = computed(() => Math.max(1, Math.ceil(ess.value / Math.max(1, roi.value.basket))));
+// Halo qui suit la souris sur les cartes
+const onSpot = (e) => {
+    const el = e.target.closest?.('.spot'); if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty('--mx', `${e.clientX - r.left}px`); el.style.setProperty('--my', `${e.clientY - r.top}px`);
+};
 
 /* ───────────────────────── Effets ───────────────────────── */
 const displaySites = ref(0);
@@ -232,6 +270,8 @@ onMounted(() => {
     const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('on'); io.unobserve(e.target); } }), { threshold: 0.12 });
     document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
     window.addEventListener('pointermove', onPointer, { passive: true });
+    window.addEventListener('pointermove', onSpot, { passive: true });
+    window.addEventListener('pointerup', () => { ba.value.drag = false; });
     window.addEventListener('scroll', onScroll, { passive: true });
     stageTimer = setInterval(() => { if (!stageHover.value) stage.value = (stage.value + 1) % showcase.length; }, 4200);
     runTypewriter();
@@ -239,6 +279,7 @@ onMounted(() => {
 });
 onUnmounted(() => {
     window.removeEventListener('pointermove', onPointer);
+    window.removeEventListener('pointermove', onSpot);
     window.removeEventListener('scroll', onScroll);
     clearInterval(stageTimer); clearTimeout(twTimer); clearInterval(genTimer);
 });
@@ -285,7 +326,7 @@ onUnmounted(() => {
                             IA + votre fiche Google · essai gratuit
                         </p>
                         <h1 class="reveal mt-4 font-display text-[2.4rem] font-bold leading-[1.02] text-white sm:mt-5 sm:text-6xl xl:text-7xl">
-                            Le site pro<br>de votre métier,<br><span class="text-shimmer">en 90 secondes.</span>
+                            Le site pro<br>de votre métier,<br><span class="serif text-shimmer pr-2">en 90 secondes.</span>
                         </h1>
                         <p class="reveal mx-auto mt-4 max-w-xl text-base text-slate-400 sm:mt-6 sm:text-lg lg:mx-0">
                             Tapez le nom de votre établissement. Joow rédige, choisit vos photos, intègre vos avis Google et active réservation, paiement et assistant IA.<span class="hidden sm:inline"> Sans compte, sans attente.</span>
@@ -419,7 +460,7 @@ onUnmounted(() => {
                 <div class="grid items-center gap-12 lg:grid-cols-2">
                     <div>
                         <p class="reveal text-xs font-bold uppercase tracking-[0.3em] text-brand-400">Comment ça marche</p>
-                        <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Pas de brief. Pas de graphiste.<br class="hidden sm:block"> Pas d'attente.</h2>
+                        <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Pas de brief. Pas de graphiste.<br class="hidden sm:block"> <em class="serif text-brand-300">Pas d'attente.</em></h2>
                         <p class="reveal mt-4 max-w-lg text-lg text-slate-400">Votre fiche Google contient déjà tout : vos photos, vos avis, vos horaires. Joow s'en sert pour construire un site complet, puis vous laisse la main.</p>
                         <div class="mt-8 space-y-4">
                             <div class="reveal flex gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-gradient font-display font-bold text-white">1</span><div><h3 class="font-display text-lg font-bold text-white">Trouvez votre établissement</h3><p class="text-sm text-slate-400">Tapez son nom, on le retrouve instantanément sur Google.</p></div></div>
@@ -458,7 +499,7 @@ onUnmounted(() => {
             <section id="exemples" class="relative scroll-mt-20 py-20">
                 <div class="mx-auto mb-10 max-w-7xl px-5 text-center">
                     <p class="reveal text-xs font-bold uppercase tracking-[0.3em] text-brand-400">La vitrine Joow</p>
-                    <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Des sites qui donnent envie de cliquer</h2>
+                    <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Des sites qui donnent <em class="serif text-brand-300">envie de cliquer</em></h2>
                     <p class="reveal mx-auto mt-4 max-w-xl text-lg text-slate-400">Chaque métier a sa propre identité : typographie, palette, animations, sections. Survolez pour faire défiler.</p>
                 </div>
 
@@ -528,13 +569,13 @@ onUnmounted(() => {
             <section id="modules" class="mx-auto max-w-7xl scroll-mt-20 px-5 py-24">
                 <div class="mb-12 text-center">
                     <p class="reveal text-xs font-bold uppercase tracking-[0.3em] text-brand-400">Modules inclus</p>
-                    <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Un site qui travaille pour vous,<br class="hidden sm:block"> même quand vous dormez</h2>
-                    <p class="reveal mx-auto mt-4 max-w-2xl text-lg text-slate-400">Réservations, paiements, assistant IA, WhatsApp, avis… Tous les modules sont inclus et s'activent en un clic depuis votre espace. Les demandes arrivent dans votre boîte de réception Joow, par email et par SMS.</p>
+                    <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Un site qui travaille pour vous,<br class="hidden sm:block"> <em class="serif text-brand-300">même quand vous dormez</em></h2>
+                    <p class="reveal mx-auto mt-4 max-w-2xl text-lg text-slate-400">Réservations, paiements, assistant IA, WhatsApp, avis… Les modules s'activent en un clic depuis votre espace : essayez-les ci-dessous. Les demandes arrivent dans votre boîte de réception Joow, par email et par SMS.</p>
                 </div>
 
                 <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
                     <!-- Réservation de table (grande carte avec maquette) -->
-                    <div class="reveal glass glass-hover relative overflow-hidden rounded-3xl p-6 md:col-span-2 lg:row-span-2">
+                    <div class="reveal spot glass glass-hover relative overflow-hidden rounded-3xl p-6 md:col-span-2 lg:row-span-2">
                         <div class="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-brand-600/20 blur-3xl"></div>
                         <div class="relative flex items-start gap-3">
                             <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-gradient text-white"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path :d="icons.calendar"/></svg></span>
@@ -542,19 +583,17 @@ onUnmounted(() => {
                         </div>
                         <!-- Maquette widget -->
                         <div class="mock relative mt-6 rounded-2xl border border-white/10 bg-ink-900/80 p-4">
+                            <p class="mb-3 text-[11px] font-semibold uppercase tracking-wider text-brand-300">Essayez : choisissez un créneau</p>
                             <div class="grid grid-cols-2 gap-3 text-xs">
-                                <div><p class="mb-1 text-slate-500">Date</p><div class="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-white">Ven. 26 sept.</div></div>
-                                <div><p class="mb-1 text-slate-500">Couverts</p><div class="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-white">4 personnes</div></div>
+                                <div><p class="mb-1 text-slate-500">Date</p><div class="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-white">Samedi soir</div></div>
+                                <div><p class="mb-1 text-slate-500">Couverts</p><div class="flex items-center justify-between rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-white"><button type="button" @click="resa.covers = Math.max(1, resa.covers - 1)" class="grid h-6 w-6 place-items-center rounded-md bg-white/5 hover:bg-white/10">−</button><span>{{ resa.covers }} pers.</span><button type="button" @click="resa.covers = Math.min(12, resa.covers + 1)" class="grid h-6 w-6 place-items-center rounded-md bg-white/5 hover:bg-white/10">+</button></div></div>
                             </div>
                             <p class="mb-1.5 mt-3 text-xs text-slate-500">Créneau</p>
                             <div class="grid grid-cols-4 gap-2 text-center text-xs font-semibold">
-                                <span class="rounded-lg border border-white/10 py-2 text-slate-300">19:00</span>
-                                <span class="rounded-lg border border-white/10 py-2 text-slate-300">19:30</span>
-                                <span class="rounded-lg bg-brand-gradient py-2 text-white shadow-glow">20:30</span>
-                                <span class="rounded-lg border border-white/10 py-2 text-slate-600 line-through">21:00</span>
+                                <button v-for="s in resaSlots" :key="s[0]" type="button" :disabled="!s[1]" @click="resa.slot = s[0]" class="rounded-lg py-2 transition" :class="!s[1] ? 'border border-white/10 text-slate-600 line-through' : resa.slot === s[0] ? 'bg-brand-gradient text-white shadow-glow' : 'border border-white/10 text-slate-300 hover:border-brand-400/50'">{{ s[0] }}</button>
                             </div>
-                            <div class="mt-3 rounded-xl bg-brand-gradient py-2.5 text-center text-sm font-bold text-white">Réserver ma table</div>
-                            <div class="mock-toast"><span class="grid h-7 w-7 place-items-center rounded-full bg-emerald-500/20 text-emerald-300"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path :d="icons.check"/></svg></span><span><strong class="block text-white">Table confirmée</strong><span class="text-slate-400">SMS envoyé · rappel demain 10h</span></span></div>
+                            <button type="button" @click="bookTable" class="mt-3 w-full rounded-xl bg-brand-gradient py-2.5 text-center text-sm font-bold text-white transition hover:brightness-110">Réserver ma table</button>
+                            <Transition name="fade"><div v-if="resa.done" class="mock-toast !animate-none"><span class="grid h-7 w-7 place-items-center rounded-full bg-emerald-500/20 text-emerald-300"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path :d="icons.check"/></svg></span><span><strong class="block text-white">Table confirmée · {{ resa.slot }}</strong><span class="text-slate-400">{{ resa.covers }} pers. · SMS de rappel envoyé</span></span></div></Transition>
                         </div>
                         <ul class="relative mt-5 grid grid-cols-2 gap-2 text-xs text-slate-300">
                             <li>✓ Empreinte bancaire anti no-show</li><li>✓ Compatible ZenChef</li><li>✓ Boîte de réception + statuts</li><li>✓ Ajout à l'agenda en 1 clic</li>
@@ -562,15 +601,19 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Assistant IA (maquette chat) -->
-                    <div class="reveal glass glass-hover relative overflow-hidden rounded-3xl p-6 lg:col-span-2">
+                    <div class="reveal spot glass glass-hover relative overflow-hidden rounded-3xl p-6 lg:col-span-2">
                         <div class="flex items-start gap-3">
                             <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-gradient text-white"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path :d="icons.chat"/></svg></span>
                             <div><h3 class="font-display text-xl font-bold text-white">Assistant IA 24h/24</h3><p class="mt-1 text-sm text-slate-400">Formé sur votre établissement. Il répond, rassure et récupère les coordonnées des intéressés.</p></div>
                         </div>
-                        <div class="mt-5 space-y-2 text-sm">
-                            <div class="ml-auto w-max max-w-[85%] rounded-2xl rounded-br-md bg-brand-gradient px-3.5 py-2 text-white">Vous avez une terrasse pour 6 ce samedi ?</div>
-                            <div class="w-max max-w-[85%] rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.05] px-3.5 py-2 text-slate-200">Oui ! La terrasse est ouverte jusqu'à 23h. Il reste de la place samedi à 20h et 20h30. Je vous réserve ?</div>
-                            <div class="typing w-max rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.05] px-3.5 py-2.5"><span></span><span></span><span></span></div>
+                        <div class="mt-5 min-h-[9.5rem] space-y-2 text-sm">
+                            <TransitionGroup name="msg">
+                                <div v-for="(m, i) in chat" :key="m.t + i" class="w-max max-w-[85%] px-3.5 py-2" :class="m.me ? 'ml-auto rounded-2xl rounded-br-md bg-brand-gradient text-white' : 'rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.05] text-slate-200'">{{ m.t }}</div>
+                            </TransitionGroup>
+                            <div v-if="chatTyping" class="typing w-max rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.05] px-3.5 py-2.5"><span></span><span></span><span></span></div>
+                        </div>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            <button v-for="(c, i) in chatQs" :key="i" type="button" @click="askBot(i)" :disabled="chatTyping" class="rounded-full border border-brand-400/30 bg-brand-500/10 px-3 py-1.5 text-xs text-brand-100 transition hover:bg-brand-500/20 disabled:opacity-50">{{ c.q }}</button>
                         </div>
                     </div>
 
@@ -637,7 +680,7 @@ onUnmounted(() => {
                 <div class="grid items-center gap-12 lg:grid-cols-[0.9fr_1.1fr]">
                     <div>
                         <p class="reveal text-xs font-bold uppercase tracking-[0.3em] text-brand-400">Le Studio</p>
-                        <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Modifiez tout en 2 clics.<br>Ou demandez à l'IA.</h2>
+                        <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Modifiez tout en 2 clics.<br><em class="serif text-brand-300">Ou demandez à l'IA.</em></h2>
                         <p class="reveal mt-4 max-w-lg text-lg text-slate-400">Cliquez un texte, il devient modifiable. Cliquez une photo, remplacez-la. Réordonnez les sections, changez les couleurs, construisez votre formulaire. Et pour le reste, un mot à l'assistant.</p>
                         <div class="reveal mt-6 flex flex-wrap gap-2">
                             <span class="ai-chip">« Rends le ton plus chaleureux »</span>
@@ -665,7 +708,7 @@ onUnmounted(() => {
             <section class="mx-auto max-w-5xl px-5 py-20">
                 <div class="mb-10 text-center">
                     <p class="reveal text-xs font-bold uppercase tracking-[0.3em] text-brand-400">Pourquoi Joow</p>
-                    <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Le résultat d'une agence.<br class="hidden sm:block"> Sans le prix, sans l'attente.</h2>
+                    <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Le résultat d'une agence.<br class="hidden sm:block"> <em class="serif text-brand-300">Sans le prix, sans l'attente.</em></h2>
                 </div>
                 <div class="reveal glass overflow-hidden rounded-3xl">
                     <div class="overflow-x-auto">
@@ -691,59 +734,122 @@ onUnmounted(() => {
                 </div>
             </section>
 
-            <!-- ═══ TÉMOIGNAGES ═══ -->
+            <!-- ═══ AVANT / APRÈS (interactif) ═══ -->
             <section class="mx-auto max-w-6xl px-5 py-20">
-                <div class="reveal mb-10 text-center">
-                    <h2 class="font-display text-3xl font-bold text-white sm:text-5xl">Ils ont créé leur site en moins de 2 minutes</h2>
+                <div class="mb-10 text-center">
+                    <p class="reveal text-xs font-bold uppercase tracking-[0.3em] text-brand-400">Avant · après</p>
+                    <h2 class="reveal mt-3 font-display text-3xl font-bold text-white sm:text-5xl">Votre fiche Google,<br class="hidden sm:block"> <em class="serif text-brand-300">transformée en vrai site.</em></h2>
+                    <p class="reveal mx-auto mt-4 max-w-2xl text-lg text-slate-400">Faites glisser le curseur : à gauche ce que vos clients voient aujourd'hui, à droite ce que Joow en fait.</p>
                 </div>
-                <div class="grid gap-5 sm:grid-cols-3">
-                    <figure v-for="t in testimonials" :key="t.a" class="reveal glass glass-hover rounded-3xl p-6">
-                        <div class="text-amber-400">★★★★★</div>
-                        <blockquote class="mt-3 text-slate-200">« {{ t.q }} »</blockquote>
-                        <figcaption class="mt-5 flex items-center gap-3 text-sm"><span class="grid h-10 w-10 place-items-center rounded-full bg-brand-gradient font-display font-bold text-white">{{ t.i }}</span><span><span class="block font-semibold text-white">{{ t.a }}</span><span class="block text-slate-500">{{ t.r }}</span></span></figcaption>
-                    </figure>
+                <div class="reveal mb-5 flex flex-wrap justify-center gap-2">
+                    <button v-for="(k, i) in baSectors" :key="k" type="button" @click="ba.i = i; ba.pos = 50" class="rounded-full px-4 py-2 text-sm font-semibold transition" :class="ba.i === i ? 'bg-white text-ink-950' : 'border border-white/10 text-slate-300 hover:border-white/30'">{{ showcase[k].sector }}</button>
+                </div>
+                <div id="ba-frame" class="reveal ba relative mx-auto aspect-[4/5] max-w-5xl sm:aspect-[16/10] select-none overflow-hidden rounded-3xl border border-white/10 bg-ink-900 shadow-2xl"
+                    @pointerdown="ba.drag = true; baMove($event)" @pointermove="baMove" @click="baMove" style="touch-action: pan-y">
+                    <!-- Après : le site -->
+                    <img :src="baSite.img" :alt="'Site ' + baSite.name" class="absolute inset-0 h-full w-full object-cover object-top" draggable="false" />
+                    <span class="absolute right-4 top-4 rounded-full bg-emerald-500/90 px-3 py-1 text-xs font-bold text-white shadow">Avec Joow</span>
+                    <!-- Avant : la fiche Google -->
+                    <div class="absolute inset-0 bg-[#f1f3f4]" :style="{ clipPath: `inset(0 ${100 - ba.pos}% 0 0)` }">
+                        <div class="flex h-full items-center justify-start p-4 pt-14 sm:p-10 sm:pl-[7%]">
+                            <div class="w-[78%] max-w-sm rounded-2xl bg-white p-4 text-left text-slate-700 shadow-xl sm:w-full sm:p-5">
+                                <div class="grid h-24 grid-cols-3 grid-rows-2 gap-1 overflow-hidden rounded-xl sm:h-28"><div class="col-span-2 row-span-2 grid place-items-center bg-slate-300 text-2xl text-slate-400">📷</div><div class="bg-slate-200"></div><div class="bg-slate-300/70"></div></div>
+                                <p class="mt-3 text-lg font-semibold text-slate-900">{{ baSite.name }}</p>
+                                <p class="text-sm text-slate-500">{{ baSite.sector }} · {{ baSite.city }}</p>
+                                <p class="mt-1 text-sm"><span class="font-semibold text-slate-800">4,8</span> <span class="text-amber-500">★★★★★</span> <span class="text-slate-500">(avis Google)</span></p>
+                                <div class="mt-3 flex flex-wrap gap-2 whitespace-nowrap text-xs font-semibold text-sky-700"><span class="rounded-full border border-slate-200 px-3 py-1.5">Itinéraire</span><span class="rounded-full border border-slate-200 px-3 py-1.5">Appeler</span><span class="rounded-full border border-slate-200 px-3 py-1.5">Site Web ✕</span></div>
+                                <p class="mt-3 text-xs text-slate-400">Pas de site, pas de réservation, pas de présentation de vos services.</p>
+                            </div>
+                        </div>
+                        <span class="absolute left-4 top-4 rounded-full bg-slate-800/80 px-3 py-1 text-xs font-bold text-white">Aujourd'hui · fiche Google</span>
+                    </div>
+                    <!-- Poignée -->
+                    <div class="absolute inset-y-0 w-0.5 bg-white/90 shadow-[0_0_20px_rgba(255,255,255,.6)]" :style="{ left: ba.pos + '%' }">
+                        <span class="absolute left-1/2 top-1/2 grid h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize place-items-center rounded-full bg-white text-ink-950 shadow-xl">⟷</span>
+                    </div>
+                    <input type="range" min="4" max="96" v-model.number="ba.pos" aria-label="Comparer avant et après" class="absolute inset-x-0 bottom-0 h-8 w-full cursor-ew-resize opacity-0" />
+                </div>
+                <p class="reveal mt-4 text-center text-xs text-slate-500">Exemples de démonstration. Le vôtre est généré à partir de votre propre fiche.</p>
+            </section>
+
+            <!-- ═══ SIMULATEUR ═══ -->
+            <section class="mx-auto max-w-5xl px-5 py-16">
+                <div class="reveal spot glass relative overflow-hidden rounded-[2rem] p-8 sm:p-12">
+                    <div class="pointer-events-none absolute -left-20 -top-24 h-72 w-72 rounded-full bg-brand-600/20 blur-3xl"></div>
+                    <div class="relative grid items-center gap-10 lg:grid-cols-2">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-[0.3em] text-brand-400">Simulateur</p>
+                            <h2 class="mt-3 font-display text-3xl font-bold text-white sm:text-4xl">Combien peut vous <em class="serif text-brand-300">rapporter</em> votre site ?</h2>
+                            <p class="mt-3 text-slate-400">Indiquez vos propres chiffres. Un site qui reçoit des demandes en ligne travaille aussi la nuit et le dimanche.</p>
+                            <label class="mt-7 block text-sm text-slate-300">Nouveaux clients par mois grâce au site : <b class="text-white">{{ roi.leads }}</b>
+                                <input type="range" min="1" max="40" v-model.number="roi.leads" class="range mt-3 w-full" /></label>
+                            <label class="mt-6 block text-sm text-slate-300">Dépense moyenne d'un client : <b class="text-white">{{ roi.basket }} €</b>
+                                <input type="range" min="10" max="600" step="10" v-model.number="roi.basket" class="range mt-3 w-full" /></label>
+                        </div>
+                        <div class="rounded-3xl border border-white/10 bg-ink-950/60 p-7 text-center">
+                            <p class="text-sm text-slate-400">Chiffre d'affaires apporté chaque mois</p>
+                            <p class="mt-2 font-display text-6xl font-bold text-white">{{ roiMonth.toLocaleString('fr-FR') }} €</p>
+                            <div class="mx-auto mt-6 h-px w-24 bg-white/10"></div>
+                            <p class="mt-6 text-sm text-slate-300">Votre site Joow, dès <b class="text-white">{{ ess }} € HT/mois</b>, est rentabilisé dès <b class="text-emerald-300">{{ roiBreakEven }} client{{ roiBreakEven > 1 ? 's' : '' }}</b>.</p>
+                            <button @click="scrollToSearch" class="btn-brand mt-7 w-full">Créer mon site gratuitement →</button>
+                            <p class="mt-3 text-[11px] text-slate-500">Simulation indicative, calculée uniquement à partir des chiffres que vous saisissez.</p>
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <!-- ═══ TARIFS ═══ -->
-            <section id="tarifs" class="mx-auto max-w-5xl scroll-mt-20 px-5 py-20">
+            <section id="tarifs" class="mx-auto max-w-6xl scroll-mt-20 px-5 py-20">
                 <div class="mb-10 text-center">
                     <p class="reveal inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-300">Aperçu 100 % gratuit · vous ne payez qu'au moment de publier</p>
-                    <h2 class="reveal mt-4 font-display text-3xl font-bold text-white sm:text-5xl">Deux formules, tous les modules inclus</h2>
+                    <h2 class="reveal mt-4 font-display text-3xl font-bold text-white sm:text-5xl">Simple, <em class="serif text-brand-300">sans engagement.</em></h2>
                 </div>
-                <div class="grid gap-5 md:grid-cols-2">
-                    <div class="reveal relative overflow-hidden rounded-3xl border border-brand-500/50 bg-white/[0.03] p-8 shadow-glow">
+                <div class="grid gap-5 lg:grid-cols-3">
+                    <div class="reveal spot relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+                        <span class="chip bg-white/10 text-slate-200">Pour démarrer</span>
+                        <p class="mt-4 font-display text-xl font-bold text-white">Essentiel</p>
+                        <p class="mt-2 font-display text-5xl font-bold text-white">{{ ess }} €<span class="text-base font-medium text-slate-400"> HT / mois</span></p>
+                        <p class="mt-2 text-sm font-semibold text-slate-300">Un beau site, simplement</p>
+                        <ul class="mt-6 space-y-2.5 text-sm text-slate-300">
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .fr / .com + hébergement + SSL</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Formulaire de demande, avis Google, WhatsApp</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Popup, bandeau d'annonce, carte, statistiques</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Studio illimité + 20 crédits IA / mois</li>
+                            <li class="flex gap-2 text-slate-500"><span>—</span> Réservations, paiements, assistant IA</li>
+                        </ul>
+                        <button @click="scrollToSearch" class="mt-8 w-full rounded-xl border border-white/15 px-5 py-3 font-semibold text-white transition hover:bg-white/5">Commencer gratuitement →</button>
+                    </div>
+                    <div class="reveal spot relative overflow-hidden rounded-3xl border border-brand-500/50 bg-white/[0.04] p-8 shadow-glow">
                         <div class="pointer-events-none absolute -top-16 right-0 h-48 w-48 rounded-full bg-brand-600/25 blur-3xl"></div>
                         <span class="chip bg-brand-gradient text-white">Recommandé</span>
                         <p class="mt-4 font-display text-xl font-bold text-white">Pro</p>
-                        <p class="mt-2 font-display text-5xl font-bold text-white">39 €<span class="text-base font-medium text-slate-400"> HT / mois</span></p>
-                        <p class="mt-2 text-sm font-semibold text-emerald-300">{{ trialDays > 0 ? trialDays + ' jours d\'essai gratuit · sans engagement' : 'Aperçu et Studio gratuits · vous payez à la mise en ligne' }}</p>
+                        <p class="mt-2 font-display text-5xl font-bold text-white">{{ plans.pro?.price ?? 39 }} €<span class="text-base font-medium text-slate-400"> HT / mois</span></p>
+                        <p class="mt-2 text-sm font-semibold text-emerald-300">Le site qui fait rentrer des clients</p>
                         <ul class="mt-6 space-y-2.5 text-sm text-slate-300">
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Nom de domaine .fr / .com + hébergement + SSL</li>
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Tous les modules : réservation, paiement, assistant IA, WhatsApp…</li>
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Studio + éditeur IA illimités</li>
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Emails & SMS de confirmation</li>
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Statistiques, SEO local, mises à jour</li>
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Résiliable en un clic</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Tout l'Essentiel</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Réservations : tables, chambres, rendez-vous</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Paiements & acomptes en ligne</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Assistant IA 24h/24 sur votre site</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> 100 crédits IA / mois · emails & SMS</li>
                         </ul>
                         <button @click="scrollToSearch" class="btn-brand mt-8 w-full">Commencer gratuitement →</button>
                     </div>
-                    <div class="reveal rounded-3xl border border-white/10 bg-white/[0.03] p-8">
+                    <div class="reveal spot relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] p-8">
                         <span class="chip bg-white/10 text-slate-200">Paiement unique</span>
                         <p class="mt-4 font-display text-xl font-bold text-white">Liberté</p>
-                        <p class="mt-2 font-display text-5xl font-bold text-white">349 €<span class="text-base font-medium text-slate-400"> HT, une fois</span></p>
+                        <p class="mt-2 font-display text-5xl font-bold text-white">{{ plans.liberte?.price ?? 349 }} €<span class="text-base font-medium text-slate-400"> HT, une fois</span></p>
                         <p class="mt-2 text-sm font-semibold text-brand-300">Votre site, à vie</p>
                         <ul class="mt-6 space-y-2.5 text-sm text-slate-300">
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Domaine + hébergement offerts la première année</li>
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Tous les modules inclus</li>
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Studio + éditeur IA illimités</li>
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Téléchargement du site (vous en êtes propriétaire)</li>
-                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Hébergement ensuite : 9 € / mois</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Tous les modules du Pro</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Domaine offert la première année</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Studio illimité + 100 crédits IA offerts</li>
+                            <li class="flex gap-2"><span class="text-emerald-400">✓</span> Aucun abonnement</li>
                         </ul>
                         <button @click="scrollToSearch" class="mt-8 w-full rounded-xl border border-white/15 px-5 py-3 font-semibold text-white transition hover:bg-white/5">Créer mon site →</button>
                     </div>
                 </div>
-                <p class="reveal mt-6 text-center text-xs text-slate-500">Prix HT. Paiement sécurisé par Stripe. Aucun frais caché, aucune commission sur vos réservations.</p>
+                <p v-if="plans.refund_days" class="reveal mt-7 text-center text-sm font-semibold text-emerald-300">✓ Satisfait ou remboursé {{ plans.refund_days }} jours</p>
+                <p class="reveal mt-2 text-center text-xs text-slate-500">Prix HT. Paiement sécurisé par Stripe. Aucun frais caché, aucune commission sur vos réservations.</p>
             </section>
 
             <!-- ═══ FAQ ═══ -->
@@ -764,10 +870,10 @@ onUnmounted(() => {
             <section class="mx-auto max-w-5xl px-5 pb-24 pt-10">
                 <div class="reveal cta-final relative overflow-hidden rounded-[2rem] p-10 text-center sm:p-16">
                     <div class="relative">
-                        <h2 class="font-display text-3xl font-bold text-white sm:text-5xl">Votre site vous attend.</h2>
+                        <h2 class="font-display text-3xl font-bold text-white sm:text-5xl">Votre site <em class="serif text-brand-200">vous attend.</em></h2>
                         <p class="mx-auto mt-4 max-w-lg text-lg text-slate-300">Cherchez votre établissement et voyez le résultat en 90 secondes. C'est gratuit, sans carte bancaire.</p>
                         <button @click="scrollToSearch" class="btn-brand mt-8 !px-8 !py-4 text-base">Créer mon site maintenant →</button>
-                        <p class="mt-4 text-xs text-slate-400"><span v-if="stats.sites >= 100">{{ displaySites.toLocaleString('fr-FR') }}+ sites créés · </span>Essai gratuit · résiliable en un clic</p>
+                        <p class="mt-4 text-xs text-slate-400"><span v-if="stats.sites >= 100">{{ displaySites.toLocaleString('fr-FR') }}+ sites créés · </span>Aperçu gratuit · sans engagement<span v-if="plans.refund_days"> · satisfait ou remboursé {{ plans.refund_days }} jours</span></p>
                     </div>
                 </div>
             </section>
@@ -823,6 +929,20 @@ onUnmounted(() => {
 .grain { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E"); mix-blend-mode: overlay; opacity: .35; }
 
 /* Titre */
+/* Accent typographique élégant */
+.serif { font-family: 'Instrument Serif', Georgia, serif; font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
+/* Halo qui suit la souris */
+.spot { position: relative; isolation: isolate; }
+.spot::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .3s; background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(129,140,248,.16), transparent 45%); }
+.spot:hover::after { opacity: 1; }
+/* Curseurs du simulateur */
+.range { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 9999px; background: linear-gradient(90deg, #818cf8, #c084fc); outline: none; }
+.range::-webkit-slider-thumb { -webkit-appearance: none; height: 22px; width: 22px; border-radius: 9999px; background: #fff; box-shadow: 0 4px 14px rgba(129,140,248,.6); cursor: pointer; }
+.range::-moz-range-thumb { height: 22px; width: 22px; border: 0; border-radius: 9999px; background: #fff; box-shadow: 0 4px 14px rgba(129,140,248,.6); cursor: pointer; }
+/* Messages du chat */
+.msg-enter-active { transition: all .35s cubic-bezier(.22,1,.36,1); }
+.msg-enter-from { opacity: 0; transform: translateY(8px) scale(.98); }
+.msg-leave-active { display: none; }
 .text-shimmer { background: linear-gradient(100deg,#818cf8 20%,#e879f9 40%,#38bdf8 60%,#818cf8 80%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 5s linear infinite; }
 @keyframes shimmer { to { background-position: 200% center; } }
 

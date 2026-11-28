@@ -28,6 +28,7 @@ class PublicSiteController extends Controller
 
         return Inertia::render('Public/Landing', [
             'stats' => $stats,
+            'plans' => \App\Services\Plans::forUi(),
         ]);
     }
 

@@ -76,11 +76,8 @@ return [
             'items' => ['Tout ce que contient la formule Pro', '100 crédits IA offerts', 'Hébergement inclus sans mensualité', 'Nom de domaine personnalisé', 'Mises à jour de la plateforme incluses', 'Recharges de crédits IA à la demande']],
     ],
 
-    'testimonials' => [
-        ['q' => 'En 2 minutes j\'avais un site plus beau que celui que je payais 1 500 €. Mes clientes réservent en ligne, je ne rate plus un appel.', 'a' => 'Sophie M.', 'r' => 'Institut de beauté, Lyon'],
-        ['q' => 'Je pensais que ce serait compliqué. J\'ai cherché mon restaurant, cliqué, c\'était fait. Les réservations tombent toutes seules.', 'a' => 'Karim B.', 'r' => 'Restaurant, Marseille'],
-        ['q' => 'Les avis Google intégrés, le formulaire de devis, tout y était. J\'ai publié le soir même et reçu 3 demandes dans la semaine.', 'a' => 'Laurent D.', 'r' => 'Rénovation, Toulouse'],
-    ],
+    // Témoignages : uniquement de vrais clients, avec leur accord (section masquée si vide).
+    'testimonials' => [],
 
     'faq' => [
         ['q' => 'Combien ça coûte ?', 'a' => 'La création et l\'aperçu sont 100 % gratuits, sans carte bancaire. Vous ne payez que si vous publiez : formule Essentiel à partir de 19 € HT par mois, formule Pro à 39 € HT par mois avec réservations, paiements et assistant IA, ou formule Liberté à 349 € HT une fois, sans abonnement. Toutes sont sans engagement et couvertes par notre garantie satisfait ou remboursé 30 jours.'],

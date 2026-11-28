@@ -121,7 +121,7 @@
         <table class="w-full text-sm">
             <thead class="bg-white/5 text-left text-xs uppercase tracking-wider text-slate-400"><tr><th class="px-5 py-4"></th><th class="px-5 py-4 text-white">Joow</th><th class="px-5 py-4">Agence</th><th class="px-5 py-4">Éditeur en ligne</th></tr></thead>
             <tbody class="divide-y divide-white/[0.06]">
-                @foreach([['Délai', '90 secondes', '4 à 8 semaines', 'Plusieurs soirées'], ['Prix', '39 € HT/mois ou 349 € une fois', '1 500 à 5 000 €', '20 à 40 €/mois + votre temps'], ['Textes et photos', 'Rédigés et choisis par l\'IA', 'À fournir', 'À fournir'], ['Avis Google', 'Intégrés automatiquement', 'Sur devis', 'Extension payante'], ['Réservation, devis, chatbot', 'Inclus', 'Sur devis', 'Extensions payantes'], ['Modifications', 'Vous, en 2 clics', 'Par ticket', 'Vous, avec de la patience']] as [$k, $j, $a, $w])
+                @foreach([['Délai', '90 secondes', '4 à 8 semaines', 'Plusieurs soirées'], ['Prix', 'Dès 19 € HT/mois, ou 349 € une fois', '1 500 à 5 000 €', '20 à 40 €/mois + votre temps'], ['Textes et photos', 'Rédigés et choisis par l\'IA', 'À fournir', 'À fournir'], ['Avis Google', 'Intégrés automatiquement', 'Sur devis', 'Extension payante'], ['Réservation, devis, chatbot', 'Inclus', 'Sur devis', 'Extensions payantes'], ['Modifications', 'Vous, en 2 clics', 'Par ticket', 'Vous, avec de la patience']] as [$k, $j, $a, $w])
                 <tr><td class="px-5 py-4 font-semibold text-white">{{ $k }}</td><td class="px-5 py-4 font-semibold text-emerald-300">{{ $j }}</td><td class="px-5 py-4 text-slate-400">{{ $a }}</td><td class="px-5 py-4 text-slate-400">{{ $w }}</td></tr>
                 @endforeach
             </tbody>
@@ -129,13 +129,15 @@
     </div>
 </section>
 
-{{-- ═══ Témoignages ═══ --}}
+{{-- ═══ Témoignages (vrais clients uniquement) ═══ --}}
+@if(!empty($testimonials))
 <section class="mx-auto max-w-6xl px-5 py-20">
     <h2 class="reveal text-center font-display text-3xl font-bold text-white sm:text-5xl">Ils ont créé leur site en moins de 2 minutes</h2>
     <div class="stagger mt-12 grid gap-5 md:grid-cols-3">
         @foreach($testimonials as $t)<figure class="reveal glass rounded-3xl p-6"><p class="text-amber-400">★★★★★</p><blockquote class="mt-3 text-slate-200">« {{ $t['q'] }} »</blockquote><figcaption class="mt-5 flex items-center gap-3"><span class="grid h-10 w-10 place-items-center rounded-full bg-brand-gradient font-bold text-white">{{ mb_substr($t['a'], 0, 1) }}</span><span><span class="block font-semibold text-white">{{ $t['a'] }}</span><span class="block text-xs text-slate-500">{{ $t['r'] }}</span></span></figcaption></figure>@endforeach
     </div>
 </section>
+@endif
 
 {{-- ═══ Tarifs ═══ --}}
 <section class="mx-auto max-w-5xl px-5 py-20">
